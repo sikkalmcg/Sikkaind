@@ -420,28 +420,70 @@ function TripBoard({
   const [searchQuery, setSearchQuery] = React.useState(''); 
   const [fromDate, setFromDate] = React.useState(format(subDays(new Date(), 4), 'yyyy-MM-dd')); 
   const [toDate, setToDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
+  
   const [isOutPopupOpen, setIsOutPopupOpen] = React.useState(false); 
   const [outData, setOutData] = React.useState<any>({});
+  
   const [isArrivedPopupOpen, setIsArrivedPopupOpen] = React.useState(false); 
   const [arrivedData, setArrivedData] = React.useState<any>({});
+  
   const [isRejectPopupOpen, setIsRejectPopupOpen] = React.useState(false); 
   const [rejectData, setRejectData] = React.useState<any>({});
+  
   const [isUnloadPopupOpen, setIsUnloadPopupOpen] = React.useState(false); 
   const [unloadData, setUnloadData] = React.useState<any>({});
+  
   const [isPodPopupOpen, setIsPodPopupOpen] = React.useState(false); 
   const [selectedTripForPod, setSelectedTripForPod] = React.useState<any>(null); 
   const [podFile, setPodFile] = React.useState<string | null>(null);
+  
   const [isCnPopupOpen, setIsCnPopupOpen] = React.useState(false); 
   const [selectedTripForCn, setSelectedTripForCn] = React.useState<any>(null); 
   const [cnFormData, setCnFormData] = React.useState<any>({ paymentTerms: 'Paid', items: [{ invoice: '', ewaybill: '', description: '', package: '', uom: 'BAG' }] });
+  
   const [isUnassignDialogOpen, setIsUnassignDialogOpen] = React.useState(false);
   const [tripToUnassign, setTripToUnassign] = React.useState<any>(null);
+
+  const [isSrnPopupOpen, setIsSrnPopupOpen] = React.useState(false);
+  const [srnFormData, setSrnFormData] = React.useState<any>({ srnNo: '', srnDate: format(new Date(), 'yyyy-MM-dd') });
+  const [selectedTripForSrn, setSelectedTripForSrn] = React.useState<any>(null);
+  
+  const [isResentDialogOpen, setIsResentDialogOpen] = React.useState(false);
+  const [tripToResent, setTripToResent] = React.useState<any>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handlePodFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader();
-    reader.onload = (ev) => { setPodFile(ev.target?.result as string); }; reader.readAsDataURL(file);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      onStatusUpdate({ text: 'Max 2MB file allowed', type: 'error' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      if (file.type.startsWith('image/')) {
+        const img = new window.Image();
+        img.src = result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const maxDim = 800;
+          let w = img.width;
+          let h = img.height;
+          if (w > h) { if (w > maxDim) { h = (h * maxDim) / w; w = maxDim; } }
+          else { if (h > maxDim) { w = (w * maxDim) / h; h = maxDim; } }
+          canvas.width = w; canvas.height = h;
+          ctx?.drawImage(img, 0, 0, w, h);
+          const compressed = canvas.toDataURL('image/jpeg', 0.6);
+          setPodFile(compressed);
+        };
+      } else {
+        setPodFile(result);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const getStatsLocal = React.useCallback((o: any) => { const tot = parseFloat(o.weight) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; }, [trips]);
@@ -502,9 +544,46 @@ function TripBoard({
   };
 
   const handleArrivedAction = (t: any) => { setArrivedData({ ...t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsArrivedPopupOpen(true); };
-  const handleUnloadAction = (t: any) => { setUnloadData({ trip: t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsUnloadPopupOpen(true); };
-  const handleRejectAction = (t: any) => { setRejectData({ trip: t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), remark: '' }); setIsRejectPopupOpen(true); };
   
+  const handleArrivedPost = () => {
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', arrivedData.id), { 
+      status: 'ARRIVED', 
+      arrivedDate: arrivedData.date, 
+      arrivedTime: arrivedData.time, 
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+    setIsArrivedPopupOpen(false);
+    onStatusUpdate({ text: 'Vehicle Arrival Registered', type: 'success' });
+  };
+
+  const handleUnloadAction = (t: any) => { setUnloadData({ trip: t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsUnloadPopupOpen(true); };
+  
+  const handleUnloadPost = () => {
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', unloadData.trip.id), { 
+      status: 'POD', 
+      unloadDate: unloadData.date, 
+      unloadTime: unloadData.time, 
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+    setIsUnloadPopupOpen(false);
+    onStatusUpdate({ text: 'Unloading Registered (Pending POD)', type: 'success' });
+  };
+
+  const handleRejectAction = (t: any) => { setRejectData({ trip: t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), reason: '' }); setIsRejectPopupOpen(true); };
+  
+  const handleRejectPost = () => {
+    if (!rejectData.reason) { onStatusUpdate({ text: 'Rejection Reason Required', type: 'error' }); return; }
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', rejectData.trip.id), { 
+      status: 'REJECTION', 
+      rejectionDate: rejectData.date, 
+      rejectionTime: rejectData.time, 
+      rejectionRemark: rejectData.reason, 
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+    setIsRejectPopupOpen(false);
+    onStatusUpdate({ text: 'Trip Rejected', type: 'error' });
+  };
+
   const handleAddCn = (t: any) => { 
     setSelectedTripForCn(t); 
     if (t.cnNo) {
@@ -546,6 +625,50 @@ function TripBoard({
       setIsUnassignDialogOpen(false);
       onStatusUpdate({ text: 'Trip Assignment Cancelled', type: 'success' });
     }
+  };
+
+  const handleSrnPost = () => {
+    if (!srnFormData.srnNo) { onStatusUpdate({ text: 'SRN Number Required', type: 'error' }); return; }
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForSrn.id), { 
+      srnNo: srnFormData.srnNo.toUpperCase(), 
+      srnDate: srnFormData.srnDate, 
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+    setIsSrnPopupOpen(false);
+    onStatusUpdate({ text: 'SRN Registered Successfully', type: 'success' });
+  };
+
+  const handleResentConfirm = () => {
+    if (tripToResent) {
+      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', tripToResent.id), { 
+        status: 'LOADING', 
+        rejectionRemark: '',
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+      setIsResentDialogOpen(false);
+      onStatusUpdate({ text: 'Trip Resent to Loading', type: 'success' });
+    }
+  };
+
+  const handlePodPost = () => {
+    if (!podFile) { onStatusUpdate({ text: 'Error: POD File Required', type: 'error' }); return; }
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPod.id), { 
+      status: 'CLOSED', 
+      podAttachment: podFile, 
+      podUploadedAt: new Date().toISOString() 
+    }, { merge: true });
+    setIsPodPopupOpen(false);
+    onStatusUpdate({ text: 'POD Synchronized and Trip Closed', type: 'success' });
+  };
+
+  const handleDownloadPod = (t: any) => {
+    if (!t.podAttachment) return;
+    const link = document.createElement('a');
+    link.href = t.podAttachment;
+    link.download = `POD_${t.tripId}_${t.cnNo || 'DOC'}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleCnClick = (t: any) => {
@@ -590,6 +713,13 @@ function TripBoard({
                     <div>{h.split(' / ')[0]}</div>
                     {h.includes(' / ') && <div>{h.split(' / ')[1]}</div>}
                   </th>
+                )) : activeTab === 'Reject' ? [
+                  'Plant', 'Trip ID / Date Time', 'Sale Order / Date Time', 'Ship to Party', 'Route', 'Vehicle No / Driver Mobile', 'Assign Qty', 'CN Number', 'SRN Details', 'Action'
+                ].map(h => (
+                  <th key={h} className="p-3 border-r border-slate-200">
+                    <div>{h.split(' / ')[0]}</div>
+                    {h.includes(' / ') && <div>{h.split(' / ')[1]}</div>}
+                  </th>
                 )) : [
                   'Plant', 'Trip ID / Date Time', 'Sale Order / Date Time', 'Ship to Party', 'Route', 'Vehicle No / Driver Mobile', 'Vendor Name / ARRANGE BY', 'Assign Qty', 'CN Number', 'Action'
                 ].map(h => (
@@ -604,15 +734,57 @@ function TripBoard({
               if (activeTab === 'Open Orders') {
                 return <tr key={item.id} className="border-b border-slate-100 text-[11px] font-bold"><td className="p-3">{item.plantCode}</td><td className="p-3"><div className="text-[#0056d2] font-black">{item.saleOrder}</div><div className="text-slate-400">{format(new Date(item.saleOrderDate || item.createdAt), 'dd-MM-yy HH:mm')}</div></td><td className="p-3 uppercase">{item.consignor}</td><td className="p-3 uppercase">{item.consignee}</td><td className="p-3 uppercase">{item.shipToParty}</td><td className="p-3 uppercase">{item.route}</td><td className="p-3">{item.tot} {item.uom}</td><td className="p-3 text-emerald-600">{item.ass} {item.uom}</td><td className="p-3 text-red-600">{item.bal} {item.uom}</td><td className="p-3"><Button onClick={() => handleAssign(item)} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black uppercase h-7 rounded-none">Assign</Button></td></tr>;
               } else {
-                return <tr key={item.id} className="border-b border-slate-100 text-[11px] font-bold"><td className="p-3">{item.plantCode}</td><td className="p-3"><div className="text-[#0056d2] font-black">{item.tripId}</div><div className="text-slate-400">{format(new Date(item.createdAt), 'dd-MM-yy HH:mm')}</div></td><td className="p-3"><div>{item.saleOrderNumber}</div><div className="text-slate-400">{format(new Date(item.saleOrderDate || item.createdAt), 'dd-MM-yy HH:mm')}</div></td><td className="p-3 uppercase">{item.shipToParty}</td><td className="p-3 uppercase">{item.route}</td><td className="p-3"><div>{item.vehicleNumber}</div><div className="text-slate-500">{item.driverMobile}</div></td><td className="p-3"><div>{item.vendorName || '-'}</div><div className="text-slate-500 uppercase">{item.arrangeBy || '-'}</div></td><td className="p-3 text-emerald-600">{item.assignWeight} {item.weightUom}</td><td className="p-3"><button onClick={() => handleCnClick(item)} className="font-black text-[#0056d2] uppercase hover:underline">{item.cnNo || '-'}</button></td><td className="p-3"><div className="flex gap-2">
-                  {activeTab === 'Loading' && <>
-                    <Button onClick={() => handleOutVehicle(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Out</Button>
-                    <Button onClick={() => { setTripToUnassign(item); setIsUnassignDialogOpen(true); }} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unassign</Button>
-                    <Button onClick={() => handleAddCn(item)} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">{item.cnNo ? 'CN Edit' : 'CN Entry'}</Button>
-                  </>}
-                  {activeTab === 'In-Transit' && <Button onClick={() => handleArrivedAction(item)} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Arrived</Button>}
-                  {activeTab === 'Arrived' && <><Button onClick={() => handleUnloadAction(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unload</Button><Button onClick={() => handleRejectAction(item)} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Reject</Button></>}
-                </div></td></tr>;
+                return <tr key={item.id} className="border-b border-slate-100 text-[11px] font-bold">
+                  <td className="p-3">{item.plantCode}</td>
+                  <td className="p-3"><div className="text-[#0056d2] font-black">{item.tripId}</div><div className="text-slate-400">{format(new Date(item.createdAt), 'dd-MM-yy HH:mm')}</div></td>
+                  <td className="p-3"><div>{item.saleOrderNumber}</div><div className="text-slate-400">{format(new Date(item.saleOrderDate || item.createdAt), 'dd-MM-yy HH:mm')}</div></td>
+                  <td className="p-3 uppercase">{item.shipToParty}</td>
+                  <td className="p-3 uppercase">{item.route}</td>
+                  <td className="p-3"><div>{item.vehicleNumber}</div><div className="text-slate-500">{item.driverMobile}</div></td>
+                  {activeTab !== 'Reject' && <td className="p-3"><div>{item.vendorName || '-'}</div><div className="text-slate-500 uppercase">{item.arrangeBy || '-'}</div></td>}
+                  <td className="p-3 text-emerald-600">{item.assignWeight} {item.weightUom}</td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleCnClick(item)} className="font-black text-[#0056d2] uppercase hover:underline">{item.cnNo || '-'}</button>
+                      {(activeTab === 'In-Transit' || activeTab === 'Arrived') && item.cnNo && (
+                        <button onClick={() => handleAddCn(item)} className="text-slate-400 hover:text-blue-600 print:hidden transition-colors">
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                  {activeTab === 'Reject' && (
+                    <td className="p-3">
+                      {item.srnNo ? (
+                        <div className="space-y-1">
+                          <div className="text-[#0056d2] font-black uppercase">{item.srnNo}</div>
+                          <div className="text-slate-400 text-[9px]">{item.srnDate}</div>
+                        </div>
+                      ) : '-'}
+                    </td>
+                  )}
+                  <td className="p-3"><div className="flex gap-2">
+                    {activeTab === 'Loading' && <>
+                      <Button onClick={() => handleOutVehicle(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Out</Button>
+                      <Button onClick={() => { setTripToUnassign(item); setIsUnassignDialogOpen(true); }} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unassign</Button>
+                      <Button onClick={() => handleAddCn(item)} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">{item.cnNo ? 'CN Edit' : 'CN Entry'}</Button>
+                    </>}
+                    {activeTab === 'In-Transit' && <Button onClick={() => handleArrivedAction(item)} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Arrived</Button>}
+                    {activeTab === 'Arrived' && <>
+                      <Button onClick={() => handleUnloadAction(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unload</Button>
+                      <Button onClick={() => handleRejectAction(item)} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Reject</Button>
+                    </>}
+                    {activeTab === 'Reject' && <>
+                      <Button onClick={() => { setTripToResent(item); setIsResentDialogOpen(true); }} disabled={!!item.srnNo} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Resent</Button>
+                      <Button onClick={() => { setSelectedTripForSrn(item); setSrnFormData({ srnNo: item.srnNo || '', srnDate: item.srnDate || format(new Date(), 'yyyy-MM-dd') }); setIsSrnPopupOpen(true); }} disabled={!!item.srnNo} size="sm" className="bg-amber-600 text-white text-[9px] font-black h-7 rounded-none uppercase">SRN</Button>
+                    </>}
+                    {activeTab === 'POD Verify' && <Button onClick={() => { setSelectedTripForPod(item); setPodFile(item.podAttachment || null); setIsPodPopupOpen(true); }} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Upload POD</Button>}
+                    {activeTab === 'Closed' && <>
+                      <Button onClick={() => handleDownloadPod(item)} disabled={!item.podAttachment} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Download</Button>
+                      <Button onClick={() => { setSelectedTripForPod(item); setPodFile(item.podAttachment || null); setIsPodPopupOpen(true); }} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">Update POD</Button>
+                    </>}
+                  </div></td>
+                </tr>;
               }
             })}</tbody>
           </table>
@@ -627,6 +799,19 @@ function TripBoard({
             <div className="flex justify-center gap-4">
               <Button onClick={() => setIsUnassignDialogOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button>
               <Button onClick={handleConfirmUnassign} className="h-9 px-6 bg-red-600 text-white rounded-none text-[10px] font-black uppercase">Confirm</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isResentDialogOpen} onOpenChange={setIsResentDialogOpen}>
+        <DialogContent className="max-w-[400px] p-0 rounded-none border-none">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase">Confirmation Required</DialogTitle></DialogHeader>
+          <div className="p-8 text-center space-y-6">
+            <p className="text-[12px] font-bold uppercase text-slate-700">Do you want to resend this trip?</p>
+            <div className="flex justify-center gap-4">
+              <Button onClick={() => setIsResentDialogOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button>
+              <Button onClick={handleResentConfirm} className="h-9 px-6 bg-[#1e3a8a] text-white rounded-none text-[10px] font-black uppercase">Confirm</Button>
             </div>
           </div>
         </DialogContent>
@@ -651,8 +836,8 @@ function TripBoard({
           <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center justify-between w-full"><span>Consignment Note Interface</span><div className="flex gap-6 pr-8 opacity-70"><span>Ship To: {selectedTripForCn?.shipToParty}</span><span>Vehicle: {selectedTripForCn?.vehicleNumber}</span></div></DialogTitle></DialogHeader>
           <div className="p-8 space-y-6 overflow-y-auto">
             <div className="grid grid-cols-3 gap-8 bg-white p-6 border border-slate-200 shadow-sm mb-4">
-              <FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v.toUpperCase()})} placeholder="Enter CN Number..." />
-              <FormInput label="CN DATE" type="date" value={cnFormData.cnDate} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} />
+              <FormInput label="CN NUMBER" value={cnFormData.cnNo || ''} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v.toUpperCase()})} placeholder="Enter CN Number..." />
+              <FormInput label="CN DATE" type="date" value={cnFormData.cnDate || ''} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} />
               <FormSelect label="PAYMENT TERMS" value={cnFormData.paymentTerms || 'Paid'} options={["Paid", "To Pay"]} onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} />
             </div>
             <div className="bg-white border border-slate-300 shadow-inner overflow-hidden">
@@ -698,16 +883,134 @@ function TripBoard({
       <Dialog open={isOutPopupOpen} onOpenChange={setIsOutPopupOpen}>
         <DialogContent className="max-w-[600px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
           <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">Gate-Out Control</DialogTitle></DialogHeader>
-          <div className="p-8 space-y-6"><div className="bg-white p-6 border border-slate-200 shadow-sm mb-4"><div className="flex justify-between items-center text-[10px] font-black uppercase mb-3"><span className="text-slate-400">Vehicle:</span><span className="text-slate-700">{outData.trip?.vehicleNumber}</span></div><div className="flex justify-between items-center text-[10px] font-black uppercase"><span className="text-slate-400">Route:</span><span className="text-blue-700 text-right max-w-[300px]">{outData.trip?.route}</span></div></div><div className="space-y-4"><FormInput label="OUT DATE" type="date" value={outData.date} onChange={(v: string) => setOutData({...outData, date: v})} /><FormInput label="OUT TIME" type="time" value={outData.time} onChange={(v: string) => setOutData({...outData, time: v})} /></div></div>
+          <div className="p-8 space-y-6"><div className="bg-white p-6 border border-slate-200 shadow-sm mb-4"><div className="flex justify-between items-center text-[10px] font-black uppercase mb-3"><span className="text-slate-400">Vehicle:</span><span className="text-slate-700">{outData.trip?.vehicleNumber}</span></div><div className="flex justify-between items-center text-[10px] font-black uppercase"><span className="text-slate-400">Route:</span><span className="text-blue-700 text-right max-w-[300px]">{outData.trip?.route}</span></div></div><div className="space-y-4"><FormInput label="OUT DATE" type="date" value={outData.date || ''} onChange={(v: string) => setOutData({...outData, date: v})} /><FormInput label="OUT TIME" type="time" value={outData.time || ''} onChange={(v: string) => setOutData({...outData, time: v})} /></div></div>
           <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4"><Button onClick={() => setIsOutPopupOpen(false)} variant="ghost" className="h-10 px-8 rounded-none text-[11px] font-black uppercase border border-slate-200 bg-slate-50 hover:bg-slate-100">Exit</Button><Button onClick={handleOutPost} className="h-10 px-12 bg-emerald-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg hover:bg-emerald-700 transition-all">Dispatch Vehicle</Button></div>
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isArrivedPopupOpen} onOpenChange={setIsArrivedPopupOpen}>
+        <DialogContent className="max-w-[600px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">Arrival Registration</DialogTitle></DialogHeader>
+          <div className="p-8 space-y-6">
+            <div className="bg-white p-6 border border-slate-200 shadow-sm mb-4">
+              <div className="grid grid-cols-2 gap-y-3 text-[10px] font-black uppercase">
+                <span className="text-slate-400">Ship To Party:</span><span className="text-slate-700 text-right">{arrivedData.shipToParty}</span>
+                <span className="text-slate-400">Route:</span><span className="text-blue-700 text-right">{arrivedData.route}</span>
+                <span className="text-slate-400">Vehicle:</span><span className="text-slate-700 text-right">{arrivedData.vehicleNumber}</span>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <FormInput label="ARRIVED DATE" type="date" value={arrivedData.date || ''} onChange={(v: string) => setArrivedData({...arrivedData, date: v})} />
+              <FormInput label="ARRIVED TIME" type="time" value={arrivedData.time || ''} onChange={(v: string) => setArrivedData({...arrivedData, time: v})} />
+            </div>
+          </div>
+          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4">
+            <Button onClick={() => setIsArrivedPopupOpen(false)} variant="outline" className="h-10 px-8 text-[11px] font-black uppercase rounded-none border-slate-300">Exit</Button>
+            <Button onClick={handleArrivedPost} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[11px] font-black uppercase shadow-lg">Post</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isUnloadPopupOpen} onOpenChange={setIsUnloadPopupOpen}>
+        <DialogContent className="max-w-[600px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">Unloading Registration</DialogTitle></DialogHeader>
+          <div className="p-8 space-y-6">
+             <div className="bg-white p-6 border border-slate-200 shadow-sm mb-4">
+                <div className="grid grid-cols-2 gap-y-3 text-[10px] font-black uppercase">
+                  <span className="text-slate-400">Ship To Party:</span><span className="text-slate-700 text-right">{unloadData.trip?.shipToParty}</span>
+                  <span className="text-slate-400">Route:</span><span className="text-blue-700 text-right">{unloadData.trip?.route}</span>
+                  <span className="text-slate-400">Vehicle:</span><span className="text-slate-700 text-right">{unloadData.trip?.vehicleNumber}</span>
+                </div>
+             </div>
+             <div className="space-y-4">
+               <FormInput label="UNLOAD DATE" type="date" value={unloadData.date || ''} onChange={(v: string) => setUnloadData({...unloadData, date: v})} />
+               <FormInput label="UNLOAD TIME" type="time" value={unloadData.time || ''} onChange={(v: string) => setUnloadData({...unloadData, time: v})} />
+             </div>
+          </div>
+          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4">
+            <Button onClick={() => setIsUnloadPopupOpen(false)} variant="outline" className="h-10 px-8 text-[11px] font-black uppercase rounded-none border-slate-300">Exit</Button>
+            <Button onClick={handleUnloadPost} className="h-10 px-12 bg-emerald-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg">Post</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRejectPopupOpen} onOpenChange={setIsRejectPopupOpen}>
+        <DialogContent className="max-w-[600px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
+          <DialogHeader className="bg-red-600 px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">Rejection Registration</DialogTitle></DialogHeader>
+          <div className="p-8 space-y-6">
+             <div className="bg-white p-6 border border-slate-200 shadow-sm mb-4">
+                <div className="grid grid-cols-2 gap-y-3 text-[10px] font-black uppercase">
+                  <span className="text-slate-400">Ship To Party:</span><span className="text-slate-700 text-right">{rejectData.trip?.shipToParty}</span>
+                  <span className="text-slate-400">Route:</span><span className="text-blue-700 text-right">{rejectData.trip?.route}</span>
+                  <span className="text-slate-400">Vehicle:</span><span className="text-slate-700 text-right">{rejectData.trip?.vehicleNumber}</span>
+                </div>
+             </div>
+             <div className="space-y-4">
+               <FormInput label="REJECTION DATE" type="date" value={rejectData.date || ''} onChange={(v: string) => setRejectData({...rejectData, date: v})} />
+               <FormInput label="REJECTION TIME" type="time" value={rejectData.time || ''} onChange={(v: string) => setRejectData({...rejectData, time: v})} />
+               <FormInput label="REJECTION REASON" value={rejectData.reason || ''} onChange={(v: string) => setRejectData({...rejectData, reason: v.toUpperCase()})} />
+             </div>
+          </div>
+          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4">
+            <Button onClick={() => setIsRejectPopupOpen(false)} variant="outline" className="h-10 px-8 text-[11px] font-black uppercase rounded-none border-slate-300">Exit</Button>
+            <Button onClick={handleRejectPost} className="h-10 px-12 bg-red-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg">Post</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSrnPopupOpen} onOpenChange={setIsSrnPopupOpen}>
+        <DialogContent className="max-w-[600px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">SRN Registration Hub</DialogTitle></DialogHeader>
+          <div className="p-8 space-y-6">
+             <div className="bg-white p-6 border border-slate-200 shadow-sm mb-4">
+                <div className="grid grid-cols-2 gap-y-3 text-[10px] font-black uppercase">
+                  <span className="text-slate-400">Ship To Party:</span><span className="text-slate-700 text-right">{selectedTripForSrn?.shipToParty}</span>
+                  <span className="text-slate-400">Vehicle:</span><span className="text-slate-700 text-right">{selectedTripForSrn?.vehicleNumber}</span>
+                  <span className="text-red-400">Rejection Reason:</span><span className="text-red-700 text-right font-black italic">{selectedTripForSrn?.rejectionRemark}</span>
+                </div>
+             </div>
+             <div className="space-y-4">
+               <FormInput label="SRN NUMBER" value={srnFormData.srnNo || ''} onChange={(v: string) => setSrnFormData({...srnFormData, srnNo: v.toUpperCase()})} />
+               <FormInput label="SRN DATE" type="date" value={srnFormData.srnDate || ''} onChange={(v: string) => setSrnFormData({...srnFormData, srnDate: v})} />
+             </div>
+          </div>
+          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4">
+            <Button onClick={() => setIsSrnPopupOpen(false)} variant="outline" className="h-10 px-8 text-[11px] font-black uppercase rounded-none border-slate-300">Cancel</Button>
+            <Button onClick={handleSrnPost} className="h-10 px-12 bg-amber-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg">Post</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isPodPopupOpen} onOpenChange={setIsPodPopupOpen}>
-        <DialogContent className="max-w-[500px] bg-white p-0 rounded-none border-none shadow-2xl">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase">POD Registry Synchronization</DialogTitle></DialogHeader>
-          <div className="p-8 space-y-6 flex flex-col items-center justify-center"><input type="file" accept="image/*,.pdf" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" /><div onClick={() => fileInputRef.current?.click()} className="w-full h-40 border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-blue-50 transition-all">{podFile ? <div className="text-emerald-600 font-black text-xs uppercase">Document Ready</div> : <><UploadCloud className="h-8 w-8 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Select Registry File</span></>}</div><p className="text-[9px] font-bold text-slate-400 uppercase text-center italic">Supported Formats: PDF, PNG, JPG (Auto-Compression Active)</p></div>
-          <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-3"><Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-8 px-6 text-[10px] font-black uppercase">Cancel</Button><Button disabled={!podFile} className="h-8 px-10 bg-emerald-600 text-white text-[10px] font-black uppercase">Synchronize POD</Button></div>
+        <DialogContent className="max-w-[800px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">POD Registry Portal</DialogTitle></DialogHeader>
+          <div className="p-8 space-y-6 overflow-y-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-white p-4 border border-slate-200 shadow-sm">
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Plant</span><span className="text-[11px] font-black uppercase">{selectedTripForPod?.plantCode}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[11px] font-black uppercase">{selectedTripForPod?.shipToParty}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">CN Number</span><span className="text-[11px] font-black uppercase text-blue-600">{selectedTripForPod?.cnNo}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-[11px] font-black uppercase">{selectedTripForPod?.vehicleNumber}</span></div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-300 bg-white hover:bg-blue-50 transition-all cursor-pointer relative" onClick={() => fileInputRef.current?.click()}>
+              <input type="file" accept="image/*,.pdf" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" />
+              {podFile ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="text-emerald-600 font-black text-xs uppercase flex items-center gap-2"><CheckCircle className="h-5 w-5" /> Attachment Synchronized</div>
+                  <p className="text-[9px] text-slate-400 italic">File successfully compressed for cloud registry.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4">
+                  <UploadCloud className="h-10 w-10 text-slate-400" />
+                  <span className="text-[11px] font-black uppercase text-slate-500">Select POD Attachment (Max 2MB)</span>
+                  <p className="text-[9px] text-slate-400 italic">Supported: PDF, JPG, JPEG, PNG</p>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4">
+            <Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-10 px-8 text-[11px] font-black uppercase rounded-none border-slate-300">Exit</Button>
+            <Button onClick={handlePodPost} disabled={!podFile} className="h-10 px-12 bg-emerald-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg">Post</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
@@ -778,7 +1081,6 @@ export default function DashboardPage() {
   const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list'); 
   const [trackingNode, setTrackingNode] = React.useState<any>(null);
   
-  // PDF Preview State
   const [isPdfPreviewOpen, setIsPdfPreviewOpen] = React.useState(false);
   const [selectedTripForPreview, setSelectedTripForPreview] = React.useState<any>(null);
   const [previewDeliveryAddress, setPreviewDeliveryAddress] = React.useState('');
