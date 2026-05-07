@@ -713,6 +713,7 @@ export default function DashboardPage() {
   const [previewDeliveryAddress, setPreviewDeliveryAddress] = React.useState('');
   const [isAddressEditable, setIsAddressEditable] = React.useState(false);
   const [isAddressDirty, setIsAddressDirty] = React.useState(false);
+  const [pdfZoom, setPdfZoom] = React.useState(1);
 
   const tCodeRef = React.useRef<HTMLInputElement>(null); 
   const bulkInputRef = React.useRef<HTMLInputElement>(null);
@@ -884,9 +885,9 @@ export default function DashboardPage() {
       {isPdfPreviewOpen && selectedTripForPreview && (
         <div className="fixed inset-0 z-[200] bg-[#525659] flex flex-col font-mono animate-fade-in overflow-hidden">
            <div className="bg-[#c5e0b4] border-b border-slate-400 h-9 flex items-center justify-between px-4 shrink-0"><div className="text-[11px] font-black uppercase tracking-widest text-[#1e3a8a]">PDF Preview Portal</div><button onClick={() => setIsPdfPreviewOpen(false)} className="text-slate-600 hover:text-red-600 transition-colors"><X className="h-4 w-4" /></button></div>
-           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg"><div className="flex items-center gap-6"><span className="text-white text-[11px] font-bold">1 of 3</span><div className="h-4 w-px bg-white/20" /><div className="flex items-center gap-3"><button className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button><span className="text-white text-[11px] font-bold w-12 text-center">100%</span><button className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></div><div className="flex items-center gap-6"><button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button><button onClick={() => window.print()} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button><button disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button></div></div>
+           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg"><div className="flex items-center gap-6"><span className="text-white text-[11px] font-bold">1 of 3</span><div className="h-4 w-px bg-white/20" /><div className="flex items-center gap-3"><button onClick={() => setPdfZoom(Math.max(0.5, pdfZoom - 0.1))} className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button><span className="text-white text-[11px] font-bold w-12 text-center">{Math.round(pdfZoom * 100)}%</span><button onClick={() => setPdfZoom(Math.min(2, pdfZoom + 0.1))} className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></div><div className="flex items-center gap-6"><button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button><button onClick={() => window.print()} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button><button disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button></div></div>
            <div className="flex-1 overflow-auto p-12 flex justify-center custom-scrollbar">
-             <div className="transition-transform duration-200">
+             <div style={{ transform: `scale(${pdfZoom})`, transformOrigin: 'top center' }} className="transition-transform duration-200">
                {[...Array(3)].map((_, i) => {
                  const copyLabel = i === 0 ? 'CONSIGNEE COPY' : i === 1 ? 'DRIVER COPY' : 'CONSIGNOR COPY';
                  const tableItems = selectedTripForPreview.cnItems || [];
@@ -897,7 +898,19 @@ export default function DashboardPage() {
                    <div key={i} className={cn("w-[210mm] min-h-[297mm] p-[10mm] bg-white shadow-2xl mb-8 relative border border-black", i < 2 && "print:page-break-after-always")}>
                       <div className="flex justify-between items-start mb-6">
                         <div className="flex gap-4">{selectedTripForPreview.carrier?.logo && <Image src={selectedTripForPreview.carrier.logo} alt="Logo" width={60} height={60} className="object-contain" unoptimized />}<div className="flex flex-col"><h1 className="text-[26px] font-black uppercase italic tracking-tighter leading-none">{selectedTripForPreview.carrier?.companyName || 'CARRIER NAME'}</h1><p className="text-[10px] font-bold mt-2 uppercase">{selectedTripForPreview.carrier?.address}, {selectedTripForPreview.carrier?.city}</p><div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>Mobile: {selectedTripForPreview.carrier?.mobile}</span><span>Email: {selectedTripForPreview.carrier?.email}</span></div><div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>GSTIN: {selectedTripForPreview.carrier?.gstin}</span><span>PAN: {selectedTripForPreview.carrier?.pan || 'N/A'}</span></div></div></div>
-                        <div className="text-right"><div className="border border-black px-4 py-1.5 inline-block mb-4"><span className="text-[12px] font-black uppercase">{copyLabel}</span></div><p className="text-[16px] font-black uppercase">CN No: {selectedTripForPreview.cnNo}</p><p className="text-[10px] font-bold uppercase mt-1">Date: {format(new Date(selectedTripForPreview.cnDate || new Date()), 'dd-MMM-yyyy')}</p></div>
+                        <div className="text-right">
+                          <div className="border border-black px-4 py-1.5 inline-block mb-4"><span className="text-[12px] font-black uppercase">{copyLabel}</span></div>
+                          <p className="text-[16px] font-black uppercase leading-tight">CN No: {selectedTripForPreview.cnNo}</p>
+                          <p className="text-[10px] font-bold uppercase mt-1 leading-tight">Date: {format(new Date(selectedTripForPreview.cnDate || new Date()), 'dd-MMM-yyyy')}</p>
+                          <p className="text-[10px] font-bold uppercase mt-1 leading-tight">FROM: {selectedTripForPreview.order?.from || 'N/A'}</p>
+                          <p className="text-[10px] font-bold uppercase mt-1 leading-tight">TO: {selectedTripForPreview.order?.destination || 'N/A'}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-0 mb-6 border border-black h-12">
+                         <div className="border-r border-black flex flex-col items-center justify-center p-1"><span className="text-[8px] font-black uppercase">Vehicle No</span><span className="text-[10px] font-bold">{selectedTripForPreview.vehicleNumber}</span></div>
+                         <div className="border-r border-black flex flex-col items-center justify-center p-1"><span className="text-[8px] font-black uppercase">Driver Mobile</span><span className="text-[10px] font-bold">{selectedTripForPreview.driverMobile}</span></div>
+                         <div className="border-r border-black flex flex-col items-center justify-center p-1"><span className="text-[8px] font-black uppercase">Payment Term</span><span className="text-[10px] font-bold">To Pay</span></div>
+                         <div className="flex flex-col items-center justify-center p-1"><span className="text-[8px] font-black uppercase">Trip ID</span><span className="text-[10px] font-bold">{selectedTripForPreview.tripId}</span></div>
                       </div>
                       <div className="grid grid-cols-3 gap-0 mb-6 border border-black h-32">{[{ title: 'CONSIGNOR', master: selectedTripForPreview.consignorMaster, fallback: selectedTripForPreview.order?.consignor }, { title: 'CONSIGNEE', master: selectedTripForPreview.consigneeMaster, fallback: selectedTripForPreview.order?.consignee }, { title: 'SHIP TO PARTY', master: selectedTripForPreview.shipToMaster, fallback: selectedTripForPreview.shipToParty }].map((c, idx) => (<div key={idx} className="flex flex-col border-r last:border-0 border-black p-3"><p className="text-[10px] font-black uppercase text-center border-b border-black pb-1 mb-2">{c.title}</p><div className="flex-1 flex flex-col items-center justify-center space-y-0.5 text-center"><p className="text-[11px] font-black uppercase truncate">{c.master?.customerName || c.fallback}</p><p className="text-[9px] font-bold uppercase leading-relaxed text-slate-700 line-clamp-2">{c.master?.address || 'REGISTERED ADDRESS'}</p><div className="mt-1 flex flex-col items-center space-y-0 text-center"><span className="text-[9px] font-bold">Mobile: {c.master?.mobile || '-'}</span><span className="text-[9px] font-bold">GSTIN: {c.master?.gstin || 'N/A'}</span></div></div></div>))}</div>
                       <div className="flex-1">
@@ -908,7 +921,25 @@ export default function DashboardPage() {
                         </table>
                         <div className="mt-4 border border-black"><div className="bg-slate-50 border-b border-black p-1"><p className="text-[10px] font-black uppercase">Delivery Address:</p></div><div className="p-3 min-h-[60px] relative group">{isAddressEditable ? <textarea value={previewDeliveryAddress} onChange={e => { setPreviewDeliveryAddress(e.target.value); setIsAddressDirty(true); }} className="w-full h-full text-[10px] font-bold uppercase outline-none bg-yellow-50 resize-none" /> : <p className="text-[10px] font-bold uppercase leading-relaxed pr-10">{previewDeliveryAddress}</p>}<button onClick={() => setIsAddressEditable(true)} className="absolute top-2 right-2 p-1 text-[#1e3a8a] opacity-0 group-hover:opacity-100 print:hidden"><Edit3 className="h-3 w-3" /></button></div></div>
                       </div>
-                      <div className="mt-8 flex items-end justify-between px-2"><div className="flex-1 max-w-[65%] text-[8px] font-bold text-slate-500 uppercase italic">Notes – Terms and conditions as per company registry. Original copy for record.</div><div className="text-right pb-10"><p className="text-[11px] font-black uppercase border-t border-black pt-2 px-6 inline-block">Authorized Signatory</p></div></div>
+                      <div className="mt-8 space-y-6">
+                        {selectedTripForPreview.carrier?.instructions && (
+                          <div className="text-[9px] border-l-2 border-black pl-3 py-1">
+                            <span className="font-black uppercase">Note / Instructions: </span>
+                            <span className="font-bold">{selectedTripForPreview.carrier.instructions}</span>
+                          </div>
+                        )}
+                        <div className="flex items-end justify-between px-2">
+                          <div className="flex-1 max-w-[65%] text-[8px] font-bold text-slate-500 uppercase italic">Notes – Terms and conditions as per company registry. Original copy for record.</div>
+                          <div className="text-right pb-10">
+                            <p className="text-[11px] font-black uppercase border-t border-black pt-2 px-6 inline-block">Authorized Signatory</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="absolute bottom-6 left-0 right-0 text-center">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                          This Consignment Note was generated digitally and is to be considered as original.
+                        </p>
+                      </div>
                    </div>
                  );
                })}
