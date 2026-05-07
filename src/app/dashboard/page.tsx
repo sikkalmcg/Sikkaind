@@ -1073,19 +1073,259 @@ function Tr21TrackingPage({ node, onBack }: any) {
   return (<div className="h-full flex flex-col"><div className="bg-white p-4 border-b border-slate-300 flex items-center gap-4"><button onClick={onBack}><ArrowLeft className="h-5 w-5" /></button><h2 className="text-sm font-black uppercase italic">Logistical Tracking Node</h2></div><div className="flex-1 bg-slate-100 flex items-center justify-center p-20 text-center"><div className="space-y-6"><Radar className="h-12 w-12 text-[#1e3a8a] mx-auto animate-pulse" /><p className="text-xs font-black uppercase">Live Tracking Interface Synchronized for Trip: {node?.tripId}</p></div></div></div>);
 }
 
-function GpsTrackingHub() {
-  return (<div className="h-full flex flex-col bg-slate-100 items-center justify-center"><Radar className="h-12 w-12 text-[#1e3a8a] mb-4" /><p className="text-xs font-black uppercase">GPS HUB - INTERFACE READY</p></div>);
+function GpsTrackingHub({ settings, settingsRef }: any) {
+  const [activeTab, setActiveTab] = React.useState('GPS MAP');
+  const [gpsData, setGpsData] = React.useState<any[]>([]);
+  const [selectedVehicle, setSelectedVehicle] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const googleMap = React.useRef<any>(null);
+  const markers = React.useRef<any>({});
+  const infoWindow = React.useRef<any>(null);
+
+  const fetchGps = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/gps');
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data?.list) {
+          setGpsData(json.data.list);
+          setLoading(false);
+        }
+      }
+    } catch (e) {
+      console.error("GPS Fetch Error:", e);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchGps();
+    const i = setInterval(fetchGps, 30000);
+    return () => clearInterval(i);
+  }, [fetchGps]);
+
+  React.useEffect(() => {
+    const scriptId = 'google-maps-script-gps';
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!window.google || !mapRef.current || activeTab !== 'GPS MAP') return;
+    
+    if (!googleMap.current) {
+      googleMap.current = new window.google.maps.Map(mapRef.current, {
+        center: { lat: 20.5937, lng: 78.9629 },
+        zoom: 5,
+        mapTypeControl: false,
+        streetViewControl: false,
+        styles: [
+          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }
+        ]
+      });
+      infoWindow.current = new window.google.maps.InfoWindow();
+    }
+
+    gpsData.forEach(v => {
+      const pos = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
+      const iconUrl = v.status === 'RUNNING' 
+        ? (settings?.runningIcon || 'https://maps.google.com/mapfiles/ms/icons/green-dot.png')
+        : (settings?.stopIcon || 'https://maps.google.com/mapfiles/ms/icons/red-dot.png');
+
+      if (!markers.current[v.vehicleNumber]) {
+        markers.current[v.vehicleNumber] = new window.google.maps.Marker({
+          position: pos,
+          map: googleMap.current,
+          title: v.vehicleNumber,
+          icon: { url: iconUrl, scaledSize: new window.google.maps.Size(32, 32) }
+        });
+        markers.current[v.vehicleNumber].addListener('click', () => handleVehicleSelection(v));
+      } else {
+        markers.current[v.vehicleNumber].setPosition(pos);
+        markers.current[v.vehicleNumber].setIcon({ url: iconUrl, scaledSize: new window.google.maps.Size(32, 32) });
+      }
+    });
+  }, [gpsData, activeTab, settings]);
+
+  const handleVehicleSelection = (v: any) => {
+    setSelectedVehicle(v);
+    const pos = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
+    if (googleMap.current) {
+      googleMap.current.setCenter(pos);
+      googleMap.current.setZoom(15);
+    }
+    if (infoWindow.current && markers.current[v.vehicleNumber]) {
+      infoWindow.current.setContent(`
+        <div style="font-family: monospace; padding: 10px; min-width: 220px;">
+          <div style="font-weight: 900; color: #1e3a8a; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 5px; font-size: 14px;">${v.vehicleNumber}</div>
+          <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: ${v.status === 'RUNNING' ? '#059669' : '#dc2626'}">${v.status || 'N/A'}</div>
+          <div style="font-size: 11px; color: #1e293b; margin-top: 8px; line-height: 1.4; font-weight: 700;">${v.lastLocation || (v.street && v.city ? v.street + ', ' + v.city : 'No Location Details')}</div>
+          <div style="font-size: 9px; color: #94a3b8; margin-top: 8px; text-transform: uppercase;">Last Signal: ${v.lastUpdated || 'RECENT'}</div>
+        </div>
+      `);
+      infoWindow.current.open(googleMap.current, markers.current[v.vehicleNumber]);
+    }
+  };
+
+  const handleIconUpload = async (e: any, type: 'stopIcon' | 'runningIcon') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      alert("Icon size must be under 500KB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const b64 = ev.target?.result as string;
+      setDocumentNonBlocking(settingsRef, { [type]: b64 }, { merge: true });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#f2f2f2] font-mono overflow-hidden">
+      <div className="bg-white border-b border-slate-300 px-8 py-3 flex items-center justify-between shadow-sm shrink-0">
+        <div className="flex items-center gap-4">
+          <Radar className="h-5 w-5 text-[#1e3a8a]" />
+          <h2 className="text-[14px] font-black uppercase italic tracking-tighter">WGPS24 – GLOBAL FLEET MONITORING</h2>
+        </div>
+        <div className="flex border border-slate-300 bg-slate-50">
+          {['GPS MAP', 'Setting'].map(t => (
+            <button 
+              key={t} 
+              onClick={() => setActiveTab(t)}
+              className={cn(
+                "px-6 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all",
+                activeTab === t ? "bg-[#1e3a8a] text-white" : "text-slate-500 hover:bg-white"
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-hidden">
+        {activeTab === 'GPS MAP' ? (
+          <div className="flex h-full">
+            <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-lg z-10">
+              <div className="p-4 bg-slate-50 border-b border-slate-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vehicle Registry</span>
+                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5">{gpsData.length} LIVE</span>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto green-scrollbar">
+                {gpsData.map((v, i) => (
+                  <div 
+                    key={i} 
+                    onClick={() => handleVehicleSelection(v)}
+                    className={cn(
+                      "p-4 border-b border-slate-100 cursor-pointer hover:bg-blue-50 transition-all group",
+                      selectedVehicle?.vehicleNumber === v.vehicleNumber && "bg-blue-50 border-l-4 border-l-[#1e3a8a]"
+                    )}
+                  >
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-[12px] font-black uppercase text-slate-800 group-hover:text-[#1e3a8a]">{v.vehicleNumber}</span>
+                      <div className={cn(
+                        "w-2 h-2 rounded-full",
+                        v.status === 'RUNNING' ? "bg-emerald-500" : "bg-red-500"
+                      )} />
+                    </div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase truncate">
+                      {v.lastLocation || (v.street && v.city ? `${v.street}, ${v.city}` : 'Identifying Position...')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 relative">
+              <div ref={mapRef} className="w-full h-full" />
+              {loading && (
+                <div className="absolute inset-0 bg-slate-100/50 flex items-center justify-center backdrop-blur-[1px]">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-8 w-8 text-[#1e3a8a] animate-spin" />
+                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em]">Syncing Satellites...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="p-12 max-w-4xl mx-auto space-y-12 animate-fade-in overflow-y-auto h-full pb-32">
+            <h2 className="text-xl font-black text-slate-800 uppercase italic border-b-2 border-slate-200 pb-4">GPS Configuration Hub</h2>
+            <div className="grid grid-cols-2 gap-12">
+              <div className="bg-white border border-slate-300 p-8 shadow-sm">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-10 h-10 bg-red-50 flex items-center justify-center text-red-600 rounded-lg">
+                    <MapPin className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black uppercase text-slate-700">Stop Vehicle Icon</h3>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Status: Stopped / Inactive</p>
+                  </div>
+                </div>
+                <div className="space-y-6">
+                  <div className="w-20 h-20 bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center mx-auto overflow-hidden">
+                    {settings?.stopIcon ? (
+                      <img src={settings.stopIcon} className="w-full h-full object-contain" alt="Stop Icon" />
+                    ) : (
+                      <div className="w-3 h-3 rounded-full bg-red-500" />
+                    )}
+                  </div>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={(e) => handleIconUpload(e, 'stopIcon')}
+                    className="text-[10px] font-black uppercase text-slate-500 w-full cursor-pointer file:mr-4 file:py-1 file:px-4 file:rounded-none file:border file:border-slate-300 file:text-[10px] file:font-black file:bg-slate-50 hover:file:bg-slate-100"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-300 p-8 shadow-sm">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-10 h-10 bg-emerald-50 flex items-center justify-center text-emerald-600 rounded-lg">
+                    <Truck className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black uppercase text-slate-700">Running Vehicle Icon</h3>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Status: In-Transit / Active</p>
+                  </div>
+                </div>
+                <div className="space-y-6">
+                  <div className="w-20 h-20 bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center mx-auto overflow-hidden">
+                    {settings?.runningIcon ? (
+                      <img src={settings.runningIcon} className="w-full h-full object-contain" alt="Running Icon" />
+                    ) : (
+                      <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                    )}
+                  </div>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={(e) => handleIconUpload(e, 'runningIcon')}
+                    className="text-[10px] font-black uppercase text-slate-500 w-full cursor-pointer file:mr-4 file:py-1 file:px-4 file:rounded-none file:border file:border-slate-300 file:text-[10px] file:font-black file:bg-slate-50 hover:file:bg-slate-100"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-center pt-8">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Note: Recommended dimensions 64x64px. Max size 500KB.</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
-function Se38Report({ search, onSearchChange }: any) {
-  return (<div className="h-full flex flex-col bg-white p-12 space-y-8"><h2 className="text-sm font-black uppercase border-b border-slate-200 pb-2 italic">SE38 – Custom Report Hub</h2><div className="grid grid-cols-2 gap-8"><FormInput label="FROM DATE" type="date" value={search.from} onChange={(v: string) => onSearchChange({...search, from: v})} /><FormInput label="TO DATE" type="date" value={search.to} onChange={(v: string) => onSearchChange({...search, to: v})} /></div></div>);
-}
-
-function ZCodeRegistry({ tcodes, onExecute }: any) {
-  return (<div className="p-12 grid grid-cols-3 gap-6">{tcodes.map((t: any) => (<div key={t.code} onClick={() => onExecute(t.code)} className="bg-white border border-slate-300 p-6 hover:shadow-xl cursor-pointer"><h3 className="text-sm font-black text-[#1e3a8a]">{t.code}</h3><p className="text-[10px] text-slate-400 uppercase mt-2">{t.description}</p></div>))}</div>);
-}
-
-function TrackShipmentScreen() {
+function Tr24TrackShipmentScreen() {
   return (<div className="h-full flex flex-col items-center justify-center font-mono"><Radar className="h-10 w-10 text-[#1e3a8a] mb-6" /><h2 className="text-sm font-black uppercase">TR24 - LIVE TRACKER</h2></div>);
 }
 
@@ -1294,8 +1534,8 @@ export default function DashboardPage() {
                 />
               )}
               {activeScreen === 'TR21' && viewMode === 'tracking' && <Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} />}
-              {activeScreen === 'TR24' && <TrackShipmentScreen />}
-              {activeScreen === 'WGPS24' && <GpsTrackingHub />}
+              {activeScreen === 'TR24' && <Tr24TrackShipmentScreen />}
+              {activeScreen === 'WGPS24' && <GpsTrackingHub settings={settings} settingsRef={settingsRef} />}
               {activeScreen === 'SE38' && <Se38Report search={se38Search} onSearchChange={setSe38Search} />}
               {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               {!['TR21', 'TR24', 'WGPS24', 'SE38', 'ZCODE'].includes(activeScreen) && (
