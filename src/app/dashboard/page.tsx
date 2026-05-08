@@ -471,7 +471,7 @@ function TripBoard({
 }: any) {
   const db = useFirestore(); 
   const [activeTab, setActiveTab] = React.useState('Open Orders'); 
-  const [selectedOrder, setSelectedOrder] = React.useState<any>(null); 
+  const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [isPopupOpen, setIsPopupOpen] = React.useState(false); 
   const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle', isFixedRate: false, rate: 0, freightAmount: 0 }); 
   const [searchQuery, setSearchQuery] = React.useState(''); 
@@ -536,7 +536,6 @@ function TripBoard({
         img.src = result;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const ctx = canvas.createElement('canvas');
           const maxDim = 800;
           let w = img.width;
           let h = img.height;
@@ -559,18 +558,18 @@ function TripBoard({
   
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
   
-  const fOrders = React.useMemo(() => (orders || []).filter((o: any) => o.status !== 'CANCELLED' && o.status !== 'Short closed').map((o: any) => ({ ...o, ...getStatsLocal(o), route: `${o.from} → ${o.destination}` })).filter((o: any) => o.bal > 0 && isWithinInterval(new Date(o.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })), [orders, getStatsLocal, fromDate, toDate]);
+  const fOrders = React.useMemo(() => (orders || []).filter((o: any) => o.status !== 'CANCELLED' && o.status !== 'Short closed').map((o: any) => ({ ...o, ...getStatsLocal(o), route: `${o.from} → ${o.destination}` })).filter((o: any) => o.bal > 0 && isWithinInterval(new Date(o.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) }) && (plantFilter === 'ALL' || o.plantCode === plantFilter)), [orders, getStatsLocal, fromDate, toDate, plantFilter]);
   
   const fTrips = React.useMemo(() => { 
     if (!trips) return []; 
     const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; 
-    return trips.filter((t: any) => t.status === map[activeTab] && isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })); 
-  }, [trips, activeTab, fromDate, toDate]);
+    return trips.filter((t: any) => t.status === map[activeTab] && isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) }) && (plantFilter === 'ALL' || t.plantCode === plantFilter)); 
+  }, [trips, activeTab, fromDate, toDate, plantFilter]);
 
   const getCountForTab = (tab: string) => {
     if (tab === 'Open Orders') return fOrders.length;
     const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' };
-    return (trips || []).filter((t: any) => t.status === map[tab] && isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })).length || 0;
+    return (trips || []).filter((t: any) => t.status === map[tab] && isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) }) && (plantFilter === 'ALL' || t.plantCode === plantFilter)).length || 0;
   };
 
   const filteredData = searchQuery ? (activeTab === 'Open Orders' ? fOrders : fTrips).filter((item: any) => Object.values(item).some(val => String(val).toLowerCase().includes(searchQuery.toLowerCase()))) : (activeTab === 'Open Orders' ? fOrders : fTrips);
@@ -883,6 +882,12 @@ function TripBoard({
         <div className="flex items-center gap-6">
           <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Entries: {filteredData.length}</div>
           <div className="flex gap-4">
+            <select value={plantFilter} onChange={e => setPlantFilter(e.target.value)} className="h-8 border border-slate-300 px-2 text-[10px] font-black outline-none uppercase bg-white">
+              <option value="ALL">ALL PLANTS</option>
+              {(plants || []).map((p: any) => (
+                <option key={p.id} value={p.plantCode}>{p.plantCode}</option>
+              ))}
+            </select>
             <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="h-8 border border-slate-300 px-2 text-[10px] font-black" />
             <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="h-8 border border-slate-300 px-2 text-[10px] font-black" />
           </div>
@@ -1903,7 +1908,7 @@ function RegistryList({ onSelectItem, listData, activeScreen, allTrips }: any) {
               const status = getOrderStatus(item, allTrips || []);
               cells = [
                 <Badge key="status" className="bg-blue-50 text-blue-700 border-blue-100 text-[8px] font-black uppercase rounded-none">{status}</Badge>,
-                item.plantCode, item.saleOrder, item.consignor, item.from, item.consignee, item.ship ToParty, item.destination, `${formatWeight(item.weight)} ${item.weightUom || 'MT'}`
+                item.plantCode, item.saleOrder, item.consignor, item.from, item.consignee, item.shipToParty, item.destination, `${formatWeight(item.weight)} ${item.weightUom || 'MT'}`
               ];
             } else if (isSU) {
               cells = [item.id.slice(0,8), item.username, '********', (item.plants || []).join(', ')];
@@ -2681,7 +2686,7 @@ export default function DashboardPage() {
                  return (
                    <div key={i} className={cn("w-[210mm] min-h-[297mm] p-[10mm] bg-white shadow-2xl mb-8 relative border border-black print:shadow-none print:m-0 print:border-black print:border", i < 2 && "print:page-break-after-always")}>
                       <div className="flex justify-between items-start mb-6">
-                        <div className="flex gap-4">{selectedTripForPreview.carrier?.logo && <Image src={selectedTripForPreview.carrier.logo} alt="Logo" width={60} height={60} className="object-contain" unoptimized />}<div className="flex flex-col"><h1 className="text-[26px] font-black uppercase italic tracking-tighter leading-none">{selectedTripForPreview.carrier?.companyName || 'CARRIER NAME'}</h1><p className="text-[10px] font-bold mt-2 uppercase">{selectedTripForPreview.carrier?.address}, {selectedTripForPreview.carrier?.city}</p><div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>Mobile: {selectedTripForPreview.carrier?.mobile}</span><span>Email: {selectedTripForPreview.carrier?.email}</span></div><div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>GSTIN: {selectedTripForPreview.carrier?.gstin}</span><span>PAN: {selectedTripForPreview.carrier?.pan || 'N/A'}</span></div></div></div>
+                        <div className="flex gap-4">{selectedTripForPreview.carrier?.logo && <Image src={selectedTripForPreview.carrier.logo} alt="Logo" width={60} height={60} className="object-contain" unoptimized />}<div className="flex flex-col"><h1 className="text-[26px] font-black uppercase italic tracking-tighter leading-none">{selectedTripForPreview.carrier?.companyName || 'CARRIER NAME'}</h1><p className="text-[10px] font-bold mt-2 uppercase">{selectedTripForPreview.carrier?.address}, {selectedTripForPreview.carrier?.city}</p><div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>GSTIN: {selectedTripForPreview.carrier?.gstin}</span><span>PAN: {selectedTripForPreview.carrier?.pan || 'N/A'}</span></div>{selectedTripForPreview.carrier?.website && (<p className="text-[10px] font-bold mt-0.5 uppercase">Website: {selectedTripForPreview.carrier.website}</p>)}<div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>Mobile: {selectedTripForPreview.carrier?.mobile}</span><span>Email: {selectedTripForPreview.carrier?.email}</span></div></div></div>
                         <div className="text-right">
                           <div className="border border-black px-4 py-1.5 inline-block mb-4"><span className="text-[12px] font-black uppercase">{copyLabel}</span></div>
                           <p className="text-[16px] font-black uppercase leading-tight">CN No: {selectedTripForPreview.cnNo}</p>
