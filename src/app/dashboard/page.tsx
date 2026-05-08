@@ -63,7 +63,7 @@ const formatWeight = (val: any) => {
 // Helper for complex order status calculation
 const getOrderStatus = (order: any, trips: any[]) => {
   const statuses = new Set<string>();
-  const orderTrips = trips.filter(t => t.saleOrderId === order.id);
+  const orderTrips = (trips || []).filter(t => t.saleOrderId === order.id);
 
   if (order.status === 'Short closed') {
     statuses.add('Short Close');
@@ -551,7 +551,7 @@ function TripBoard({
     reader.readAsDataURL(file);
   };
 
-  const getStatsLocal = React.useCallback((o: any) => { const tot = parseFloat(o.weight) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; }, [trips]);
+  const getStatsLocal = React.useCallback((o: any) => { const tot = parseFloat(o.weight) || 0; const ass = (trips || []).filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; }, [trips]);
   
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
   
@@ -566,7 +566,7 @@ function TripBoard({
   const getCountForTab = (tab: string) => {
     if (tab === 'Open Orders') return fOrders.length;
     const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' };
-    return trips?.filter((t: any) => t.status === map[tab] && isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })).length || 0;
+    return (trips || []).filter((t: any) => t.status === map[tab] && isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })).length || 0;
   };
 
   const filteredData = searchQuery ? (activeTab === 'Open Orders' ? fOrders : fTrips).filter((item: any) => Object.values(item).some(val => String(val).toLowerCase().includes(searchQuery.toLowerCase()))) : (activeTab === 'Open Orders' ? fOrders : fTrips);
@@ -604,6 +604,12 @@ function TripBoard({
   };
 
   const handleOutPost = () => {
+    const outTs = new Date(`${outData.date}T${outData.time}`).getTime();
+    const assignTs = new Date(outData.trip.assignDate).getTime();
+    if (outTs <= assignTs) {
+      onStatusUpdate({ text: "Out Date Time cannot be smaller than Assign Date Time", type: 'error' });
+      return;
+    }
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', outData.trip.id), { status: 'IN-TRANSIT', outDate: outData.date, outTime: outData.time, updatedAt: new Date().toISOString() }, { merge: true });
     setIsOutPopupOpen(false);
     onStatusUpdate({ text: 'Vehicle Dispatched (In-Transit)', type: 'success' });
@@ -612,6 +618,12 @@ function TripBoard({
   const handleArrivedAction = (t: any) => { setArrivedData({ ...t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsArrivedPopupOpen(true); };
   
   const handleArrivedPost = () => {
+    const arrivedTs = new Date(`${arrivedData.date}T${arrivedData.time}`).getTime();
+    const outTs = new Date(`${arrivedData.outDate}T${arrivedData.outTime}`).getTime();
+    if (arrivedTs <= outTs) {
+      onStatusUpdate({ text: "Arrived Date Time cannot be smaller than Out Date Time", type: 'error' });
+      return;
+    }
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', arrivedData.id), { status: 'ARRIVED', arrivedDate: arrivedData.date, arrivedTime: arrivedData.time, updatedAt: new Date().toISOString() }, { merge: true });
     setIsArrivedPopupOpen(false);
     onStatusUpdate({ text: 'Vehicle Arrival Registered', type: 'success' });
@@ -620,6 +632,12 @@ function TripBoard({
   const handleUnloadAction = (t: any) => { setUnloadData({ trip: t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsUnloadPopupOpen(true); };
   
   const handleUnloadPost = () => {
+    const unloadTs = new Date(`${unloadData.date}T${unloadData.time}`).getTime();
+    const arrivedTs = new Date(`${unloadData.trip.arrivedDate}T${unloadData.trip.arrivedTime}`).getTime();
+    if (unloadTs <= arrivedTs) {
+      onStatusUpdate({ text: "Unload Date Time must be greater than Arrived Date Time", type: 'error' });
+      return;
+    }
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', unloadData.trip.id), { status: 'POD', unloadDate: unloadData.date, unloadTime: unloadData.time, updatedAt: new Date().toISOString() }, { merge: true });
     setIsUnloadPopupOpen(false);
     onStatusUpdate({ text: 'Unloading Registered (Pending POD)', type: 'success' });
@@ -629,6 +647,12 @@ function TripBoard({
   
   const handleRejectPost = () => {
     if (!rejectData.reason) { onStatusUpdate({ text: 'Rejection Reason Required', type: 'error' }); return; }
+    const rejectTs = new Date(`${rejectData.date}T${rejectData.time}`).getTime();
+    const arrivedTs = new Date(`${rejectData.trip.arrivedDate}T${rejectData.trip.arrivedTime}`).getTime();
+    if (rejectTs <= arrivedTs) {
+      onStatusUpdate({ text: "Reject Date Time must be greater than Arrived Date Time", type: 'error' });
+      return;
+    }
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', rejectData.trip.id), { status: 'REJECTION', rejectionDate: rejectData.date, rejectionTime: rejectData.time, rejectionRemark: rejectData.reason, updatedAt: new Date().toISOString() }, { merge: true });
     setIsRejectPopupOpen(false);
     onStatusUpdate({ text: 'Trip Rejected', type: 'error' });
@@ -1369,10 +1393,10 @@ function Tr24TrackShipmentScreen({ orders, trips, customers, gpsData }: any) {
   const mapRef = React.useRef<HTMLDivElement>(null);
 
   const handleTrack = () => {
-    const order = orders?.find((o: any) => o.saleOrder?.toUpperCase() === searchSo.toUpperCase());
+    const order = (orders || []).find((o: any) => o.saleOrder?.toUpperCase() === searchSo.toUpperCase());
     if (order) {
       setSelectedOrder(order);
-      const ts = trips?.filter((t: any) => t.saleOrderId === order.id) || [];
+      const ts = (trips || []).filter((t: any) => t.saleOrderId === order.id) || [];
       setLinkedTrips(ts);
       setView('order_details');
     } else {
@@ -2253,7 +2277,7 @@ export default function DashboardPage() {
 
     const openOrdersCount = filteredOrders.filter(o => {
       const tot = parseFloat(o.weight) || 0;
-      const ass = allTrips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0;
+      const ass = (allTrips || []).filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0;
       return (tot - ass) > 0;
     }).length;
 
@@ -2334,7 +2358,7 @@ export default function DashboardPage() {
   }, [isBootstrapAdmin, userProfile, router]);
 
   const validateOrder = async (order: any) => {
-    const isDuplicate = allOrders.some(o => o.saleOrder?.toString().toUpperCase() === order.saleOrder?.toString().toUpperCase() && o.id !== order.id);
+    const isDuplicate = (allOrders || []).some(o => o.saleOrder?.toString().toUpperCase() === order.saleOrder?.toString().toUpperCase() && o.id !== order.id);
     if (isDuplicate) return { valid: false, reason: 'Duplicate Sale Order Number' };
     const findCust = (val: string) => accessibleCustomers.some(c => c.customerName?.toUpperCase() === val?.toUpperCase() || c.customerCode?.toUpperCase() === val?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === val?.toUpperCase());
     if (!findCust(order.consignor)) return { valid: false, reason: 'Unknown Consignor (No record in XD03)' };
@@ -2349,7 +2373,7 @@ export default function DashboardPage() {
       setIsAddressDirty(false); setIsAddressEditable(false); setStatusMsg({ text: 'Registry Synchronized (F8)', type: 'success' }); return;
     }
     if (activeScreen === 'VA04') { 
-      const o = allOrders?.find(ord => ord.saleOrder?.toString().toUpperCase() === formData.saleOrder?.toString().toUpperCase()); 
+      const o = (allOrders || []).find(ord => ord.saleOrder?.toString().toUpperCase() === formData.saleOrder?.toString().toUpperCase()); 
       if (o) { 
         setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'Short closed' }, { merge: true }); 
         setStatusMsg({ text: 'Short Close Processed', type: 'success' }); 
@@ -2439,7 +2463,7 @@ export default function DashboardPage() {
   };
 
   const getRegistryList = () => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) return accessibleCustomers; if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; };
-  const handleSearchIdEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const item = getRegistryList().find((i: any) => (i.plantCode || i.customerCode || i.saleOrder || i.username || i.id).toString().toUpperCase() === searchId.toUpperCase()); if (item) { setFormData(item); setStatusMsg({ text: 'Record Loaded', type: 'success' }); } else setStatusMsg({ text: 'Not Found', type: 'error' }); } };
+  const handleSearchIdEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const item = (getRegistryList() || []).find((i: any) => (i.plantCode || i.customerCode || i.saleOrder || i.username || i.id).toString().toUpperCase() === searchId.toUpperCase()); if (item) { setFormData(item); setStatusMsg({ text: 'Record Loaded', type: 'success' }); } else setStatusMsg({ text: 'Not Found', type: 'error' }); } };
 
   // --- SAP GLOBAL SHORTCUT LOGIC ---
   React.useEffect(() => {
@@ -2572,7 +2596,7 @@ export default function DashboardPage() {
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plant Filter</label>
                   <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}>
                     <option value="ALL">ALL AUTHORIZED PLANTS</option>
-                    {accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+                    {(accessiblePlants || []).map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
                   </select>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -2629,7 +2653,7 @@ export default function DashboardPage() {
       {isPdfPreviewOpen && selectedTripForPreview && (
         <div className="fixed inset-0 z-[200] bg-[#525659] flex flex-col font-mono animate-fade-in overflow-hidden">
            <div className="bg-[#c5e0b4] border-b border-slate-400 h-9 flex items-center justify-between px-4 shrink-0"><div className="text-[11px] font-black uppercase tracking-widest text-[#1e3a8a]">PDF Preview Portal</div><button onClick={() => setIsPdfPreviewOpen(false)} className="text-slate-600 hover:text-red-600 transition-colors"><X className="h-4 w-4" /></button></div>
-           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg"><div className="flex items-center gap-6"><span className="text-white text-[11px] font-bold">1 of 3</span><div className="h-4 w-px bg-white/20" /><div className="flex items-center gap-3"><button onClick={() => setPdfZoom(Math.max(0.5, pdfZoom - 0.1))} className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button><span className="text-white text-[11px] font-bold w-12 text-center">{Math.round(pdfZoom * 100)}%</span><button onClick={() => setPdfZoom(Math.min(2, pdfZoom + 0.1))} className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></div><div className="flex items-center gap-6"><button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button><button onClick={() => window.print()} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button><button disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button></div></div>
+           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg"><div className="flex items-center gap-6"><span className="text-white text-[11px] font-bold">1 of 3</span><div className="h-4 w-px bg-white/20" /><div className="flex items-center gap-3"><button onClick={() => setPdfZoom(Math.max(0.5, pdfZoom - 0.1))} className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button><span className="text-white text-[11px] font-bold w-12 text-center">{Math.round(pdfZoom * 100)}%</span><button onClick={() => setPdfZoom(Math.min(2, pdfZoom + 0.1))} className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></div><div className="flex items-center gap-6"><button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button><button onClick={() => window.print()} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button><button onClick={() => window.print()} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button></div></div>
            <div className="flex-1 overflow-auto p-12 flex justify-center custom-scrollbar" id="printable-area">
              <div style={{ transform: `scale(${pdfZoom})`, transformOrigin: 'top center' }} className="transition-transform duration-200">
                {[...Array(3)].map((_, i) => {
