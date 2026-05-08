@@ -182,8 +182,9 @@
   }
   
   html, body {
-    width: 210mm;
-    height: 100%;
+    width: 210mm !important;
+    height: auto !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
@@ -192,13 +193,42 @@
     print-color-adjust: exact !important;
   }
 
+  /* Robust reset to ensure parents do not clip content during print */
+  body > * {
+    display: none !important;
+  }
+
+  /* Ensure the portal wrapper and all its scrollable parents are neutral in print */
+  .fixed, .absolute, .overflow-hidden, .overflow-auto {
+    position: static !important;
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    inset: auto !important;
+    background: white !important;
+  }
+
+  /* Neutralize background for the modal overlay during print */
+  div.fixed.inset-0.z-\[200\] {
+    background: transparent !important;
+  }
+
+  /* Hide UI elements within the portal (Header, Zoom Bar, Search) */
+  div.fixed.inset-0.z-\[200\] > div:not(.flex-1) {
+    display: none !important;
+  }
+  
   /* Reset and Hide Everything except printable area */
   body * {
     visibility: hidden;
   }
   
   #printable-area, #printable-area * {
-    visibility: visible;
+    visibility: visible !important;
+    display: block !important;
   }
   
   #printable-area {
@@ -206,11 +236,11 @@
     left: 0 !important;
     top: 0 !important;
     width: 210mm !important;
-    display: block !important;
     margin: 0 !important;
     padding: 0 !important;
     box-sizing: border-box !important;
     background: white !important;
+    transform: none !important; /* Force reset preview scaling */
   }
 
   .print\:hidden {
