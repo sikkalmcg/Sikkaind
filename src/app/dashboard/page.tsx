@@ -41,7 +41,7 @@ const MASTER_TCODES = [
   { code: 'VA01', description: 'SALES ORDER: CREATE', icon: ShoppingBag, module: 'Logistics' },
   { code: 'VA02', description: 'SALES ORDER: CHANGE', icon: Edit3, module: 'Logistics' },
   { code: 'VA03', description: 'SALES ORDER: DISPLAY', icon: Info, module: 'Logistics' },
-  { code: 'VA04', description: 'SHORT CLOSE SALES ORDER', icon: XCircle, module: 'Logistics' },
+  { code: 'VA04', description: 'SHORT CLOSE', icon: XCircle, module: 'Logistics' },
   { code: 'TR21', description: 'TRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
   { code: 'TR24', description: 'TRACK SHIPMENT', icon: Radar, module: 'Logistics' },
   { code: 'WGPS24', description: 'GPS TRACKING HUB', icon: Radar, module: 'Logistics' },
@@ -1597,7 +1597,7 @@ function Tr24TrackShipmentScreen({ orders, trips, customers, gpsData }: any) {
             <div className="absolute top-[48px] left-[10%] right-[10%] h-[2px] bg-slate-100 -z-0" />
             <div className="absolute top-[-15px] transition-all duration-[2000ms] ease-in-out z-20" style={{ left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`, transform: 'translateX(-50%)' }}>
                <div className="bg-white p-4 shadow-2xl border border-blue-100 animate-bounce">
-                  <Truck className={cn("h-12 w-12", selectedTrip.status === 'REJECTION' && activeStep < 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
+                    <Truck className={cn("h-12 w-12", selectedTrip.status === 'REJECTION' && activeStep < 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
                </div>
             </div>
           </div>
@@ -2574,6 +2574,19 @@ export default function DashboardPage() {
     );
   };
 
+  const handlePrintCn = () => {
+    if (isAddressDirty) return;
+    window.print();
+  };
+
+  const handleDownloadCn = () => {
+    if (isAddressDirty) return;
+    const originalTitle = document.title;
+    document.title = `${selectedTripForPreview?.cnNo || 'Consignment_Note'}`;
+    window.print();
+    document.title = originalTitle;
+  };
+
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
       <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden"><div className="flex items-center gap-6">{['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => <button key={i} className="hover:text-blue-800 transition-colors uppercase">{i}</button>)}</div><div className="flex-1" /><div className="flex items-center h-full"><button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white transition-all"><X className="h-3.5 w-3.5" /></button></div></div>
@@ -2653,7 +2666,7 @@ export default function DashboardPage() {
       {isPdfPreviewOpen && selectedTripForPreview && (
         <div className="fixed inset-0 z-[200] bg-[#525659] flex flex-col font-mono animate-fade-in overflow-hidden">
            <div className="bg-[#c5e0b4] border-b border-slate-400 h-9 flex items-center justify-between px-4 shrink-0"><div className="text-[11px] font-black uppercase tracking-widest text-[#1e3a8a]">PDF Preview Portal</div><button onClick={() => setIsPdfPreviewOpen(false)} className="text-slate-600 hover:text-red-600 transition-colors"><X className="h-4 w-4" /></button></div>
-           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg"><div className="flex items-center gap-6"><span className="text-white text-[11px] font-bold">1 of 3</span><div className="h-4 w-px bg-white/20" /><div className="flex items-center gap-3"><button onClick={() => setPdfZoom(Math.max(0.5, pdfZoom - 0.1))} className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button><span className="text-white text-[11px] font-bold w-12 text-center">{Math.round(pdfZoom * 100)}%</span><button onClick={() => setPdfZoom(Math.min(2, pdfZoom + 0.1))} className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></div><div className="flex items-center gap-6"><button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button><button onClick={() => window.print()} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button><button onClick={() => window.print()} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button></div></div>
+           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg"><div className="flex items-center gap-6"><span className="text-white text-[11px] font-bold">1 of 3</span><div className="h-4 w-px bg-white/20" /><div className="flex items-center gap-3"><button onClick={() => setPdfZoom(Math.max(0.5, pdfZoom - 0.1))} className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button><span className="text-white text-[11px] font-bold w-12 text-center">{Math.round(pdfZoom * 100)}%</span><button onClick={() => setPdfZoom(Math.min(2, pdfZoom + 0.1))} className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></div><div className="flex items-center gap-6"><button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button><button onClick={handlePrintCn} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button><button onClick={handleDownloadCn} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button></div></div>
            <div className="flex-1 overflow-auto p-12 flex justify-center custom-scrollbar" id="printable-area">
              <div style={{ transform: `scale(${pdfZoom})`, transformOrigin: 'top center' }} className="transition-transform duration-200">
                {[...Array(3)].map((_, i) => {
@@ -2718,3 +2731,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
