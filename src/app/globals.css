@@ -193,32 +193,35 @@
     print-color-adjust: exact !important;
   }
 
-  /* Robust reset to ensure parents do not clip content during print */
+  /* Force parent containers to be visible and flow correctly */
   body > * {
     display: none !important;
   }
 
-  /* Ensure the portal wrapper and all its scrollable parents are neutral in print */
-  .fixed, .absolute, .overflow-hidden, .overflow-auto {
+  /* Select the Portal Modal specifically */
+  div.fixed.inset-0.z-\[200\] {
+    display: block !important;
     position: static !important;
+    background: white !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    inset: auto !important;
+  }
+
+  /* Hide the toolbar and backdrop overlay inside the portal */
+  div.fixed.inset-0.z-\[200\] > div:not(.flex-1) {
+    display: none !important;
+  }
+
+  /* Ensure the scrollable area is fully expanded for printing */
+  .flex-1.overflow-auto.p-12 {
     display: block !important;
     overflow: visible !important;
     height: auto !important;
     width: auto !important;
     padding: 0 !important;
     margin: 0 !important;
-    inset: auto !important;
-    background: white !important;
-  }
-
-  /* Neutralize background for the modal overlay during print */
-  div.fixed.inset-0.z-\[200\] {
-    background: transparent !important;
-  }
-
-  /* Hide UI elements within the portal (Header, Zoom Bar, Search) */
-  div.fixed.inset-0.z-\[200\] > div:not(.flex-1) {
-    display: none !important;
   }
   
   /* Reset and Hide Everything except printable area */

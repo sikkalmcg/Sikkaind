@@ -536,14 +536,15 @@ function TripBoard({
         img.src = result;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
+          const ctx = canvas.createElement('canvas');
           const maxDim = 800;
           let w = img.width;
           let h = img.height;
           if (w > h) { if (w > maxDim) { h = (h * maxDim) / w; w = maxDim; } }
           else { if (h > maxDim) { w = (w * maxDim) / h; h = maxDim; } }
           canvas.width = w; canvas.height = h;
-          ctx?.drawImage(img, 0, 0, w, h);
+          const context = canvas.getContext('2d');
+          context?.drawImage(img, 0, 0, w, h);
           const compressed = canvas.toDataURL('image/jpeg', 0.6);
           setPodFile(compressed);
         };
@@ -1902,7 +1903,7 @@ function RegistryList({ onSelectItem, listData, activeScreen, allTrips }: any) {
               const status = getOrderStatus(item, allTrips || []);
               cells = [
                 <Badge key="status" className="bg-blue-50 text-blue-700 border-blue-100 text-[8px] font-black uppercase rounded-none">{status}</Badge>,
-                item.plantCode, item.saleOrder, item.consignor, item.from, item.consignee, item.shipToParty, item.destination, `${formatWeight(item.weight)} ${item.weightUom || 'MT'}`
+                item.plantCode, item.saleOrder, item.consignor, item.from, item.consignee, item.ship ToParty, item.destination, `${formatWeight(item.weight)} ${item.weightUom || 'MT'}`
               ];
             } else if (isSU) {
               cells = [item.id.slice(0,8), item.username, '********', (item.plants || []).join(', ')];
@@ -2472,7 +2473,7 @@ export default function DashboardPage() {
       
       if (e.key === 'F8') {
         e.preventDefault();
-        if (activeScreen.endsWith('01') || activeScreen.endsWith('02') || activeScreen === 'VA04') {
+        if (activeScreen.endsWith('01') || activeScreen.endsWith('02') || activeScreen === 'VA04' || (activeScreen === 'TR21' && isPdfPreviewOpen)) {
           handleSave();
         }
       }
@@ -2528,7 +2529,7 @@ export default function DashboardPage() {
 
     window.addEventListener('keydown', handleGlobalShortcuts);
     return () => window.removeEventListener('keydown', handleGlobalShortcuts);
-  }, [handleBack, handleSave, activeScreen, executeTCode]);
+  }, [handleBack, handleSave, activeScreen, executeTCode, isPdfPreviewOpen]);
 
   const MonthPicker = () => {
     const [viewYear, setViewYear] = React.useState(new Date().getFullYear());
@@ -2663,7 +2664,7 @@ export default function DashboardPage() {
       {isPdfPreviewOpen && selectedTripForPreview && (
         <div className="fixed inset-0 z-[200] bg-[#525659] flex flex-col font-mono animate-fade-in overflow-hidden">
            <div className="bg-[#c5e0b4] border-b border-slate-400 h-9 flex items-center justify-between px-4 shrink-0"><div className="text-[11px] font-black uppercase tracking-widest text-[#1e3a8a]">PDF Preview Portal</div><button onClick={() => setIsPdfPreviewOpen(false)} className="text-slate-600 hover:text-red-600 transition-colors"><X className="h-4 w-4" /></button></div>
-           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg"><div className="flex items-center gap-6"><span className="text-white text-[11px] font-bold">1 of 3</span><div className="h-4 w-px bg-white/20" /><div className="flex items-center gap-3"><button onClick={() => setPdfZoom(Math.max(0.5, pdfZoom - 0.1))} className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button><span className="text-white text-[11px] font-bold w-12 text-center">{Math.round(pdfZoom * 100)}%</span><button onClick={() => setPdfZoom(Math.min(2, pdfZoom + 0.1))} className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></div><div className="flex items-center gap-6"><button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button><button onClick={handlePrintCn} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button><button onClick={handleDownloadCn} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button></div></div>
+           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg"><div className="flex items-center gap-6"><span className="text-white text-[11px] font-bold">1 of 3</span><div className="h-4 w-px bg-white/20" /><div className="flex items-center gap-3"><button onClick={() => setPdfZoom(Math.max(0.5, pdfZoom - 0.1))} className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button><span className="text-white text-[11px] font-bold w-12 text-center">{Math.round(pdfZoom * 100)}%</span><button onClick={() => setPdfZoom(Math.min(2, pdfZoom + 0.1))} className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></div><div className="flex items-center gap-6"><button onClick={() => setIsAddressEditable(true)} className="text-white/70 hover:text-white" title="Edit Delivery Address"><Edit3 className="h-4 w-4" /></button><button onClick={handleSave} className={cn("text-white/70 hover:text-white", !isAddressDirty && "opacity-30")} title="Save Changes (F8)"><Save className="h-4 w-4" /></button><button onClick={handlePrintCn} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")} title="Print Document"><Printer className="h-4 w-4" /></button><button onClick={handleDownloadCn} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")} title="Download PDF"><Download className="h-4 w-4" /></button></div></div>
            <div className="flex-1 overflow-auto p-12 flex justify-center custom-scrollbar">
              <div 
                id="printable-area"
@@ -2702,7 +2703,7 @@ export default function DashboardPage() {
                           <tbody>{tableItems.map((itm: any, idx: number) => (<tr key={idx} className="text-[10px] font-bold uppercase h-10 border-b border-black"><td className="border border-black p-2 text-center">{itm.invoice}</td><td className="border border-black p-2 text-center">{itm.ewaybill}</td><td className="border border-black p-2">{itm.description}</td><td className="border border-black p-2 text-center">{itm.package}</td><td className="border border-black p-2 text-center">{formatWeight(selectedTripForPreview.assignWeight)}</td></tr>))}</tbody>
                           <tfoot className="bg-slate-50 font-black h-8"><tr className="border-t border-black"><td colSpan={3} className="border border-black p-2 text-right uppercase text-[10px]">Gross Total:</td><td className="border border-black p-2 text-center text-[11px]">{pkgDisplay}</td><td className="border border-black p-2 text-center text-[11px]">{formatWeight(selectedTripForPreview.assignWeight)} {selectedTripForPreview.weightUom}</td></tr></tfoot>
                         </table>
-                        <div className="mt-4 border border-black"><div className="bg-slate-50 border-b border-black p-1"><p className="text-[10px] font-black uppercase">Delivery Address:</p></div><div className="p-3 min-h-[60px] relative group">{isAddressEditable ? <textarea value={previewDeliveryAddress} onChange={e => { setPreviewDeliveryAddress(e.target.value); setIsAddressDirty(true); }} className="w-full h-full text-[10px] font-bold uppercase outline-none bg-yellow-50 resize-none" /> : <p className="text-[10px] font-bold uppercase leading-relaxed pr-10">{previewDeliveryAddress}</p>}<button onClick={() => setIsAddressEditable(true)} className="absolute top-2 right-2 p-1 text-[#1e3a8a] opacity-0 group-hover:opacity-100 print:hidden"><Edit3 className="h-3.5 w-3.5" /></button></div></div>
+                        <div className="mt-4 border border-black"><div className="bg-slate-50 border-b border-black p-1"><p className="text-[10px] font-black uppercase">Delivery Address:</p></div><div className="p-3 min-h-[60px] relative group">{isAddressEditable ? <textarea value={previewDeliveryAddress} onChange={e => { setPreviewDeliveryAddress(e.target.value); setIsAddressDirty(true); }} className="w-full h-full text-[10px] font-bold uppercase outline-none bg-yellow-50 resize-none" /> : <p className="text-[10px] font-bold uppercase leading-relaxed pr-10">{previewDeliveryAddress}</p>}</div></div>
                       </div>
                       <div className="mt-8">
                         <div className="flex items-end justify-between px-2">
