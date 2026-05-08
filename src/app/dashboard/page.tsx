@@ -41,7 +41,7 @@ const MASTER_TCODES = [
   { code: 'VA01', description: 'SALES ORDER: CREATE', icon: ShoppingBag, module: 'Logistics' },
   { code: 'VA02', description: 'SALES ORDER: CHANGE', icon: Edit3, module: 'Logistics' },
   { code: 'VA03', description: 'SALES ORDER: DISPLAY', icon: Info, module: 'Logistics' },
-  { code: 'VA04', description: 'CANCEL SALES ORDER', icon: XCircle, module: 'Logistics' },
+  { code: 'VA04', description: 'SHORT CLOSE SALES ORDER', icon: XCircle, module: 'Logistics' },
   { code: 'TR21', description: 'TRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
   { code: 'TR24', description: 'TRACK SHIPMENT', icon: Radar, module: 'Logistics' },
   { code: 'WGPS24', description: 'GPS TRACKING HUB', icon: Radar, module: 'Logistics' },
@@ -58,6 +58,38 @@ const SHARED_HUB_ID = 'Sikkaind';
 const formatWeight = (val: any) => {
   const num = parseFloat(val);
   return isNaN(num) ? "0.000" : num.toFixed(3);
+};
+
+// Helper for complex order status calculation
+const getOrderStatus = (order: any, trips: any[]) => {
+  const statuses = new Set<string>();
+  const orderTrips = trips.filter(t => t.saleOrderId === order.id);
+
+  if (order.status === 'Short closed') {
+    statuses.add('Short Close');
+  }
+
+  if (orderTrips.length === 0) {
+    if (order.status !== 'Short closed') statuses.add('Open');
+  } else {
+    orderTrips.forEach(t => {
+      if (t.status === 'LOADING') statuses.add('Assigned');
+      else if (t.status === 'IN-TRANSIT') statuses.add('In-Transit');
+      else if (t.status === 'ARRIVED') statuses.add('Arrived');
+      else if (t.status === 'POD') statuses.add('POD');
+      else if (t.status === 'REJECTION') statuses.add('Reject');
+      else if (t.status === 'CLOSED') statuses.add('Closed');
+    });
+
+    const tot = parseFloat(order.weight) || 0;
+    const ass = orderTrips.reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
+    if (tot - ass > 0 && order.status !== 'Short closed') {
+      statuses.add('Open');
+    }
+  }
+
+  const result = Array.from(statuses).join(' + ');
+  return result || 'Open';
 };
 
 // --- SHARED COMPONENTS ---
@@ -345,12 +377,17 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers, tri
   const filtered = (allCustomers || []).filter((c: any) => c.plantCodes?.includes(data.plantCode));
   const cons = filtered.filter((c: any) => c.customerType === 'Consignor');
   const ships = filtered.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
+  const status = React.useMemo(() => data.id ? getOrderStatus(data, trips || []) : 'Open', [data, trips]);
+
   return (
     <div className="space-y-10">
       <SectionGrouping title="HEADER">
-        <FormSelect label="PLANT" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
-        <FormInput label="SALE ORDER" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
-        <FormInput label="BOOKED DATE TIME" type="datetime-local" value={data.saleOrderDate} onChange={(v: string) => onChange({...data, saleOrderDate: v})} disabled={disabled} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4">
+          <FormSelect label="PLANT" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+          {data.id && <FormInput label="ORDER STATUS" value={status} disabled={true} />}
+          <FormInput label="SALE ORDER" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
+          <FormInput label="BOOKED DATE TIME" type="datetime-local" value={data.saleOrderDate} onChange={(v: string) => onChange({...data, saleOrderDate: v})} disabled={disabled} />
+        </div>
       </SectionGrouping>
       <SectionGrouping title="COORDINATION">
         <FormSearchInput label="CONSIGNOR" value={data.consignor} options={cons.map(c => c.customerName + ' - ' + c.city)} onChange={(v: string) => { const matching = cons.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase()); const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v; onChange({...data, consignor: nameOnly, from: matching?.city || ''}); }} disabled={disabled} />
@@ -390,9 +427,11 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
 function CancelOrderForm({ data, onChange, allOrders, allTrips, onPost, onCancel }: any) {
   const stats = React.useMemo(() => { if (!data.id || !allTrips) return { tot: 0, ass: 0, bal: 0, uom: '' }; const tot = parseFloat(data.weight) || 0; const ass = allTrips.filter((t: any) => t.saleOrderId === data.id).reduce((acc: number, t: any) => acc + (parseFloat(t.assignWeight) || 0), 0); return { tot, ass, bal: tot - ass, uom: data.weightUom || 'MT' }; }, [data, allTrips]);
   const handleEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const o = allOrders?.find((ord: any) => (ord.saleOrder || ord.id).toString().toUpperCase() === data.saleOrder?.toString().toUpperCase()); if (o) onChange({ ...data, ...o }); } };
+  const isAlreadyShortClosed = data.status === 'Short closed';
+
   return (
     <div className="space-y-12">
-      <SectionGrouping title="CANCELLATION / SHORT CLOSE">
+      <SectionGrouping title="SHORT CLOSE">
         <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-red-600 w-[180px] text-right shrink-0 uppercase">Order Number:</label><input className="h-10 w-[320px] border border-red-200 px-3 text-[12px] font-black outline-none bg-red-50/20" value={data.saleOrder || ''} onChange={e => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={handleEnter} /></div>
       </SectionGrouping>
       {data.id && (
@@ -403,11 +442,16 @@ function CancelOrderForm({ data, onChange, allOrders, allTrips, onPost, onCancel
               <FormInput label="CONSIGNOR" value={data.consignor} disabled={true} />
               <FormInput label="SALE ORDER QTY" value={`${formatWeight(stats.tot)} ${stats.uom}`} disabled={true} />
               <FormInput label="BALANCE QTY" value={`${formatWeight(stats.bal)} ${stats.uom}`} disabled={true} />
+              {isAlreadyShortClosed && (
+                <div className="col-span-2 pl-[212px]">
+                   <Badge className="bg-red-50 text-red-700 border-red-200 text-[11px] font-black px-4 py-2 rounded-none">ALREADY SHORT CLOSED</Badge>
+                </div>
+              )}
             </div>
           </SectionGrouping>
           <div className="pl-[212px] flex gap-4">
             <Button onClick={onCancel} variant="outline" className="h-10 px-8 text-[10px] font-black uppercase">Exit</Button>
-            <Button onClick={onPost} disabled={stats.bal <= 0} className={cn("font-black uppercase text-[10px] px-10 h-10", stats.bal <= 0 ? "bg-slate-400" : "bg-red-600 text-white")}>{stats.ass === 0 ? "Execute Cancellation" : "Execute Short Close"}</Button>
+            <Button onClick={onPost} disabled={stats.bal <= 0 || isAlreadyShortClosed} className={cn("font-black uppercase text-[10px] px-10 h-10 shadow-lg", (stats.bal <= 0 || isAlreadyShortClosed) ? "bg-slate-400" : "bg-red-600 text-white")}>Short Close</Button>
           </div>
         </div>
       )}
@@ -1347,7 +1391,7 @@ function Tr24TrackShipmentScreen({ orders, trips, customers, gpsData }: any) {
     if (trip.status === 'LOADING') target = 1;
     else if (trip.status === 'IN-TRANSIT') target = 2;
     else if (trip.status === 'ARRIVED') target = 3;
-    else if (trip.status === 'CLOSED') target = 4;
+    else if (trip.status === 'CLOSED' || trip.status === 'POD') target = 4;
     else if (trip.status === 'REJECTION') target = 4;
 
     let current = 0;
@@ -1796,11 +1840,7 @@ function GpsTrackingHub({ settings, settingsRef, gpsData, loading }: any) {
   );
 }
 
-function Tr24TrackShipmentScreenPlaceholder() {
-  return (<div className="h-full flex flex-col items-center justify-center font-mono"><Radar className="h-10 w-10 text-[#1e3a8a] mb-6" /><h2 className="text-sm font-black uppercase">TR24 - LIVE TRACKER</h2></div>);
-}
-
-function RegistryList({ onSelectItem, listData, activeScreen }: any) {
+function RegistryList({ onSelectItem, listData, activeScreen, allTrips }: any) {
   const isFM = activeScreen === 'FM02' || activeScreen === 'FM03';
   const isXK = activeScreen === 'XK02' || activeScreen === 'XK03';
   const isXD = activeScreen === 'XD02' || activeScreen === 'XD03';
@@ -1811,7 +1851,7 @@ function RegistryList({ onSelectItem, listData, activeScreen }: any) {
   if (isFM) headers = ['Identifier', 'Company Code', 'Company Name', 'GSTIN', 'City'];
   if (isXK) headers = ['Identifier', 'Vendor Name', 'Mobile', 'Route'];
   if (isXD) headers = ['Identifier', 'Customer Name', 'City', 'GSTIN', 'Mobile'];
-  if (isVA) headers = ['Plant', 'Sale Order', 'Consignor', 'From', 'Consignee', 'Ship To Party', 'Destination', 'Weight'];
+  if (isVA) headers = ['Order Status', 'Plant', 'Sale Order', 'Consignor', 'From', 'Consignee', 'Ship To Party', 'Destination', 'Weight'];
   if (isSU) headers = ['Identifier', 'Username', 'Password', 'Authorized Plant'];
 
   return (
@@ -1835,7 +1875,11 @@ function RegistryList({ onSelectItem, listData, activeScreen }: any) {
             } else if (isXD) {
               cells = [item.customerCode, item.customerName, item.city, item.gstin, item.mobile];
             } else if (isVA) {
-              cells = [item.plantCode, item.saleOrder, item.consignor, item.from, item.consignee, item.shipToParty, item.destination, `${formatWeight(item.weight)} ${item.weightUom || 'MT'}`];
+              const status = getOrderStatus(item, allTrips || []);
+              cells = [
+                <Badge key="status" className="bg-blue-50 text-blue-700 border-blue-100 text-[8px] font-black uppercase rounded-none">{status}</Badge>,
+                item.plantCode, item.saleOrder, item.consignor, item.from, item.consignee, item.shipToParty, item.destination, `${formatWeight(item.weight)} ${item.weightUom || 'MT'}`
+              ];
             } else if (isSU) {
               cells = [item.id.slice(0,8), item.username, '********', (item.plants || []).join(', ')];
             } else {
@@ -1845,7 +1889,7 @@ function RegistryList({ onSelectItem, listData, activeScreen }: any) {
             return (
               <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-100 hover:bg-blue-50/50 cursor-pointer text-[11px] font-bold group">
                 {cells.map((c, i) => (
-                  <td key={i} className={cn("p-4 border-r border-slate-200 uppercase", i === 0 && "text-[#0056d2] font-black")}>{c}</td>
+                  <td key={i} className={cn("p-4 border-r border-slate-200 uppercase", (i === 0 && !isVA) && "text-[#0056d2] font-black")}>{c}</td>
                 ))}
                 <td className="p-4 text-slate-400 font-medium whitespace-nowrap">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy HH:mm')}</td>
               </tr>
@@ -2304,8 +2348,22 @@ export default function DashboardPage() {
       setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPreview.id), { deliveryAddress: previewDeliveryAddress, updatedAt: new Date().toISOString() }, { merge: true });
       setIsAddressDirty(false); setIsAddressEditable(false); setStatusMsg({ text: 'Registry Synchronized (F8)', type: 'success' }); return;
     }
-    if (activeScreen === 'VA04') { const o = allOrders?.find(ord => ord.saleOrder?.toString().toUpperCase() === formData.saleOrder?.toString().toUpperCase()); if (o) { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'CANCELLED' }, { merge: true }); setStatusMsg({ text: 'Order Cancelled', type: 'success' }); setFormData({}); } return; }
+    if (activeScreen === 'VA04') { 
+      const o = allOrders?.find(ord => ord.saleOrder?.toString().toUpperCase() === formData.saleOrder?.toString().toUpperCase()); 
+      if (o) { 
+        setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'Short closed' }, { merge: true }); 
+        setStatusMsg({ text: 'Short Close Processed', type: 'success' }); 
+        setFormData({}); 
+      } 
+      return; 
+    }
     if (activeScreen === 'VA01') { const validation = await validateOrder(formData); if (!validation.valid) { setStatusMsg({ text: `Rejection: ${validation.reason}`, type: 'error' }); return; } }
+    
+    // VA02 Reopen Logic: If user saves a short-closed order, revert status to Active/Open
+    if (activeScreen === 'VA02' && formData.status === 'Short closed') {
+      formData.status = 'Active';
+    }
+
     if (activeScreen === 'XD01') { const isDuplicate = accessibleCustomers.some(c => c.customerCode === formData.customerCode && c.id !== formData.id); if (isDuplicate) { setStatusMsg({ text: 'Error: Duplicate Customer Code', type: 'error' }); return; } }
     
     if (activeScreen === 'XK01' && !formData.id) {
@@ -2560,7 +2618,7 @@ export default function DashboardPage() {
               {activeScreen === 'SE38' && <Se38Report search={se38Search} onSearchChange={setSe38Search} trips={allTrips} orders={allOrders} customers={accessibleCustomers} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} users={allUsers} />}
               {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               {!['TR21', 'TR24', 'WGPS24', 'SE38', 'ZCODE'].includes(activeScreen) && (
-                <div className="flex-1 flex flex-col overflow-y-auto green-scrollbar"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}</h2></div><div className="px-10 pb-20">{(activeScreen.endsWith('01') || formData.id || activeScreen === 'VA04') ? (<div className="max-w-full animate-slide-up">{activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}{activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}{activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} allTrips={allTrips} onPost={handleSave} onCancel={() => setFormData({})} />}{activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}</div>) : (<div className="space-y-8 animate-fade-in"><div className="bg-white p-6 border-b-2 border-slate-300 shadow-sm flex items-center gap-6"><label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Record:</label><input id="sap-registry-search" className="h-9 w-full max-xl border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE OR IDENTIFIER AND PRESS ENTER..." /></div><RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} /></div>)}</div></div>
+                <div className="flex-1 flex flex-col overflow-y-auto green-scrollbar"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}</h2></div><div className="px-10 pb-20">{(activeScreen.endsWith('01') || formData.id || activeScreen === 'VA04') ? (<div className="max-w-full animate-slide-up">{activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}{activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}{activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} allTrips={allTrips} onPost={handleSave} onCancel={() => setFormData({})} />}{activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}</div>) : (<div className="space-y-8 animate-fade-in"><div className="bg-white p-6 border-b-2 border-slate-300 shadow-sm flex items-center gap-6"><label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Record:</label><input id="sap-registry-search" className="h-9 w-full max-xl border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE OR IDENTIFIER AND PRESS ENTER..." /></div><RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} allTrips={allTrips} /></div>)}</div></div>
               )}
             </div>
           )}
