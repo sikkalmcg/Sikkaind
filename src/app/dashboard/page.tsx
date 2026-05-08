@@ -242,6 +242,11 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
     reader.readAsDataURL(file);
   };
 
+  const terms = data.termsAndConditions || [''];
+  const handleAddTerm = () => {
+    onChange({...data, termsAndConditions: [...terms, '']});
+  };
+
   return (
     <div className="space-y-10">
       <SectionGrouping title="PLANT ASSIGNMENT">
@@ -300,20 +305,26 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
       </SectionGrouping>
       <SectionGrouping title="TERMS AND CONDITIONS">
         <div className="space-y-2">
-          {[...Array(8)].map((_, i) => (
+          {terms.map((term: string, i: number) => (
             <FormInput 
               key={i}
               label={`CONDITION ${i + 1}`} 
-              value={data.termsAndConditions?.[i] || ''} 
+              value={term} 
               onChange={(v: string) => {
-                const newTerms = [...(data.termsAndConditions || [])];
-                while (newTerms.length <= i) newTerms.push('');
+                const newTerms = [...terms];
                 newTerms[i] = v;
                 onChange({...data, termsAndConditions: newTerms});
               }} 
               disabled={disabled} 
             />
           ))}
+          {!disabled && (
+            <div className="pl-[212px] pt-2">
+              <Button onClick={handleAddTerm} size="sm" variant="outline" className="h-7 text-[9px] font-black uppercase border-dashed border-slate-300 text-slate-500 hover:bg-slate-50">
+                <Plus className="h-3 w-3 mr-1" /> Add Row
+              </Button>
+            </div>
+          )}
         </div>
       </SectionGrouping>
     </div>
@@ -2693,16 +2704,21 @@ export default function DashboardPage() {
                         </table>
                         <div className="mt-4 border border-black"><div className="bg-slate-50 border-b border-black p-1"><p className="text-[10px] font-black uppercase">Delivery Address:</p></div><div className="p-3 min-h-[60px] relative group">{isAddressEditable ? <textarea value={previewDeliveryAddress} onChange={e => { setPreviewDeliveryAddress(e.target.value); setIsAddressDirty(true); }} className="w-full h-full text-[10px] font-bold uppercase outline-none bg-yellow-50 resize-none" /> : <p className="text-[10px] font-bold uppercase leading-relaxed pr-10">{previewDeliveryAddress}</p>}<button onClick={() => setIsAddressEditable(true)} className="absolute top-2 right-2 p-1 text-[#1e3a8a] opacity-0 group-hover:opacity-100 print:hidden"><Edit3 className="h-3.5 w-3.5" /></button></div></div>
                       </div>
-                      <div className="mt-8 space-y-6">
-                        {selectedTripForPreview.carrier?.instructions && (
-                          <div className="text-[9px] border-l-2 border-black pl-3 py-1">
-                            <span className="font-black uppercase">Note / Instructions: </span>
-                            <span className="font-bold">{selectedTripForPreview.carrier.instructions}</span>
+                      <div className="mt-8">
+                        <div className="flex items-end justify-between px-2">
+                          <div className="flex-1 max-w-[70%]">
+                            {selectedTripForPreview.carrier?.termsAndConditions?.length > 0 && (
+                              <div className="space-y-0.5">
+                                <p className="text-[9px] font-black uppercase border-b border-black inline-block mb-1">Terms & Conditions:</p>
+                                <ul className="list-decimal pl-4">
+                                  {selectedTripForPreview.carrier.termsAndConditions.filter(Boolean).map((term: string, tIdx: number) => (
+                                    <li key={tIdx} className="text-[7.5px] font-bold uppercase leading-tight text-slate-700">{term}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        <div className="flex items-end justify-between px-2 pt-12">
-                          <div className="flex-1 max-w-[65%] text-[8px] font-bold text-slate-500 uppercase italic"></div>
-                          <div className="text-right pb-10">
+                          <div className="text-right pt-20">
                             <p className="text-[11px] font-black uppercase border-t border-black pt-2 px-6 inline-block">Authorized Signatory</p>
                           </div>
                         </div>
