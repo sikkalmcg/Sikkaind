@@ -127,7 +127,7 @@ function FormSelect({ label, value, options, onChange, disabled, placeholder, cl
   );
 }
 
-function FormSearchInput({ label, value, options, onChange, disabled, placeholder }: any) {
+function FormSearchInput({ label, id, value, options, onChange, disabled, placeholder }: any) {
   const [inputValue, setInputValue] = React.useState(value || '');
   const [isOpen, setIsOpen] = React.useState(false);
   
@@ -150,6 +150,7 @@ function FormSearchInput({ label, value, options, onChange, disabled, placeholde
       <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">{label}:</label>
       <div className="relative w-[320px]">
         <input 
+          id={id}
           value={inputValue} 
           onChange={(e) => { setInputValue(e.target.value); onChange(e.target.value); setIsOpen(true); }}
           onFocus={() => setIsOpen(true)}
@@ -2031,8 +2032,8 @@ function Se38Report({ search, onSearchChange, trips, orders, customers, vendors,
         <SectionGrouping title="ADDITIONAL FILTER CRITERIA">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-6">
             <FormSelect label="FLEET TYPE" value={search.fleetType} options={Array.from(new Set((trips || []).map((t: any) => t.fleetType).filter(Boolean)))} onChange={(v: string) => onSearchChange({ ...search, fleetType: v })} />
-            <FormSearchInput label="CUSTOMER" value={search.customer} options={(customers || []).map((c: any) => c.customerName)} onChange={(v: string) => onSearchChange({ ...search, customer: v })} />
-            <FormSearchInput label="VENDOR" value={search.vendor} options={(vendors || []).map((v: any) => v.vendorName)} onChange={(v: string) => onSearchChange({ ...search, vendor: v })} />
+            <FormSearchInput id="se38-customer" label="CUSTOMER" value={search.customer} options={(customers || []).map((c: any) => c.customerName)} onChange={(v: string) => onSearchChange({ ...search, customer: v })} />
+            <FormSearchInput id="se38-vendor" label="VENDOR" value={search.vendor} options={(vendors || []).map((v: any) => v.vendorName)} onChange={(v: string) => onSearchChange({ ...search, vendor: v })} />
           </div>
         </SectionGrouping>
 
@@ -2191,7 +2192,6 @@ export default function DashboardPage() {
   const homeStats = React.useMemo(() => {
     if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, pod: 0, reject: 0, closed: 0 };
     
-    // Month filter parsing: JAN-2026 -> 2026-01
     let filterPrefix = '';
     if (homeMonthFilter) {
       try {
@@ -2207,7 +2207,6 @@ export default function DashboardPage() {
       return o.status !== 'CANCELLED' && o.status !== 'Short closed' && matchPlant && matchMonth; 
     });
 
-    // Calculate "Open Orders" widget: Only those with remaining balance > 0
     const openOrdersCount = filteredOrders.filter(o => {
       const tot = parseFloat(o.weight) || 0;
       const ass = allTrips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0;
@@ -2236,15 +2235,58 @@ export default function DashboardPage() {
     const input = cmd.toUpperCase().trim();
     if (!input) return;
     const authorizedTcodes = isBootstrapAdmin ? MASTER_TCODES.map(t => t.code) : (userProfile?.tcodes || []);
-    if (input === '/NEND' || input === '/NEX') { localStorage.removeItem('sap_bootstrap_session'); localStorage.removeItem('sap_user_role'); localStorage.removeItem('sap_registry_id'); router.push('/login'); return; }
-    if (input === '/N' || input === 'HOME') { setActiveScreen('HOME'); setScreenStack(['HOME']); setTCode(''); setStatusMsg({ text: 'Session Reset to Home', type: 'info' }); return; }
-    let mode: 'REPLACE' | 'NEW_TAB' | 'NORMAL' = 'NORMAL'; let code = input;
-    if (input.startsWith('/N')) { mode = 'REPLACE'; code = input.substring(2); } else if (input.startsWith('/O')) { mode = 'NEW_TAB'; code = input.substring(2); }
+    
+    if (input === '/NEND' || input === '/NEX') { 
+      localStorage.removeItem('sap_bootstrap_session'); 
+      localStorage.removeItem('sap_user_role'); 
+      localStorage.removeItem('sap_registry_id'); 
+      router.push('/login'); 
+      return; 
+    }
+    
+    if (input === '/N' || input === 'HOME') { 
+      setActiveScreen('HOME'); 
+      setScreenStack(['HOME']); 
+      setTCode(''); 
+      setStatusMsg({ text: 'Session Reset to Home', type: 'info' }); 
+      return; 
+    }
+
+    let mode: 'REPLACE' | 'NEW_TAB' | 'NORMAL' = 'NORMAL'; 
+    let code = input;
+    
+    if (input.startsWith('/N')) { 
+      mode = 'REPLACE'; 
+      code = input.substring(2); 
+      if (!code) { 
+        setActiveScreen('HOME'); setScreenStack(['HOME']); setTCode(''); return; 
+      }
+    } else if (input.startsWith('/O')) { 
+      mode = 'NEW_TAB'; 
+      code = input.substring(2); 
+    }
+
     if (!code) { setStatusMsg({ text: 'Specify a valid transaction code', type: 'error' }); return; }
+    
     const exists = MASTER_TCODES.find(t => t.code === code);
     if (!exists) { setStatusMsg({ text: `Transaction ${code} does not exist`, type: 'error' }); setTCode(''); return; }
+    
     if (!authorizedTcodes.includes(code)) { setStatusMsg({ text: `No authorization for transaction ${code}`, type: 'error' }); setTCode(''); return; }
-    if (mode === 'NEW_TAB') { window.open(`${window.location.origin}${window.location.pathname}?tcode=${code}`, '_blank'); setTCode(''); setStatusMsg({ text: `Opening ${code} in new session...`, type: 'info' }); } else { setScreenStack(['HOME', code]); setActiveScreen(code); if (code === 'VA01') setFormData({ saleOrderDate: new Date().toISOString().slice(0, 16), status: 'Active' }); else setFormData({}); setTCode(''); setStatusMsg({ text: `Transaction ${code} executed`, type: 'info' }); setShowHistory(false); setHistory(prev => [input, ...prev.filter(h => h !== input)].slice(0, 10)); }
+    
+    if (mode === 'NEW_TAB') { 
+      window.open(`${window.location.origin}${window.location.pathname}?tcode=${code}`, '_blank'); 
+      setTCode(''); 
+      setStatusMsg({ text: `Opening ${code} in new session...`, type: 'info' }); 
+    } else { 
+      setScreenStack(['HOME', code]); 
+      setActiveScreen(code); 
+      if (code === 'VA01') setFormData({ saleOrderDate: new Date().toISOString().slice(0, 16), status: 'Active' }); 
+      else setFormData({}); 
+      setTCode(''); 
+      setStatusMsg({ text: `Transaction ${code} executed`, type: 'info' }); 
+      setShowHistory(false); 
+      setHistory(prev => [input, ...prev.filter(h => h !== input)].slice(0, 10)); 
+    }
   }, [isBootstrapAdmin, userProfile, router]);
 
   const validateOrder = async (order: any) => {
@@ -2266,7 +2308,6 @@ export default function DashboardPage() {
     if (activeScreen === 'VA01') { const validation = await validateOrder(formData); if (!validation.valid) { setStatusMsg({ text: `Rejection: ${validation.reason}`, type: 'error' }); return; } }
     if (activeScreen === 'XD01') { const isDuplicate = accessibleCustomers.some(c => c.customerCode === formData.customerCode && c.id !== formData.id); if (isDuplicate) { setStatusMsg({ text: 'Error: Duplicate Customer Code', type: 'error' }); return; } }
     
-    // XK01 Vendor Code Auto-Generation
     if (activeScreen === 'XK01' && !formData.id) {
       const name = formData.vendorName || 'V';
       const firstChar = name[0].toUpperCase();
@@ -2293,7 +2334,19 @@ export default function DashboardPage() {
     }
   }, [activeScreen, formData, db, allOrders, accessibleCustomers, accessibleVendors, selectedTripForPreview, previewDeliveryAddress]);
 
-  const handleBack = React.useCallback(() => { if (screenStack.length > 1) { const newStack = [...screenStack]; newStack.pop(); const prev = newStack[newStack.length - 1]; setScreenStack(newStack); setActiveScreen(prev); setFormData({}); } }, [screenStack]);
+  const handleBack = React.useCallback(() => { 
+    if (screenStack.length > 1) { 
+      const newStack = [...screenStack]; 
+      newStack.pop(); 
+      const prev = newStack[newStack.length - 1]; 
+      setScreenStack(newStack); 
+      setActiveScreen(prev); 
+      setFormData({}); 
+      setStatusMsg({ text: `Navigated back to ${prev}`, type: 'info' });
+    } else {
+      executeTCode('/N');
+    }
+  }, [screenStack, executeTCode]);
   
   const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -2330,23 +2383,77 @@ export default function DashboardPage() {
   const getRegistryList = () => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) return accessibleCustomers; if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; };
   const handleSearchIdEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const item = getRegistryList().find((i: any) => (i.plantCode || i.customerCode || i.saleOrder || i.username || i.id).toString().toUpperCase() === searchId.toUpperCase()); if (item) { setFormData(item); setStatusMsg({ text: 'Record Loaded', type: 'success' }); } else setStatusMsg({ text: 'Not Found', type: 'error' }); } };
 
-  // Global Keyboard Shortcut Support
+  // --- SAP GLOBAL SHORTCUT LOGIC ---
   React.useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
-      if (e.key === 'F3') {
+      // SAP Navigation & Control Handlers
+      if (e.key === 'F3' || e.key === 'F7') {
         e.preventDefault();
         handleBack();
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      
+      if (e.key === 'F8') {
         e.preventDefault();
-        if (activeScreen === 'FM02' || activeScreen === 'FM03') {
+        // If on SE38 selection, handleExecute happens inside its own effect.
+        // For forms, handleSave.
+        if (activeScreen.endsWith('01') || activeScreen.endsWith('02') || activeScreen === 'VA04') {
           handleSave();
         }
       }
+
+      if (e.key === 'F12') {
+        e.preventDefault();
+        setFormData({});
+        setStatusMsg({ text: 'Command processed: F12 Cancel', type: 'info' });
+      }
+
+      if (e.key === 'F15') {
+        e.preventDefault();
+        executeTCode('/NEND');
+      }
+
+      if (e.key === 'F9') {
+        e.preventDefault();
+        tCodeRef.current?.focus();
+        setStatusMsg({ text: 'Focus: T-Code Input', type: 'info' });
+      }
+
+      if (e.key === 'F1') {
+        e.preventDefault();
+        alert("SAP HELP NODE: Documentation portal is currently under maintenance. Contact your System Administrator.");
+      }
+
+      if (e.key === 'F4') {
+        e.preventDefault();
+        const searchInput = document.getElementById('sap-registry-search') || document.getElementById('se38-customer') || document.getElementById('se38-vendor');
+        (searchInput as HTMLInputElement)?.focus();
+        setStatusMsg({ text: 'Search Assistance Active (F4)', type: 'info' });
+      }
+
+      // Control Shortcuts
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          handleSave();
+        }
+        if (e.key.toLowerCase() === 'p') {
+          e.preventDefault();
+          window.print();
+        }
+        if (e.key.toLowerCase() === 'n') {
+          e.preventDefault();
+          window.open(window.location.href, '_blank');
+        }
+        if (e.shiftKey && e.key === 'F3') {
+          e.preventDefault();
+          window.close();
+        }
+      }
     };
+
     window.addEventListener('keydown', handleGlobalShortcuts);
     return () => window.removeEventListener('keydown', handleGlobalShortcuts);
-  }, [handleBack, handleSave, activeScreen]);
+  }, [handleBack, handleSave, activeScreen, executeTCode]);
 
   // --- MONTH PICKER COMPONENT ---
   const MonthPicker = () => {
@@ -2393,7 +2500,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">{logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />}</div>
           <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative"><button onClick={() => executeTCode(tCode)} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100">✓</button><input ref={tCodeRef} type="text" value={tCode} onChange={e => setTCode(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') executeTCode(tCode); }} onClick={() => history.length > 0 && setShowHistory(true)} onBlur={() => setTimeout(() => setShowHistory(false), 200)} className="w-48 outline-none text-xs px-1 font-bold tracking-wider" placeholder="T-CODE..." />{showHistory && (<div className="absolute top-full left-0 w-full bg-white border border-slate-400 shadow-md z-[60]">{history.map((h, i) => <div key={i} onClick={() => executeTCode(h)} className="px-4 py-1.5 text-xs font-bold cursor-pointer hover:bg-blue-50">{h}</div>)}</div>)}</div>
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7"><button onClick={handleSave} className="p-1 hover:bg-slate-200 rounded" title="Save (Ctrl+S / F8)"><Save className="h-4 w-4 text-slate-600" /></button><button onClick={handleBack} className="p-1 hover:bg-slate-200 rounded" title="Back (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button><button onClick={() => setFormData({})} className="p-1 hover:bg-slate-200 rounded" title="Clear (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>{activeScreen === 'TR21' && selectedTripForPreview && (<button onClick={() => setIsPdfPreviewOpen(true)} className="p-1 hover:bg-slate-200 rounded" title="CN Print Preview"><Printer className="h-4 w-4 text-blue-600" /></button>)}</div>
-          <div className="flex-1" /><div className="flex items-center gap-3 pr-4">{(activeScreen === 'VA01' || activeScreen === 'XD01') && (<div className="flex items-center gap-2 mr-4"><input type="file" ref={bulkInputRef} onChange={handleBulkUpload} className="hidden" accept=".csv" /><button onClick={handleDownloadTemplate} className="px-3 h-7 bg-white border border-slate-300 rounded text-[9px] font-black uppercase">Template</button><button onClick={() => bulkInputRef.current?.click()} className="px-3 h-7 bg-[#1e3a8a] text-white rounded text-[9px] font-black uppercase shadow-sm">Bulk Upload</button></div>)}<button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all"><LogOut className="h-3.5 w-3.5" /> Log Off</button></div>
+          <div className="flex-1" /><div className="flex items-center gap-3 pr-4">{(activeScreen === 'VA01' || activeScreen === 'XD01') && (<div className="flex items-center gap-2 mr-4"><input type="file" ref={bulkInputRef} onChange={handleBulkUpload} className="hidden" accept=".csv" /><button onClick={handleDownloadTemplate} className="px-3 h-7 bg-white border border-slate-300 rounded text-[9px] font-black uppercase">Template</button><button onClick={() => bulkInputRef.current?.click()} className="px-3 h-7 bg-[#1e3a8a] text-white rounded text-[9px] font-black uppercase shadow-sm">Bulk Upload</button></div>)}<button onClick={() => executeTCode('/NEND')} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all"><LogOut className="h-3.5 w-3.5" /> Log Off</button></div>
         </div>
       </div>
       <div className="flex-1 flex overflow-hidden">
@@ -2453,7 +2560,7 @@ export default function DashboardPage() {
               {activeScreen === 'SE38' && <Se38Report search={se38Search} onSearchChange={setSe38Search} trips={allTrips} orders={allOrders} customers={accessibleCustomers} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} users={allUsers} />}
               {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               {!['TR21', 'TR24', 'WGPS24', 'SE38', 'ZCODE'].includes(activeScreen) && (
-                <div className="flex-1 flex flex-col overflow-y-auto green-scrollbar"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}</h2></div><div className="px-10 pb-20">{(activeScreen.endsWith('01') || formData.id || activeScreen === 'VA04') ? (<div className="max-w-full animate-slide-up">{activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}{activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}{activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} allTrips={allTrips} onPost={handleSave} onCancel={() => setFormData({})} />}{activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}</div>) : (<div className="space-y-8 animate-fade-in"><div className="bg-white p-6 border-b-2 border-slate-300 shadow-sm flex items-center gap-6"><label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Record:</label><input className="h-9 w-full max-xl border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE OR IDENTIFIER AND PRESS ENTER..." /></div><RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} /></div>)}</div></div>
+                <div className="flex-1 flex flex-col overflow-y-auto green-scrollbar"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}</h2></div><div className="px-10 pb-20">{(activeScreen.endsWith('01') || formData.id || activeScreen === 'VA04') ? (<div className="max-w-full animate-slide-up">{activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}{activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}{activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} allTrips={allTrips} onPost={handleSave} onCancel={() => setFormData({})} />}{activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}</div>) : (<div className="space-y-8 animate-fade-in"><div className="bg-white p-6 border-b-2 border-slate-300 shadow-sm flex items-center gap-6"><label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Record:</label><input id="sap-registry-search" className="h-9 w-full max-xl border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE OR IDENTIFIER AND PRESS ENTER..." /></div><RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} /></div>)}</div></div>
               )}
             </div>
           )}
