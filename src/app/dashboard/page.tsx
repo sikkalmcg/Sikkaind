@@ -473,6 +473,7 @@ function TripBoard({
   const [activeTab, setActiveTab] = React.useState('Open Orders'); 
   const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [isPopupOpen, setIsPopupOpen] = React.useState(false); 
+  const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle', isFixedRate: false, rate: 0, freightAmount: 0 }); 
   const [searchQuery, setSearchQuery] = React.useState(''); 
   const [fromDate, setFromDate] = React.useState(format(subDays(new Date(), 4), 'yyyy-MM-dd')); 
