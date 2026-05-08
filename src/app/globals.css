@@ -193,47 +193,29 @@
     print-color-adjust: exact !important;
   }
 
-  /* Force parent containers to be visible and flow correctly */
-  body > * {
-    display: none !important;
-  }
-
-  /* Select the Portal Modal specifically */
-  div.fixed.inset-0.z-\[200\] {
-    display: block !important;
-    position: static !important;
-    background: white !important;
-    width: auto !important;
-    height: auto !important;
-    overflow: visible !important;
-    inset: auto !important;
-  }
-
-  /* Hide the toolbar and backdrop overlay inside the portal */
-  div.fixed.inset-0.z-\[200\] > div:not(.flex-1) {
-    display: none !important;
-  }
-
-  /* Ensure the scrollable area is fully expanded for printing */
-  .flex-1.overflow-auto.p-12 {
-    display: block !important;
-    overflow: visible !important;
-    height: auto !important;
-    width: auto !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-  
-  /* Reset and Hide Everything except printable area */
+  /* Reset all elements to hidden by default */
   body * {
     visibility: hidden;
   }
-  
-  #printable-area, #printable-area * {
-    visibility: visible !important;
-    display: block !important;
+
+  /* Selectively show the printable area and its content tree */
+  #printable-area, 
+  #printable-area * {
+    visibility: visible;
   }
-  
+
+  /* Allow the portal containers to be rendered during the capture phase */
+  /* This ensures that the contents inside fixed/hidden divs flow correctly to the print job */
+  .fixed, [role="dialog"], .overflow-hidden, .overflow-auto {
+    position: static !important;
+    overflow: visible !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    visibility: visible !important;
+  }
+
+  /* Anchor the printable area to the top-left of the A4 page */
   #printable-area {
     position: absolute !important;
     left: 0 !important;
@@ -241,9 +223,8 @@
     width: 210mm !important;
     margin: 0 !important;
     padding: 0 !important;
+    transform: none !important; /* Neutralize preview zoom scaling */
     box-sizing: border-box !important;
-    background: white !important;
-    transform: none !important; /* Force reset preview scaling */
   }
 
   .print\:hidden {
