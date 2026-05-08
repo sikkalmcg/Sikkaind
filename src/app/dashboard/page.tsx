@@ -54,13 +54,11 @@ const MASTER_TCODES = [
 
 const SHARED_HUB_ID = 'Sikkaind'; 
 
-// --- UTILITIES ---
 const formatWeight = (val: any) => {
   const num = parseFloat(val);
   return isNaN(num) ? "0.000" : num.toFixed(3);
 };
 
-// Helper for complex order status calculation
 const getOrderStatus = (order: any, trips: any[]) => {
   const statuses = new Set<string>();
   const orderTrips = (trips || []).filter(t => t.saleOrderId === order.id);
@@ -91,8 +89,6 @@ const getOrderStatus = (order: any, trips: any[]) => {
   const result = Array.from(statuses).join(' + ');
   return result || 'Open';
 };
-
-// --- SHARED COMPONENTS ---
 
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
   return (
@@ -205,8 +201,6 @@ function FormSearchInput({ label, id, value, options, onChange, disabled, placeh
     </div>
   );
 }
-
-// --- MASTER FORMS ---
 
 function PlantForm({ data, onChange, disabled }: any) {
   return (
@@ -458,8 +452,6 @@ function CancelOrderForm({ data, onChange, allOrders, allTrips, onPost, onCancel
     </div>
   );
 }
-
-// --- LOGISTICAL MODULES ---
 
 function TripBoard({ 
   orders, trips, vendors, plants, companies, customers, onStatusUpdate, 
@@ -830,7 +822,6 @@ function TripBoard({
             icon: { url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) }
           });
 
-          // Live Hover Tooltip
           const infoWindow = new window.google.maps.InfoWindow();
           vMarker.addListener('mouseover', () => {
             geocoder.geocode({ location: vehiclePos }, (results: any, status: any) => {
@@ -858,7 +849,6 @@ function TripBoard({
             }, (result: any, status: any) => {
               if (status === 'OK') {
                 directionsRenderer.setDirections(result);
-                // ETA Calculation: Distance (m) / Speed (30km/h = 500m/min)
                 const remainingDistance = result.routes[0].legs[1]?.distance.value || 0;
                 const minutes = Math.round(remainingDistance / 500);
                 const h = Math.floor(minutes / 60);
@@ -1063,7 +1053,7 @@ function TripBoard({
             )}
           </div>
           <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4 shrink-0">
-            <Button onClick={() => setIsTrackModePopupOpen(false)} variant="outline" className="h-10 px-8 text-[11px] font-black uppercase rounded-none">Exit</Button>
+            <Button onClick={() => setTrackModeSettings(false)} variant="outline" className="h-10 px-8 text-[11px] font-black uppercase rounded-none">Exit</Button>
             <Button onClick={handleTrackModePost} className="h-10 px-12 bg-blue-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg">Post</Button>
           </div>
         </DialogContent>
@@ -1704,7 +1694,6 @@ function GpsTrackingHub({ settings, settingsRef, gpsData, loading }: any) {
     });
   }, [gpsData, activeTab, settings, handleVehicleSelection]);
 
-  // Effect to re-trigger geocoding and update content if selected vehicle data changes (every 30s polling)
   React.useEffect(() => {
     if (selectedVehicle) {
       const updated = gpsData.find((v: any) => v.vehicleNumber === selectedVehicle.vehicleNumber);
@@ -1937,7 +1926,6 @@ function Se38Report({ search, onSearchChange, trips, orders, customers, vendors,
     const start = startOfDay(new Date(search.from));
     const end = endOfDay(new Date(search.to));
 
-    // Data Source Rule: Fetch from TR21 records (trips)
     const filtered = (trips || []).filter((t: any) => {
       const tripDate = new Date(t.createdAt);
       const matchPlant = t.plantCode === search.plant;
@@ -2091,8 +2079,10 @@ function Se38Report({ search, onSearchChange, trips, orders, customers, vendors,
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-6">
             <div className="flex flex-col gap-6">
               <FormSelect label="PLANT" value={search.plant} options={(plants || []).map((p: any) => p.plantCode)} onChange={(v: string) => onSearchChange({ ...search, plant: v })} placeholder="Select Plant..." />
-              <FormInput label="From Date" type="date" value={search.from} onChange={(v: string) => onSearchChange({ ...search, from: v })} />
-              <FormInput label="To Date" type="date" value={search.to} onChange={(v: string) => onSearchChange({ ...search, to: v })} />
+              <div className="space-y-4">
+                 <FormInput label="From Date" type="date" value={search.from} onChange={(v: string) => onSearchChange({ ...search, from: v })} />
+                 <FormInput label="To Date" type="date" value={search.to} onChange={(v: string) => onSearchChange({ ...search, to: v })} />
+              </div>
             </div>
           </div>
         </SectionGrouping>
@@ -2153,8 +2143,6 @@ function ZCodeRegistry({ tcodes, onExecute }: any) {
     </div>
   );
 }
-
-// --- MAIN PAGE ---
 
 export default function DashboardPage() {
   const router = useRouter(); 
@@ -2230,7 +2218,7 @@ export default function DashboardPage() {
 
   React.useEffect(() => {
     fetchGps();
-    const i = setInterval(fetchGps, 30000); // Poll every 30s
+    const i = setInterval(fetchGps, 30000); 
     return () => clearInterval(i);
   }, [fetchGps]);
 
@@ -2383,7 +2371,6 @@ export default function DashboardPage() {
     }
     if (activeScreen === 'VA01') { const validation = await validateOrder(formData); if (!validation.valid) { setStatusMsg({ text: `Rejection: ${validation.reason}`, type: 'error' }); return; } }
     
-    // VA02 Reopen Logic: If user saves a short-closed order, revert status to Active/Open
     if (activeScreen === 'VA02' && formData.status === 'Short closed') {
       formData.status = 'Active';
     }
@@ -2465,10 +2452,8 @@ export default function DashboardPage() {
   const getRegistryList = () => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) return accessibleCustomers; if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; };
   const handleSearchIdEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const item = (getRegistryList() || []).find((i: any) => (i.plantCode || i.customerCode || i.saleOrder || i.username || i.id).toString().toUpperCase() === searchId.toUpperCase()); if (item) { setFormData(item); setStatusMsg({ text: 'Record Loaded', type: 'success' }); } else setStatusMsg({ text: 'Not Found', type: 'error' }); } };
 
-  // --- SAP GLOBAL SHORTCUT LOGIC ---
   React.useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
-      // SAP Navigation & Control Handlers
       if (e.key === 'F3' || e.key === 'F7') {
         e.preventDefault();
         handleBack();
@@ -2476,8 +2461,6 @@ export default function DashboardPage() {
       
       if (e.key === 'F8') {
         e.preventDefault();
-        // If on SE38 selection, handleExecute happens inside its own effect.
-        // For forms, handleSave.
         if (activeScreen.endsWith('01') || activeScreen.endsWith('02') || activeScreen === 'VA04') {
           handleSave();
         }
@@ -2512,7 +2495,6 @@ export default function DashboardPage() {
         setStatusMsg({ text: 'Search Assistance Active (F4)', type: 'info' });
       }
 
-      // Control Shortcuts
       if (e.ctrlKey || e.metaKey) {
         if (e.key.toLowerCase() === 's') {
           e.preventDefault();
@@ -2537,7 +2519,6 @@ export default function DashboardPage() {
     return () => window.removeEventListener('keydown', handleGlobalShortcuts);
   }, [handleBack, handleSave, activeScreen, executeTCode]);
 
-  // --- MONTH PICKER COMPONENT ---
   const MonthPicker = () => {
     const [viewYear, setViewYear] = React.useState(new Date().getFullYear());
     const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -2576,15 +2557,20 @@ export default function DashboardPage() {
 
   const handlePrintCn = () => {
     if (isAddressDirty) return;
+    const originalTitle = document.title;
+    const cnNo = selectedTripForPreview?.cnNo || 'CN_DOCUMENT';
+    document.title = cnNo;
     window.print();
+    setTimeout(() => { document.title = originalTitle; }, 1000);
   };
 
   const handleDownloadCn = () => {
     if (isAddressDirty) return;
     const originalTitle = document.title;
-    document.title = `${selectedTripForPreview?.cnNo || 'Consignment_Note'}`;
+    const cnNo = selectedTripForPreview?.cnNo || 'CN_DOCUMENT';
+    document.title = cnNo;
     window.print();
-    document.title = originalTitle;
+    setTimeout(() => { document.title = originalTitle; }, 1000);
   };
 
   return (
@@ -2667,16 +2653,21 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-[200] bg-[#525659] flex flex-col font-mono animate-fade-in overflow-hidden">
            <div className="bg-[#c5e0b4] border-b border-slate-400 h-9 flex items-center justify-between px-4 shrink-0"><div className="text-[11px] font-black uppercase tracking-widest text-[#1e3a8a]">PDF Preview Portal</div><button onClick={() => setIsPdfPreviewOpen(false)} className="text-slate-600 hover:text-red-600 transition-colors"><X className="h-4 w-4" /></button></div>
            <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg"><div className="flex items-center gap-6"><span className="text-white text-[11px] font-bold">1 of 3</span><div className="h-4 w-px bg-white/20" /><div className="flex items-center gap-3"><button onClick={() => setPdfZoom(Math.max(0.5, pdfZoom - 0.1))} className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button><span className="text-white text-[11px] font-bold w-12 text-center">{Math.round(pdfZoom * 100)}%</span><button onClick={() => setPdfZoom(Math.min(2, pdfZoom + 0.1))} className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></div><div className="flex items-center gap-6"><button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button><button onClick={handlePrintCn} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button><button onClick={handleDownloadCn} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button></div></div>
-           <div className="flex-1 overflow-auto p-12 flex justify-center custom-scrollbar" id="printable-area">
-             <div style={{ transform: `scale(${pdfZoom})`, transformOrigin: 'top center' }} className="transition-transform duration-200">
+           <div className="flex-1 overflow-auto p-12 flex justify-center custom-scrollbar">
+             <div 
+               id="printable-area"
+               style={{ transform: `scale(${pdfZoom})`, transformOrigin: 'top center' }} 
+               className="transition-transform duration-200 print:transform-none print:block"
+             >
                {[...Array(3)].map((_, i) => {
-                 const copyLabel = i === 0 ? 'CONSIGNEE COPY' : i === 1 ? 'DRIVER COPY' : 'CONSIGNOR COPY';
+                 const copyLabels = ['CONSIGNEE COPY', 'CONSIGNOR COPY', 'DRIVER COPY'];
+                 const copyLabel = copyLabels[i];
                  const tableItems = selectedTripForPreview.cnItems || [];
                  const totalUnits = tableItems.reduce((acc: number, itm: any) => acc + (parseFloat(itm.package) || 0), 0);
                  const uoms = Array.from(new Set(tableItems.map((itm: any) => itm.uom).filter(Boolean)));
                  const pkgDisplay = uoms.length > 1 ? `${totalUnits} Combined` : `${totalUnits} ${uoms[0] || 'MT'}`;
                  return (
-                   <div key={i} className={cn("w-[210mm] min-h-[297mm] p-[10mm] bg-white shadow-2xl mb-8 relative border border-black", i < 2 && "print:page-break-after-always")}>
+                   <div key={i} className={cn("w-[210mm] min-h-[297mm] p-[10mm] bg-white shadow-2xl mb-8 relative border border-black print:shadow-none print:m-0 print:border-black print:border", i < 2 && "print:page-break-after-always")}>
                       <div className="flex justify-between items-start mb-6">
                         <div className="flex gap-4">{selectedTripForPreview.carrier?.logo && <Image src={selectedTripForPreview.carrier.logo} alt="Logo" width={60} height={60} className="object-contain" unoptimized />}<div className="flex flex-col"><h1 className="text-[26px] font-black uppercase italic tracking-tighter leading-none">{selectedTripForPreview.carrier?.companyName || 'CARRIER NAME'}</h1><p className="text-[10px] font-bold mt-2 uppercase">{selectedTripForPreview.carrier?.address}, {selectedTripForPreview.carrier?.city}</p><div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>Mobile: {selectedTripForPreview.carrier?.mobile}</span><span>Email: {selectedTripForPreview.carrier?.email}</span></div><div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>GSTIN: {selectedTripForPreview.carrier?.gstin}</span><span>PAN: {selectedTripForPreview.carrier?.pan || 'N/A'}</span></div></div></div>
                         <div className="text-right">
@@ -2731,4 +2722,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
