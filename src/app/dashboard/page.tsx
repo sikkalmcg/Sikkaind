@@ -57,6 +57,18 @@ export default function DashboardPage() {
     return () => { unsubscribeTrips(); unsubscribeOrders(); };
   }, [db, homePlantFilter]);
 
+  const handleNavigate = (code: string) => {
+    const c = code.toUpperCase();
+    let target = c.substring(0, 2).toLowerCase();
+    
+    // SAP Routing logic for specialized T-Codes
+    if (c === 'TR21') target = 'tr21';
+    else if (c === 'TR24') target = 'tr24';
+    else if (c === 'WGPS24') target = 'wgsp24';
+
+    router.push(`/dashboard/${target}?tcode=${c}`);
+  };
+
   return (
     <div className="flex-1 flex overflow-hidden">
       <div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden shadow-sm">
@@ -65,7 +77,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex-1 overflow-y-auto green-scrollbar">
           {FAVORITE_TCODES.map(t => (
-            <div key={t.code} onClick={() => router.push(`/dashboard/${t.code.toLowerCase().substring(0, 2)}?tcode=${t.code}`)} className="flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all">
+            <div key={t.code} onClick={() => handleNavigate(t.code)} className="flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all">
               <span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a]">{t.code} - {t.description}</span>
               <div className="flex-1" />
               <t.icon className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600" />

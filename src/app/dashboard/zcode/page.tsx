@@ -21,6 +21,18 @@ export default function ZCodePage() {
   const [q, setQ] = React.useState('');
   const filtered = MASTER_TCODES.filter(t => t.code.includes(q.toUpperCase()) || t.description.toUpperCase().includes(q.toUpperCase()));
 
+  const handleNavigate = (code: string) => {
+    const c = code.toUpperCase();
+    let target = c.substring(0, 2).toLowerCase();
+    
+    // SAP Routing logic for specialized T-Codes
+    if (c === 'TR21') target = 'tr21';
+    else if (c === 'TR24') target = 'tr24';
+    else if (c === 'WGPS24') target = 'wgsp24';
+
+    router.push(`/dashboard/${target}?tcode=${c}`);
+  };
+
   return (
     <div className="flex-1 flex flex-col p-10 font-mono bg-[#f2f2f2] overflow-hidden">
       <div className="bg-white border border-slate-300 p-8 shadow-sm flex flex-col h-full rounded-sm">
@@ -44,7 +56,7 @@ export default function ZCodePage() {
             </thead>
             <tbody>
               {filtered.map(t => (
-                <tr key={t.code} onClick={() => router.push(`/dashboard/${t.code.toLowerCase().substring(0, 2)}?tcode=${t.code}`)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer transition-colors">
+                <tr key={t.code} onClick={() => handleNavigate(t.code)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer transition-colors">
                   <td className="p-4 border-r border-slate-200 text-[#0056d2] font-black text-xs">{t.code}</td>
                   <td className="p-4 border-r border-slate-200 font-bold text-xs uppercase text-slate-700">{t.description}</td>
                   <td className="p-4"><Badge variant="outline" className="text-[8px] font-black uppercase bg-slate-50 rounded-none">{t.module}</Badge></td>
