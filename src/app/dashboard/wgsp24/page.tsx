@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Radar, MapPin, Truck, Loader2, Settings, X, RefreshCw } from 'lucide-react';
+import { Radar, MapPin, Truck, Loader2, Settings, X, RefreshCw, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 
 /**
  * @fileOverview WGPS24 – Global Fleet Monitoring Node.
@@ -17,9 +18,35 @@ export default function WGPS24Page() {
   const [selectedVehicle, setSelectedVehicle] = React.useState<any>(null);
   const [resolvedAddress, setResolvedAddress] = React.useState<string>('RESOLVING GATEWAY...');
   
+  // Icon State
+  const [activeIcon, setActiveIcon] = React.useState<string>('https://maps.google.com/mapfiles/ms/icons/green-dot.png');
+  const [stoppedIcon, setStoppedIcon] = React.useState<string>('https://maps.google.com/mapfiles/ms/icons/red-dot.png');
+
+  const activeFileInputRef = React.useRef<HTMLInputElement>(null);
+  const stoppedFileInputRef = React.useRef<HTMLInputElement>(null);
+
   const mapRef = React.useRef<HTMLDivElement>(null);
   const googleMap = React.useRef<any>(null);
   const markersRef = React.useRef<any[]>([]);
+
+  // Handle Image Upload
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'ACTIVE' | 'STOPPED') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (file.size > 500 * 1024) {
+      alert("SATELLITE REGISTRY ERROR: FILE EXCEEDS 500KB LIMIT");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (type === 'ACTIVE') setActiveIcon(result);
+      else setStoppedIcon(result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Fetch GPS data from Wheelseye Proxy
   const fetchGps = React.useCallback(async () => {
@@ -87,9 +114,7 @@ export default function WGPS24Page() {
         map: googleMap.current,
         title: `${v.vehicleNumber} - ${v.status}`,
         icon: {
-          url: v.status === 'RUNNING' 
-            ? 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' 
-            : 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+          url: v.status === 'RUNNING' ? activeIcon : stoppedIcon,
           scaledSize: new window.google.maps.Size(32, 32)
         }
       });
@@ -100,7 +125,7 @@ export default function WGPS24Page() {
 
       markersRef.current.push(marker);
     });
-  }, [gpsData, view]);
+  }, [gpsData, view, activeIcon, stoppedIcon]);
 
   const handleSelectVehicle = (v: any) => {
     setSelectedVehicle(v);
@@ -256,8 +281,24 @@ export default function WGPS24Page() {
                             <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Active (Running) Node Icon</label>
                             <span className="text-[9px] text-slate-400 italic">Recommended: 64x64 PNG/SVG</span>
                          </div>
-                         <div className="border-2 border-dashed border-slate-200 p-12 text-center rounded-none bg-slate-50 hover:bg-slate-100 hover:border-blue-300 transition-all cursor-pointer group">
-                            <Truck className="h-10 w-10 mx-auto text-emerald-500 mb-4 group-hover:scale-110 transition-transform" />
+                         <input 
+                            type="file" 
+                            ref={activeFileInputRef} 
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={(e) => handleFileUpload(e, 'ACTIVE')}
+                         />
+                         <div 
+                            onClick={() => activeFileInputRef.current?.click()}
+                            className="border-2 border-dashed border-slate-200 p-12 text-center rounded-none bg-slate-50 hover:bg-slate-100 hover:border-blue-300 transition-all cursor-pointer group min-h-[180px] flex flex-col items-center justify-center"
+                         >
+                            {activeIcon.startsWith('data:') ? (
+                               <div className="relative w-16 h-16 mb-4">
+                                  <img src={activeIcon} alt="Active Preview" className="object-contain w-full h-full" />
+                               </div>
+                            ) : (
+                               <Truck className="h-10 w-10 mx-auto text-emerald-500 mb-4 group-hover:scale-110 transition-transform" />
+                            )}
                             <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-600">Upload Icon Registry</span>
                          </div>
                       </div>
@@ -266,8 +307,24 @@ export default function WGPS24Page() {
                             <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Stopped (Idle) Node Icon</label>
                             <span className="text-[9px] text-slate-400 italic">Recommended: 64x64 PNG/SVG</span>
                          </div>
-                         <div className="border-2 border-dashed border-slate-200 p-12 text-center rounded-none bg-slate-50 hover:bg-slate-100 hover:border-blue-300 transition-all cursor-pointer group">
-                            <Truck className="h-10 w-10 mx-auto text-red-500 mb-4 group-hover:scale-110 transition-transform" />
+                         <input 
+                            type="file" 
+                            ref={stoppedFileInputRef} 
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={(e) => handleFileUpload(e, 'STOPPED')}
+                         />
+                         <div 
+                            onClick={() => stoppedFileInputRef.current?.click()}
+                            className="border-2 border-dashed border-slate-200 p-12 text-center rounded-none bg-slate-50 hover:bg-slate-100 hover:border-blue-300 transition-all cursor-pointer group min-h-[180px] flex flex-col items-center justify-center"
+                         >
+                            {stoppedIcon.startsWith('data:') ? (
+                               <div className="relative w-16 h-16 mb-4">
+                                  <img src={stoppedIcon} alt="Stopped Preview" className="object-contain w-full h-full" />
+                               </div>
+                            ) : (
+                               <Truck className="h-10 w-10 mx-auto text-red-500 mb-4 group-hover:scale-110 transition-transform" />
+                            )}
                             <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-600">Upload Icon Registry</span>
                          </div>
                       </div>
