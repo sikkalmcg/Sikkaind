@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -10,7 +9,7 @@ export default function Footer() {
   const logoImg = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
 
   return (
-    <footer className="bg-slate-900 text-white pt-12 pb-8 overflow-hidden relative">
+    <footer className="bg-slate-900 text-white pt-12 pb-8 overflow-hidden relative border-t-4 border-[#eeb81c]">
       <div className="absolute top-0 right-0 p-24 opacity-[0.03] rotate-12">
         <Truck className="h-96 w-96" />
       </div>
@@ -32,7 +31,7 @@ export default function Footer() {
                 )}
               </Link>
             </div>
-            <p className="text-slate-400 text-sm leading-relaxed font-medium max-w-md">
+            <p className="text-slate-400 text-sm leading-relaxed font-medium max-w-md italic">
               A premier logistics and supply chain enterprise delivering excellence across India through intelligence-driven movement and modern infrastructure.
             </p>
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/5 w-fit">
@@ -55,7 +54,7 @@ export default function Footer() {
                 <div className="p-2 bg-white/5 rounded-lg"><Mail className="h-4 w-4 text-blue-400" /></div>
                 <div className="space-y-0.5">
                   <p className="text-[9px] font-black uppercase text-slate-500">Support</p>
-                  <p className="text-sm font-bold">queries@sikkaenterprises.com</p>
+                  <p className="text-sm font-bold lowercase">queries@sikkaenterprises.com</p>
                 </div>
               </li>
             </ul>
@@ -77,9 +76,14 @@ export default function Footer() {
         </div>
 
         <div className="pt-8 border-t border-white/5 flex flex-col items-center justify-center gap-2">
-          <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 text-center">
-            Copyright © {new Date().getFullYear()} <span className="text-[#1e3a8a] italic">SIKKA INDUSTRIES</span> <span className="text-slate-400 tracking-[0.2em]">& LOGISTICS</span>. All Rights Reserved.
-          </p>
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 text-center">
+              Copyright © {new Date().getFullYear()} 
+              <span className="text-[#1e3a8a] italic ml-2">SIKKA INDUSTRIES</span> 
+              <span className="text-slate-400 tracking-[0.2em] ml-1">& LOGISTICS</span>. 
+              All Rights Reserved.
+            </p>
+          </div>
         </div>
       </div>
     </footer>

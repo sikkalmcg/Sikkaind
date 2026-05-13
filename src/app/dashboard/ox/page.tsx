@@ -2,12 +2,11 @@
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Save, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Save, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 
 const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
@@ -53,15 +52,16 @@ export default function OXPage() {
               <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { const p = plants?.find(p => p.plantCode === searchId.toUpperCase()); if (p) setFormData(p); } }} placeholder="ENTER PLANT CODE AND PRESS ENTER..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 border-b border-slate-300 text-[10px] font-black uppercase">
-                  <tr><th className="p-4 border-r">Code</th><th className="p-4 border-r">Name</th><th className="p-4">Updated</th></tr>
+              <table className="w-full text-left text-[11px]">
+                <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase">
+                  <tr><th className="p-4 border-r">Code</th><th className="p-4 border-r">Name</th><th className="p-4 border-r">Location</th><th className="p-4">Updated</th></tr>
                 </thead>
                 <tbody>
                   {paginated.map(p => (
-                    <tr key={p.id} onClick={() => setFormData(p)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer text-[11px] font-bold uppercase">
+                    <tr key={p.id} onClick={() => setFormData(p)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer">
                       <td className="p-4 border-r text-[#0056d2] font-black">{p.plantCode}</td>
                       <td className="p-4 border-r">{p.plantName}</td>
+                      <td className="p-4 border-r text-slate-400 font-bold">{p.location || '-'}</td>
                       <td className="p-4 text-slate-400">{format(new Date(p.updatedAt || new Date()), 'dd-MM-yy HH:mm')}</td>
                     </tr>
                   ))}
@@ -69,8 +69,8 @@ export default function OXPage() {
               </table>
               <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
                  <div className="flex gap-2">
-                   <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} className="h-7 w-7 rounded-none p-0"><ChevronLeft className="h-3 w-3" /></Button>
-                   <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} className="h-7 w-7 rounded-none p-0"><ChevronRight className="h-3 w-3" /></Button>
+                   <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronLeft className="h-3 w-3" /></Button>
+                   <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronRight className="h-3 w-3" /></Button>
                  </div>
                  <span className="text-[9px] font-black uppercase text-slate-400">Page {currentPage} of {totalPages || 1}</span>
               </div>
@@ -78,17 +78,11 @@ export default function OXPage() {
           </div>
         ) : (
           <div className="animate-slide-up space-y-12 bg-white p-12 border border-slate-300 shadow-inner">
-             <div className="flex items-center gap-8">
-               <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Plant Code:</label>
-               <input value={formData.plantCode || ''} onChange={e => setFormData({...formData, plantCode: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
-             </div>
-             <div className="flex items-center gap-8">
-               <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Plant Name:</label>
-               <input value={formData.plantName || ''} onChange={e => setFormData({...formData, plantName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
-             </div>
-             <div className="flex items-center gap-8">
-               <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">City:</label>
-               <input value={formData.city || ''} onChange={e => setFormData({...formData, city: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
+             <div className="grid grid-cols-2 gap-y-6 gap-x-12">
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Plant Code:</label><input value={formData.plantCode || ''} onChange={e => setFormData({...formData, plantCode: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Plant Name:</label><input value={formData.plantName || ''} onChange={e => setFormData({...formData, plantName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">City:</label><input value={formData.city || ''} onChange={e => setFormData({...formData, city: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Location (Lat, Lng):</label><input value={formData.location || ''} onChange={e => setFormData({...formData, location: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" placeholder="28.6454, 77.4370" /></div>
              </div>
           </div>
         )}

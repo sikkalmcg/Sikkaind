@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -82,10 +81,14 @@ export default function DashboardPage() {
 
       <div className="flex-1 overflow-y-auto p-8 bg-[#f2f2f2] animate-fade-in">
         <div className="mb-10">
-          <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter leading-none">
-            Sikka Industries & Logistics
-          </h1>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2">Logistics Management Control Node</p>
+          <div className="flex flex-col">
+            <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter leading-none">
+              SIKKA INDUSTRIES
+            </h1>
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2">
+              & LOGISTICS • MANAGEMENT CONTROL NODE
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 border border-slate-300 shadow-sm mb-12">
@@ -103,7 +106,15 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          {[{ l: 'OPEN ORDER', c: homeStats.open, cl: 'text-blue-600' }, { l: 'LOADING', c: homeStats.loading, cl: 'text-orange-600' }, { l: 'IN-TRANSIT', c: homeStats.transit, cl: 'text-emerald-600' }, { l: 'ARRIVED', c: homeStats.arrived, cl: 'text-indigo-600' }, { l: 'POD', c: homeStats.pod, cl: 'text-purple-600' }, { l: 'REJECT', c: homeStats.reject, cl: 'text-red-600' }, { l: 'CLOSED', c: homeStats.closed, cl: 'text-slate-600' }].map(w => (
+          {[
+            { l: 'OPEN ORDER', c: homeStats.open, cl: 'text-blue-600' }, 
+            { l: 'LOADING', c: homeStats.loading, cl: 'text-orange-600' }, 
+            { l: 'IN-TRANSIT', c: homeStats.transit, cl: 'text-emerald-600' }, 
+            { l: 'ARRIVED', c: homeStats.arrived, cl: 'text-indigo-600' }, 
+            { l: 'POD', c: homeStats.pod, cl: 'text-purple-600' }, 
+            { l: 'REJECT', c: homeStats.reject, cl: 'text-red-600' }, 
+            { l: 'CLOSED', c: homeStats.closed, cl: 'text-slate-600' }
+          ].map(w => (
             <div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-all">
               <span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest h-6 flex items-center">{w.l}</span>
               <span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span>

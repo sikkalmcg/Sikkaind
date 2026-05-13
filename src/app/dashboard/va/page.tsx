@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -138,7 +137,7 @@ export default function VAPage() {
           <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
              <table className="w-full text-left text-[11px] min-w-[1200px]">
                 <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase text-slate-500">
-                  <tr><th className="p-4 border-r">Order No</th><th className="p-4 border-r">Status</th><th className="p-4 border-r">Consignor ID</th><th className="p-4 border-r">Consignee ID</th><th className="p-4 border-r">Ship To ID</th><th className="p-4 border-r">Plant</th><th className="p-4 border-r">Weight</th><th className="p-4">Updated</th></tr>
+                  <tr><th className="p-4 border-r">Order No</th><th className="p-4 border-r">Status</th><th className="p-4 border-r">Consignor Customer code</th><th className="p-4 border-r">Consignee Customer code</th><th className="p-4 border-r">Ship To Party Customer code</th><th className="p-4 border-r">Plant</th><th className="p-4 border-r">Weight</th><th className="p-4">Updated</th></tr>
                 </thead>
                 <tbody className="font-bold uppercase">
                   {paginated.map(o => (
@@ -174,8 +173,8 @@ export default function VAPage() {
              <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Total Weight:</label><input type="number" value={formData.weight || ''} onChange={e => setFormData({...formData, weight: e.target.value})} disabled={isReadOnly && getOrderStatus(formData) !== 'Open'} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" /></div>
              
              {/* ID Columns */}
-             <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignor ID:</label><input value={formData.consignorId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
-             <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignee ID:</label><input value={formData.consigneeId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
+             <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignor Customer code:</label><input value={formData.consignorId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
+             <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignee Customer code:</label><input value={formData.consigneeId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
              
              <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignor:</label>
                <select value={formData.consignor || ''} onChange={e => { setFormData({...formData, consignor: e.target.value}); handleLookupPartyId(e.target.value, 'consignor'); }} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 bg-white px-2 text-[11px] font-bold uppercase"><option value="">SELECT MASTER...</option>{customers?.filter(c => c.customerType === 'Consignor').map(c => <option key={c.id} value={c.customerName + ' - ' + c.city}>{c.customerName} - {c.city}</option>)}</select>
