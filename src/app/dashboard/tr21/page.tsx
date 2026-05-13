@@ -26,15 +26,11 @@ const formatWeight = (val: any) => {
 export default function TR21Page() {
   const router = useRouter();
   const db = useFirestore();
+  const [mounted, setMounted] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('Open Orders');
   const [currentPage, setCurrentPage] = React.useState(1);
-  const [selectedItem, setSelectedOrder] = React.useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [showAssign, setShowAssign] = React.useState(false);
-  const [showStatusUpdate, setShowStatusUpdate] = React.useState(false);
-  const [nextStatus, setNextStatus] = React.useState('');
-  const [statusDate, setStatusDate] = React.useState(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
-  const [showCnPreview, setShowCnPreview] = React.useState(false);
-  const [cnData, setCnData] = React.useState<any>({});
   
   // Assign Portal State
   const [assignData, setAssignData] = React.useState<any>({
@@ -42,7 +38,7 @@ export default function TR21Page() {
     driverMobile: '',
     fleetType: 'Own Vehicle',
     assignQty: 0,
-    assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+    assignDate: '',
     mode: 'ROAD',
     via: '',
     vendorId: '',
@@ -51,17 +47,18 @@ export default function TR21Page() {
     isFixRate: false
   });
 
+  React.useEffect(() => {
+    setMounted(true);
+    setAssignData(prev => ({ ...prev, assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }));
+  }, []);
+
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
   const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
-  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
-  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: vendors } = useCollection(vendorsQuery);
-  const { data: customers } = useCollection(customersQuery);
-  const { data: companies } = useCollection(companiesQuery);
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
 
@@ -102,33 +99,26 @@ export default function TR21Page() {
 
   const handlePostAssignment = () => {
     if (!assignData.vehicleNumber || !assignData.assignQty) return alert('Mandatory registry nodes missing');
-    if (assignData.assignQty > selectedItem.balance) return alert('Assignment exceeds available balance registry');
-    if (assignData.mode !== 'ROAD' && !assignData.via) return alert('Multimodal VIA path mandatory');
-
+    if (assignData.assignQty > selectedOrder.balance) return alert('Assignment exceeds available balance registry');
+    
     // Trip ID: Prefix T + 9 unique digits
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
     
-    // Check for duplicate Trip ID (local check for UX)
-    if (trips?.some(t => t.tripId === tripId)) {
-       handlePostAssignment(); // Retry once
-       return;
-    }
-
     const selectedVendor = vendors?.find(v => v.id === assignData.vendorId);
 
     const newTrip = {
       id: crypto.randomUUID(),
       tripId,
-      saleOrderId: selectedItem.id,
-      saleOrderNumber: selectedItem.saleOrder,
-      plantCode: selectedItem.plantCode,
-      consignor: selectedItem.consignor,
-      consignorId: selectedItem.consignorId,
-      consignee: selectedItem.consignee,
-      consigneeId: selectedItem.consigneeId,
-      shipToParty: selectedItem.shipToParty,
-      shipToPartyId: selectedItem.shipToPartyId,
-      destination: selectedItem.destination,
+      saleOrderId: selectedOrder.id,
+      saleOrderNumber: selectedOrder.saleOrder,
+      plantCode: selectedOrder.plantCode,
+      consignor: selectedOrder.consignor,
+      consignorId: selectedOrder.consignorId,
+      consignee: selectedOrder.consignee,
+      consigneeId: selectedOrder.consigneeId,
+      shipToParty: selectedOrder.shipToParty,
+      shipToPartyId: selectedOrder.shipToPartyId,
+      destination: selectedOrder.destination,
       vehicleNumber: assignData.vehicleNumber.toUpperCase(),
       driverMobile: assignData.driverMobile,
       vehicleType: assignData.fleetType,
@@ -148,21 +138,7 @@ export default function TR21Page() {
     setShowAssign(false);
   };
 
-  const handleRateChange = (rate: number) => {
-    setAssignData(prev => ({ 
-      ...prev, 
-      rate, 
-      freightAmount: prev.isFixRate ? prev.freightAmount : rate * prev.assignQty 
-    }));
-  };
-
-  const handleQtyChange = (qty: number) => {
-    setAssignData(prev => ({ 
-      ...prev, 
-      assignQty: qty, 
-      freightAmount: prev.isFixRate ? prev.freightAmount : prev.rate * qty 
-    }));
-  };
+  if (!mounted) return null;
 
   return (
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden">
@@ -195,8 +171,8 @@ export default function TR21Page() {
                     <th className="p-3 border-r">Ship to Party</th>
                     <th className="p-3 border-r">Route</th>
                     <th className="p-3 border-r text-center">Order Qty</th>
-                    <th className="p-3 border-r text-center text-blue-600">Dispatched</th>
-                    <th className="p-3 border-r text-center text-emerald-600">Balance</th>
+                    <th className="p-3 border-r text-center text-blue-600">Dispatched Qty</th>
+                    <th className="p-3 border-r text-center text-emerald-600">Balance Qty</th>
                     <th className="p-3">Action</th>
                   </>
                 ) : (
@@ -243,7 +219,6 @@ export default function TR21Page() {
                       <td className="p-3 border-r font-black">{item.vehicleNumber}</td>
                       <td className="p-3 border-r text-center font-black">{formatWeight(item.assignWeight)}</td>
                       <td className="p-3">
-                         {/* Status specific actions (Arrived, Unload etc) would go here */}
                          <Button variant="outline" className="h-7 text-[9px] font-black rounded-none uppercase">Manage</Button>
                       </td>
                     </>
@@ -270,28 +245,26 @@ export default function TR21Page() {
            <DialogHeader>
              <DialogTitle className="text-sm font-black uppercase italic tracking-tighter border-b pb-2 flex justify-between items-center">
                 <span>Vehicle Node Assignment</span>
-                <span className="text-[#0056d2]">Order: {selectedItem?.saleOrder}</span>
+                <span className="text-[#0056d2]">Order: {selectedOrder?.saleOrder}</span>
              </DialogTitle>
            </DialogHeader>
            
            <div className="p-4 space-y-8">
-              {/* Top Summary Header */}
               <div className="grid grid-cols-3 gap-px bg-slate-200 border border-slate-200 shadow-sm">
                  <div className="bg-slate-50 p-3 space-y-1">
                     <span className="text-[8px] font-black text-slate-400 uppercase">Ship To Party</span>
-                    <p className="text-[10px] font-black truncate">{selectedItem?.shipToParty}</p>
+                    <p className="text-[10px] font-black truncate">{selectedOrder?.shipToParty}</p>
                  </div>
                  <div className="bg-slate-50 p-3 space-y-1">
-                    <span className="text-[8px] font-black text-slate-400 uppercase">Route (From - To)</span>
-                    <p className="text-[10px] font-black truncate">{selectedItem?.plantCode} - {selectedItem?.destination}</p>
+                    <span className="text-[8px] font-black text-slate-400 uppercase">Route</span>
+                    <p className="text-[10px] font-black truncate">{selectedOrder?.plantCode} - {selectedOrder?.destination}</p>
                  </div>
                  <div className="bg-slate-50 p-3 space-y-1">
-                    <span className="text-[8px] font-black text-slate-400 uppercase">Order Registry Qty</span>
-                    <p className="text-[10px] font-black">{formatWeight(selectedItem?.weight)} MT</p>
+                    <span className="text-[8px] font-black text-slate-400 uppercase">Order Qty</span>
+                    <p className="text-[10px] font-black">{formatWeight(selectedOrder?.weight)} MT</p>
                  </div>
               </div>
 
-              {/* Assignment Form */}
               <div className="grid grid-cols-2 gap-x-12 gap-y-6">
                  <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-500 uppercase">Vehicle Number *</label>
@@ -299,7 +272,7 @@ export default function TR21Page() {
                  </div>
                  <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-500 uppercase">Driver Mobile</label>
-                    <input value={assignData.driverMobile} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-8 w-full border border-slate-400 px-2 text-xs font-black outline-none focus:bg-yellow-50" />
+                    <input value={assignData.driverMobile} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-8 w-full border border-slate-400 px-2 text-xs font-black outline-none" />
                  </div>
                  <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label>
@@ -310,28 +283,10 @@ export default function TR21Page() {
                     </select>
                  </div>
                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">Assign Weight (MT) *</label>
-                    <input type="number" step="0.001" value={assignData.assignQty} onChange={e => handleQtyChange(parseFloat(e.target.value))} className="h-8 w-full border border-slate-400 px-2 text-xs font-black outline-none focus:bg-yellow-50" />
+                    <label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty (MT) *</label>
+                    <input type="number" step="0.001" value={assignData.assignQty} onChange={e => setAssignData({...assignData, assignQty: parseFloat(e.target.value)})} className="h-8 w-full border border-slate-400 px-2 text-xs font-black outline-none" />
                  </div>
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">Mode *</label>
-                    <select value={assignData.mode} onChange={e => setAssignData({...assignData, mode: e.target.value})} className="h-8 w-full border border-slate-400 bg-white px-2 text-xs font-black uppercase">
-                       <option value="ROAD">ROAD</option>
-                       <option value="ROAD FROM RAIL">ROAD FROM RAIL</option>
-                       <option value="ROAD FROM SHIP">ROAD FROM SHIP</option>
-                       <option value="ROAD FROM AIR">ROAD FROM AIR</option>
-                    </select>
-                 </div>
-                 <div className="space-y-1">
-                    <label className={cn("text-[10px] font-black uppercase", assignData.mode === 'ROAD' ? "text-slate-200" : "text-slate-500")}>VIA Registry (Mandatory)</label>
-                    <input disabled={assignData.mode === 'ROAD'} value={assignData.via} onChange={e => setAssignData({...assignData, via: e.target.value.toUpperCase()})} className="h-8 w-full border border-slate-400 px-2 text-xs font-black uppercase outline-none disabled:bg-slate-100" />
-                 </div>
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">Assign Date Time *</label>
-                    <input type="datetime-local" value={assignData.assignDate} onChange={e => setAssignData({...assignData, assignDate: e.target.value})} className="h-8 w-full border border-slate-400 px-2 text-xs font-black outline-none" />
-                 </div>
-
-                 {/* Market Vehicle Section */}
+                 
                  {assignData.fleetType === 'Market Vehicle' && (
                    <>
                      <div className="space-y-1">
@@ -343,7 +298,7 @@ export default function TR21Page() {
                      </div>
                      <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-500 uppercase">Rate (Per MT)</label>
-                        <input disabled={assignData.isFixRate} type="number" value={assignData.rate} onChange={e => handleRateChange(parseFloat(e.target.value))} className="h-8 w-full border border-slate-400 px-2 text-xs font-black outline-none disabled:bg-slate-100" />
+                        <input disabled={assignData.isFixRate} type="number" value={assignData.rate} onChange={e => setAssignData({...assignData, rate: parseFloat(e.target.value), freightAmount: parseFloat(e.target.value) * assignData.assignQty})} className="h-8 w-full border border-slate-400 px-2 text-xs font-black outline-none disabled:bg-slate-100" />
                      </div>
                      <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-500 uppercase">Freight Amount</label>
@@ -360,7 +315,7 @@ export default function TR21Page() {
               </div>
 
               <div className="flex justify-end gap-4 pt-4 border-t border-slate-200">
-                 <Button onClick={() => setShowAssign(false)} variant="outline" className="h-9 px-8 rounded-none text-[10px] font-black uppercase text-red-600 border-red-200 hover:bg-red-50">Cancel (Esc)</Button>
+                 <Button onClick={() => setShowAssign(false)} variant="outline" className="h-9 px-8 rounded-none text-[10px] font-black uppercase text-red-600 border-red-200 hover:bg-red-50">Cancel</Button>
                  <Button onClick={handlePostAssignment} className="h-9 px-12 rounded-none bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-lg">Post Assignment (F8)</Button>
               </div>
            </div>

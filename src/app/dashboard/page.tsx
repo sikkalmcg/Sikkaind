@@ -4,12 +4,12 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Grid2X2, Package, Truck, Radar, ShoppingBag, XCircle,
-  Calendar as CalendarIcon, Activity, BarChart3, Badge
+  Activity, BarChart3
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { format } from 'date-fns';
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const SHARED_HUB_ID = 'Sikkaind'; 
 
@@ -31,7 +31,6 @@ export default function DashboardPage() {
   const [counts, setCounts] = React.useState({ open: 0, loading: 0, transit: 0, arrived: 0, pod: 0 });
 
   React.useEffect(() => {
-    // Real-time synchronization for dashboard widgets
     const tripsRef = collection(db, 'users', SHARED_HUB_ID, 'trips');
     const ordersRef = collection(db, 'users', SHARED_HUB_ID, 'sales_orders');
 
@@ -61,7 +60,6 @@ export default function DashboardPage() {
     const c = code.toUpperCase();
     let target = c.substring(0, 2).toLowerCase();
     
-    // SAP Routing logic for specialized T-Codes
     if (c === 'TR21') target = 'tr21';
     else if (c === 'TR24') target = 'tr24';
     else if (c === 'WGPS24') target = 'wgsp24';

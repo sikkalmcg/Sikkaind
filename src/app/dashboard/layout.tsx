@@ -156,7 +156,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </div>
           <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-full">
-            {/* Standard SAP Toolbar Icons */}
             <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Save (F8)"><Save className="h-4 w-4" /></button>
             <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Back (F3)" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></button>
             <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Exit (Shift+F3)" onClick={() => router.push('/dashboard')}><ExitIcon className="h-4 w-4" /></button>
@@ -183,7 +182,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span className="shrink-0">{searchParams.get('tcode') || 'HOME'}</span>
           <span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'IDENTIFYING...')}</span>
         </div>
-        <div className="shrink-0 ml-4 hidden sm:block text-blue-400 italic">SIKKA INDUSTRIES & LOGISTICS</div>
+        <div className="shrink-0 ml-4 hidden sm:block text-blue-400 font-bold italic tracking-wider">SIKKA INDUSTRIES & LOGISTICS</div>
       </div>
     </div>
   );

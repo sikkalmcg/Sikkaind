@@ -43,7 +43,6 @@ export default function WGPS24Page() {
       });
     }
     
-    // Clear old markers if necessary (optional improvement)
     gpsData.forEach(v => {
       new window.google.maps.Marker({
         position: { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) },
