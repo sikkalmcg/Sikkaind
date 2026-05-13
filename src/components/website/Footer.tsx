@@ -6,10 +6,6 @@ import Image from 'next/image';
 import { Truck, Mail, Phone, MapPin, ShieldCheck } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
-/**
- * @fileOverview Website Footer.
- * Centralized corporate nodes and contact registry.
- */
 export default function Footer() {
   const logoImg = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
 
@@ -80,9 +76,9 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="pt-8 border-t border-white/5 flex flex-col items-center justify-center">
+        <div className="pt-8 border-t border-white/5 flex flex-col items-center justify-center gap-2">
           <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 text-center">
-            Copyright © {new Date().getFullYear()} Sikka Industries & Logistics.
+            Copyright © {new Date().getFullYear()} <span className="text-[#1e3a8a] italic">SIKKA INDUSTRIES</span> <span className="text-slate-400 tracking-[0.2em]">& LOGISTICS</span>. All Rights Reserved.
           </p>
         </div>
       </div>

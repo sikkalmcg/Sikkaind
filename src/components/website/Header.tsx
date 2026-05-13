@@ -41,7 +41,7 @@ export default function Header() {
                 <span className="text-[14px] md:text-[18px] font-black text-[#1e3a8a] uppercase italic tracking-tight leading-none">
                   SIKKA INDUSTRIES
                 </span>
-                <span className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
+                <span className="text-[9px] md:text-[11px] font-bold text-slate-500 uppercase tracking-[0.25em] mt-1">
                   & LOGISTICS
                 </span>
               </div>

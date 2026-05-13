@@ -47,7 +47,8 @@
         "pan": { "type": "string" },
         "email": { "type": "string" },
         "website": { "type": "string" },
-        "mobileNumbers": { "type": "array", "items": { "type": "string" } }
+        "mobileNumbers": { "type": "array", "items": { "type": "string" } },
+        "location": { "type": "string", "description": "Stored coordinates for map start points." }
       },
       "required": ["plantCode"]
     },
@@ -123,30 +124,17 @@
         "saleOrder": { "type": "string" },
         "saleOrderDate": { "type": "string" },
         "consignor": { "type": "string" },
+        "consignorId": { "type": "string" },
         "from": { "type": "string" },
         "consignee": { "type": "string" },
+        "consigneeId": { "type": "string" },
         "shipToParty": { "type": "string" },
+        "shipToPartyId": { "type": "string" },
         "destination": { "type": "string" },
-        "vehicleNumber": { "type": "string" },
-        "driverMobile": { "type": "string" },
-        "delayRemark": { "type": "string" },
-        "lrNo": { "type": "string" },
-        "lrDate": { "type": "string" },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "invoiceNumber": { "type": "string" },
-              "ewaybillNumber": { "type": "string" },
-              "product": { "type": "string" },
-              "unit": { "type": "string" },
-              "unitUom": { "type": "string" },
-              "weight": { "type": "string" },
-              "weightUom": { "type": "string" }
-            }
-          }
-        }
+        "weight": { "type": "string" },
+        "weightUom": { "type": "string" },
+        "status": { "type": "string" },
+        "shortClosedDate": { "type": "string" }
       },
       "required": ["plantCode", "saleOrder", "consignor"]
     },
@@ -160,49 +148,35 @@
         "saleOrderId": { "type": "string" },
         "saleOrderNumber": { "type": "string" },
         "plantCode": { "type": "string" },
+        "cnNumber": { "type": "string" },
+        "cnDate": { "type": "string" },
         "shipToParty": { "type": "string" },
         "route": { "type": "string" },
         "assignWeight": { "type": "number" },
-        "vehicleType": { "type": "string", "enum": ["OWN FLEET", "CONTRACT", "MARKET VEHICLE"] },
+        "vehicleType": { "type": "string" },
         "vehicleNumber": { "type": "string" },
-        "driverMobile": { "type": "string" },
+        "mode": { "type": "string" },
+        "via": { "type": "string" },
         "vendorName": { "type": "string" },
-        "rate": { "type": "number" },
-        "freightAmount": { "type": "number" },
-        "isFixedRate": { "type": "boolean" },
-        "delayRemark": { "type": "string" },
-        "status": { "type": "string", "enum": ["LOADING", "IN-TRANSIT", "ARRIVED", "POD", "REJECTION", "CLOSED"] },
+        "status": { "type": "string" },
+        "outDate": { "type": "string" },
+        "arrivedDate": { "type": "string" },
+        "closedDate": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["tripId", "saleOrderId", "vehicleNumber", "status"]
-    },
-    "PublicTracking": {
-      "title": "PublicTracking",
-      "type": "object",
-      "description": "Simplified node for public tracking queries.",
-      "properties": {
-        "id": { "type": "string" },
-        "type": { "type": "string", "enum": ["order", "trip"] },
-        "status": { "type": "string" },
-        "reference": { "type": "string" },
-        "delayRemark": { "type": "string" },
-        "details": { "type": "object" }
-      }
     }
   },
   "auth": {
     "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "/user_profiles/{userId}": { "schema": "UserProfile", "description": "User profile data." },
     "/user_registry/{userId}": { "schema": "UserRegistry", "description": "System Authorization." },
-    "/users/{userId}/plants/{plantId}": { "schema": "Plant", "description": "User-owned plants." },
-    "/users/{userId}/companies/{companyId}": { "schema": "Company", "description": "User-owned companies." },
-    "/users/{userId}/vendors/{vendorId}": { "schema": "Vendor", "description": "User-owned vendors." },
-    "/users/{userId}/customers/{customerId}": { "schema": "Customer", "description": "User-owned customers." },
-    "/users/{userId}/sales_orders/{orderId}": { "schema": "SalesOrder", "description": "User-owned sales orders." },
-    "/users/{userId}/trips/{tripId}": { "schema": "Trip", "description": "User-owned trip." },
-    "/public_orders/{orderNo}": { "schema": "PublicTracking", "description": "Public searchable order nodes." },
-    "/public_trips/{tripId}": { "schema": "PublicTracking", "description": "Public searchable trip nodes." }
+    "/users/Sikkaind/plants/{plantId}": { "schema": "Plant", "description": "Shared plants." },
+    "/users/Sikkaind/companies/{companyId}": { "schema": "Company", "description": "Shared companies." },
+    "/users/Sikkaind/vendors/{vendorId}": { "schema": "Vendor", "description": "Shared vendors." },
+    "/users/Sikkaind/customers/{customerId}": { "schema": "Customer", "description": "Shared customers." },
+    "/users/Sikkaind/sales_orders/{orderId}": { "schema": "SalesOrder", "description": "Shared sales orders." },
+    "/users/Sikkaind/trips/{tripId}": { "schema": "Trip", "description": "Shared trip." }
   }
 }

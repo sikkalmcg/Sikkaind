@@ -9,8 +9,7 @@ import {
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format, parse } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const MASTER_TCODES = [
@@ -83,8 +82,10 @@ export default function DashboardPage() {
 
       <div className="flex-1 overflow-y-auto p-8 bg-[#f2f2f2] animate-fade-in">
         <div className="mb-10">
-          <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter">Sikka Logistics Control Hub</h1>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">Real-time Enterprise Node</p>
+          <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter leading-none">
+            Sikka Industries & Logistics
+          </h1>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2">Logistics Management Control Node</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 border border-slate-300 shadow-sm mb-12">
