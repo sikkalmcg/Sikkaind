@@ -65,7 +65,7 @@ export default function VAPage() {
     }
 
     if (activeTCode === 'VA01' && orders?.some(o => o.saleOrder === formData.saleOrder)) {
-      return alert(`Not Allow duplicate entry Sale order ${formData.saleOrder} is already exist.`);
+      return alert(`Duplicate Sale Order ${formData.saleOrder} Error`);
     }
 
     const docId = formData.id || crypto.randomUUID();
