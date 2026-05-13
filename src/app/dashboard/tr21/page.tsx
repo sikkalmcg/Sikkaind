@@ -55,12 +55,19 @@ export default function TR21Page() {
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
   const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
+  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: vendors } = useCollection(vendorsQuery);
+  const { data: plants } = useCollection(plantsQuery);
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
+
+  const getRoute = (item: any) => {
+    const pCity = plants?.find(p => p.plantCode === item.plantCode)?.city || item.plantCode;
+    return `${pCity} - ${item.destination || '-'}`;
+  };
 
   const filteredData = React.useMemo(() => {
     if (!orders || !trips) return [];
@@ -101,9 +108,7 @@ export default function TR21Page() {
     if (!assignData.vehicleNumber || !assignData.assignQty) return alert('Mandatory registry nodes missing');
     if (assignData.assignQty > selectedOrder.balance) return alert('Assignment exceeds available balance registry');
     
-    // Trip ID: Prefix T + 9 unique digits
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
-    
     const selectedVendor = vendors?.find(v => v.id === assignData.vendorId);
 
     const newTrip = {
@@ -182,7 +187,7 @@ export default function TR21Page() {
                     <th className="p-3 border-r">Fleet Type</th>
                     <th className="p-3 border-r">Consignor</th>
                     <th className="p-3 border-r">Consignee</th>
-                    <th className="p-3 border-r">Destination</th>
+                    <th className="p-3 border-r">Route</th>
                     <th className="p-3 border-r">Vehicle No</th>
                     <th className="p-3 border-r text-center">Weight (MT)</th>
                     <th className="p-3">Action</th>
@@ -200,7 +205,7 @@ export default function TR21Page() {
                       <td className="p-3 border-r truncate max-w-[200px]">{item.consignor}</td>
                       <td className="p-3 border-r truncate max-w-[200px]">{item.consignee}</td>
                       <td className="p-3 border-r truncate max-w-[200px]">{item.shipToParty}</td>
-                      <td className="p-3 border-r truncate max-w-[150px]">{item.destination || '-'}</td>
+                      <td className="p-3 border-r truncate max-w-[200px]">{getRoute(item)}</td>
                       <td className="p-3 border-r text-center">{formatWeight(item.weight)}</td>
                       <td className="p-3 border-r text-center text-blue-600">{formatWeight(item.dispatched)}</td>
                       <td className="p-3 border-r text-center text-emerald-600 font-black">{formatWeight(item.balance)}</td>
@@ -215,7 +220,7 @@ export default function TR21Page() {
                       <td className="p-3 border-r">{item.vehicleType || 'OWN'}</td>
                       <td className="p-3 border-r truncate max-w-[200px]">{item.consignor}</td>
                       <td className="p-3 border-r truncate max-w-[200px]">{item.consignee}</td>
-                      <td className="p-3 border-r truncate max-w-[200px]">{item.destination}</td>
+                      <td className="p-3 border-r truncate max-w-[200px]">{getRoute(item)}</td>
                       <td className="p-3 border-r font-black">{item.vehicleNumber}</td>
                       <td className="p-3 border-r text-center font-black">{formatWeight(item.assignWeight)}</td>
                       <td className="p-3">
@@ -232,7 +237,14 @@ export default function TR21Page() {
         <div className="mt-4 bg-white border border-slate-300 p-2 flex items-center justify-between shadow-sm shrink-0">
           <div className="flex gap-2 items-center">
             <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronLeft className="h-3 w-3" /></Button>
-            <input type="number" min="1" max={totalPages} value={currentPage} onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none" />
+            <input 
+              type="number" 
+              min="1" 
+              max={totalPages} 
+              value={currentPage} 
+              onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} 
+              className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none focus:ring-1" 
+            />
             <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronRight className="h-3 w-3" /></Button>
           </div>
           <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Registry Page {currentPage} of {totalPages || 1}</span>
@@ -257,7 +269,7 @@ export default function TR21Page() {
                  </div>
                  <div className="bg-slate-50 p-3 space-y-1">
                     <span className="text-[8px] font-black text-slate-400 uppercase">Route</span>
-                    <p className="text-[10px] font-black truncate">{selectedOrder?.plantCode} - {selectedOrder?.destination}</p>
+                    <p className="text-[10px] font-black truncate">{getRoute(selectedOrder)}</p>
                  </div>
                  <div className="bg-slate-50 p-3 space-y-1">
                     <span className="text-[8px] font-black text-slate-400 uppercase">Order Qty</span>

@@ -72,7 +72,11 @@ export default function VAPage() {
     setFormData({});
   };
 
-  const filteredOrders = (orders || []).sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+  const filteredOrders = (orders || []).filter(o => {
+    if (!searchId) return true;
+    return o.saleOrder?.includes(searchId.toUpperCase()) || o.consignor?.toUpperCase().includes(searchId.toUpperCase());
+  }).sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+
   const paginated = filteredOrders.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const totalPages = Math.ceil(filteredOrders.length / PAGE_SIZE);
 
@@ -91,7 +95,7 @@ export default function VAPage() {
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
               <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Registry:</label>
-              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:bg-yellow-50" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER SALE ORDER NO..." />
+              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:bg-yellow-50" value={searchId} onChange={e => { setSearchId(e.target.value); setCurrentPage(1); }} placeholder="ENTER SALE ORDER NO..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
                <table className="w-full text-left text-[11px]">
@@ -110,6 +114,21 @@ export default function VAPage() {
                     ))}
                   </tbody>
                </table>
+               <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                 <div className="flex gap-2 items-center">
+                   <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronLeft className="h-3 w-3" /></Button>
+                   <input 
+                      type="number" 
+                      min="1" 
+                      max={totalPages} 
+                      value={currentPage} 
+                      onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} 
+                      className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none focus:ring-1" 
+                    />
+                   <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronRight className="h-3 w-3" /></Button>
+                 </div>
+                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Registry Page {currentPage} of {totalPages || 1}</span>
+               </div>
             </div>
           </div>
         ) : activeTCode === 'VA04' ? (
@@ -129,17 +148,48 @@ export default function VAPage() {
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignor:</label>
                  <select value={formData.consignor || ''} onChange={e => { setFormData({...formData, consignor: e.target.value}); handleLookupPartyId(e.target.value, 'consignor'); }} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 bg-white px-2 text-[11px] font-bold uppercase"><option value="">SELECT MASTER...</option>{customers?.filter(c => c.customerType?.includes('Consignor')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}</select>
                </div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignor code:</label><input value={formData.consignorId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignor Customer code:</label><input value={formData.consignorId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
                
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignee:</label>
                  <select value={formData.consignee || ''} onChange={e => { setFormData({...formData, consignee: e.target.value}); handleLookupPartyId(e.target.value, 'consignee'); }} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 bg-white px-2 text-[11px] font-bold uppercase"><option value="">SELECT MASTER...</option>{customers?.filter(c => c.customerType?.includes('Consignee')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}</select>
                </div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignee code:</label><input value={formData.consigneeId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignee Customer code:</label><input value={formData.consigneeId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
 
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Ship To Party:</label>
                  <select value={formData.shipToParty || ''} onChange={e => { setFormData({...formData, shipToParty: e.target.value}); handleLookupPartyId(e.target.value, 'shipTo'); }} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 bg-white px-2 text-[11px] font-bold uppercase"><option value="">SELECT MASTER...</option>{customers?.filter(c => c.customerType?.includes('Consignee')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}</select>
                </div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Ship To code:</label><input value={formData.shipToPartyId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Ship To Customer code:</label><input value={formData.shipToPartyId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
+               
+               <div className="flex items-center gap-8">
+                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Booked Date Time:</label>
+                  <input 
+                    type="datetime-local" 
+                    value={formData.saleOrderDate || ''} 
+                    onChange={e => setFormData({...formData, saleOrderDate: e.target.value})} 
+                    disabled={isReadOnly} 
+                    className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" 
+                  />
+               </div>
+               <div className="flex items-center gap-8">
+                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Weight (MT):</label>
+                  <input 
+                    type="number" 
+                    step="0.001"
+                    value={formData.weight || ''} 
+                    onChange={e => setFormData({...formData, weight: e.target.value})} 
+                    disabled={isReadOnly && activeTCode !== 'VA02'} 
+                    className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" 
+                  />
+               </div>
+               <div className="flex items-center gap-8">
+                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Destination:</label>
+                  <input 
+                    value={formData.destination || ''} 
+                    onChange={e => setFormData({...formData, destination: e.target.value.toUpperCase()})} 
+                    disabled={isReadOnly} 
+                    className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" 
+                  />
+               </div>
              </div>
           </div>
         )}

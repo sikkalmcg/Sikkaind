@@ -35,8 +35,14 @@ export default function XKPage() {
     setFormData({});
   };
 
-  const paginated = (vendors || []).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const totalPages = Math.ceil((vendors || []).length / PAGE_SIZE);
+  const filteredVendors = (vendors || []).filter(v => {
+    if (!searchId) return true;
+    const term = searchId.toUpperCase();
+    return v.vendorCode?.includes(term) || v.vendorName?.toUpperCase().includes(term);
+  });
+
+  const paginated = filteredVendors.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const totalPages = Math.ceil(filteredVendors.length / PAGE_SIZE);
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono text-[#333]">
@@ -55,7 +61,7 @@ export default function XKPage() {
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
               <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Vendor Registry:</label>
-              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500 focus:bg-yellow-50 transition-all" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER VENDOR CODE OR NAME..." />
+              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500 focus:bg-yellow-50 transition-all" value={searchId} onChange={e => { setSearchId(e.target.value); setCurrentPage(1); }} placeholder="ENTER VENDOR CODE OR NAME..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
@@ -87,10 +93,17 @@ export default function XKPage() {
               <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
                  <div className="flex gap-2 items-center">
                    <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 rounded-none p-0 border-slate-300 hover:bg-white"><ChevronLeft className="h-3 w-3" /></Button>
-                   <input type="number" min="1" max={totalPages} value={currentPage} onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none focus:ring-1" />
+                   <input 
+                      type="number" 
+                      min="1" 
+                      max={totalPages} 
+                      value={currentPage} 
+                      onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} 
+                      className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none focus:ring-1" 
+                    />
                    <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 rounded-none p-0 border-slate-300 hover:bg-white"><ChevronRight className="h-3 w-3" /></Button>
                  </div>
-                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Registry Page {currentPage} of {totalPages || 1}</span>
+                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Page {currentPage} of {totalPages || 1}</span>
               </div>
             </div>
           </div>

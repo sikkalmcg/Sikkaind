@@ -43,8 +43,17 @@ export default function XDPage() {
     setFormData({});
   };
 
-  const paginated = (customers || []).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const totalPages = Math.ceil((customers || []).length / PAGE_SIZE);
+  const filteredCustomers = (customers || []).filter(c => {
+    if (!searchId) return true;
+    const term = searchId.toUpperCase();
+    return c.customerCode?.includes(term) || 
+           c.customerName?.toUpperCase().includes(term) ||
+           c.city?.toUpperCase().includes(term) ||
+           c.gstin?.includes(term);
+  });
+
+  const paginated = filteredCustomers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const totalPages = Math.ceil(filteredCustomers.length / PAGE_SIZE);
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
@@ -61,7 +70,7 @@ export default function XDPage() {
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
               <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Registry:</label>
-              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER CODE OR NAME..." />
+              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:bg-yellow-50" value={searchId} onChange={e => { setSearchId(e.target.value); setCurrentPage(1); }} placeholder="ENTER CODE OR NAME..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
                <table className="w-full text-left text-[11px]">
@@ -83,10 +92,17 @@ export default function XDPage() {
                <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
                  <div className="flex gap-2 items-center">
                    <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronLeft className="h-3 w-3" /></Button>
-                   <input type="number" min="1" max={totalPages} value={currentPage} onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black" />
+                   <input 
+                      type="number" 
+                      min="1" 
+                      max={totalPages} 
+                      value={currentPage} 
+                      onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} 
+                      className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none focus:ring-1" 
+                    />
                    <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronRight className="h-3 w-3" /></Button>
                  </div>
-                 <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Page {currentPage} of {totalPages || 1}</span>
+                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Page {currentPage} of {totalPages || 1}</span>
                </div>
             </div>
           </div>
@@ -99,6 +115,7 @@ export default function XDPage() {
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">City:</label><input value={formData.city || ''} onChange={e => setFormData({...formData, city: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">GSTIN:</label><input value={formData.gstin || ''} onChange={e => setFormData({...formData, gstin: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Mobile:</label><input value={formData.mobile || ''} onChange={e => setFormData({...formData, mobile: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Postal Code:</label><input value={formData.postalCode || ''} onChange={e => setFormData({...formData, postalCode: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
              </div>
           </div>
         )}
