@@ -40,7 +40,7 @@ export default function VAPage() {
         createdAt: new Date().toISOString()
       });
     }
-  }, [activeTCode]);
+  }, [activeTCode, formData.id]);
 
   const handleLookupPartyId = (name: string, type: 'consignor' | 'consignee' | 'shipTo') => {
     const party = customers?.find(c => c.customerName === name);
@@ -51,7 +51,7 @@ export default function VAPage() {
     if (type === 'consignee') updates.consigneeId = party.customerCode;
     if (type === 'shipTo') {
       updates.shipToPartyId = party.customerCode;
-      updates.destination = party.address || ''; // Auto-fill destination with ship-to address
+      updates.destination = party.address || '';
     }
     
     setFormData(prev => ({ ...prev, ...updates }));
@@ -60,29 +60,32 @@ export default function VAPage() {
   const handleSave = async () => {
     if (activeTCode === 'VA04') {
       const o = orders?.find(ord => ord.saleOrder === formData.saleOrder);
-      if (!o) return alert('Order not found');
+      if (!o) return alert('Order Registry Node not found');
       setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'Short closed' }, { merge: true });
-      alert('Order Short Closed');
+      alert('Order Status Updated: Short Closed');
       setFormData({});
       return;
     }
 
     if (activeTCode === 'VA01' && orders?.some(o => o.saleOrder === formData.saleOrder)) {
-      return alert(`Duplicate Sale Order ${formData.saleOrder} Error`);
+      return alert(`System Error: Duplicate Sale Order ${formData.saleOrder} Node found`);
     }
 
     const docId = formData.id || crypto.randomUUID();
-    let status = formData.status;
+    let status = formData.status || 'Open';
     if (activeTCode === 'VA02' && status === 'Short closed') status = 'Open';
 
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { 
+    const savePayload = { 
       ...formData, 
       id: docId, 
       status, 
       updatedAt: new Date().toISOString(),
       updatedBy: 'Sikkaind_System'
-    }, { merge: true });
+    };
+
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), savePayload, { merge: true });
     setFormData({});
+    alert('Registry Synchronized with Firestore');
   };
 
   const filteredOrders = (orders || []).filter(o => {
@@ -115,7 +118,7 @@ export default function VAPage() {
                   <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase text-slate-500">
                     <tr><th className="p-4 border-r">Order No</th><th className="p-4 border-r">Status</th><th className="p-4 border-r">Consignor</th><th className="p-4 border-r">Consignee</th><th className="p-4">Updated</th></tr>
                   </thead>
-                  <tbody className="font-bold uppercase">
+                  <tbody className="font-bold uppercase text-[12px]">
                     {paginated.map(o => (
                       <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer">
                         <td className="p-4 border-r text-[#0056d2] font-black">{o.saleOrder}</td>
