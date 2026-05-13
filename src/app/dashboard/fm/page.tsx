@@ -40,7 +40,7 @@ export default function FMPage() {
         <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">FM01/02/03 - Company Master Hub</h2>
         <div className="flex items-center gap-3">
           <Button onClick={handleSave} disabled={isReadOnly} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm"><Save className="h-3.5 w-3.5 mr-2" /> Save (F8)</Button>
-          <Button onClick={() => router.back()} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
+          <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
         </div>
       </div>
 
@@ -49,35 +49,29 @@ export default function FMPage() {
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
               <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Company:</label>
-              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { const c = companies?.find(c => c.companyCode === searchId.toUpperCase()); if (c) setFormData(c); } }} placeholder="ENTER CODE AND PRESS ENTER..." />
+              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER CODE AND PRESS ENTER..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
                <table className="w-full text-left text-[11px]">
                   <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase">
                     <tr><th className="p-4 border-r">Code</th><th className="p-4 border-r">Name</th><th className="p-4">Updated</th></tr>
                   </thead>
-                  <tbody>
+                  <tbody className="font-bold uppercase">
                     {paginated.map(c => (
                       <tr key={c.id} onClick={() => setFormData(c)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer">
                         <td className="p-4 border-r text-[#0056d2] font-black">{c.companyCode}</td>
                         <td className="p-4 border-r">{c.companyName}</td>
-                        <td className="p-4 text-slate-400">{format(new Date(c.updatedAt || new Date()), 'dd/MM/yy HH:mm')}</td>
+                        <td className="p-4 text-slate-300">{format(new Date(c.updatedAt || new Date()), 'dd-MM HH:mm')}</td>
                       </tr>
                     ))}
                   </tbody>
                </table>
-               <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-                  <div className="flex gap-2">
-                    <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronLeft className="h-3 w-3" /></Button>
-                    <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronRight className="h-3 w-3" /></Button>
-                  </div>
-                  <span className="text-[9px] font-black uppercase text-slate-400">Page {currentPage} of {totalPages || 1}</span>
-               </div>
             </div>
           </div>
         ) : (
           <div className="animate-slide-up space-y-8 bg-white p-12 border border-slate-300 shadow-inner">
              <div className="grid grid-cols-2 gap-y-6 gap-x-12">
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Company Code:</label><input value={formData.companyCode || ''} onChange={e => setFormData({...formData, companyCode: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" /></div>
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">GSTIN:</label><input value={formData.gstin || ''} onChange={e => setFormData({...formData, gstin: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" /></div>
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">PAN:</label><input value={formData.pan || ''} onChange={e => setFormData({...formData, pan: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" /></div>
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Mobile:</label><input value={formData.mobile || ''} onChange={e => setFormData({...formData, mobile: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" /></div>

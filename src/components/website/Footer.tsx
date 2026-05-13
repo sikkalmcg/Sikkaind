@@ -41,7 +41,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-6">Contact Node</h4>
+            <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-6">Contact Hub</h4>
             <ul className="space-y-5">
               <li className="flex items-start gap-4">
                 <div className="p-2 bg-white/5 rounded-lg"><Phone className="h-4 w-4 text-blue-400" /></div>
@@ -53,7 +53,7 @@ export default function Footer() {
               <li className="flex items-start gap-4">
                 <div className="p-2 bg-white/5 rounded-lg"><Mail className="h-4 w-4 text-blue-400" /></div>
                 <div className="space-y-0.5">
-                  <p className="text-[9px] font-black uppercase text-slate-500">Support</p>
+                  <p className="text-[9px] font-black uppercase text-slate-500">Support Node</p>
                   <p className="text-sm font-bold lowercase">queries@sikkaenterprises.com</p>
                 </div>
               </li>
@@ -61,11 +61,11 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-6">Corporate HUB</h4>
+            <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-6">Corporate Hub</h4>
             <div className="flex items-start gap-4 list-none">
               <div className="p-2 bg-white/5 rounded-lg"><MapPin className="h-4 w-4 text-blue-400" /></div>
               <div className="space-y-0.5">
-                <p className="text-[9px] font-black uppercase text-slate-500">Headquarters</p>
+                <p className="text-[9px] font-black uppercase text-slate-500">Gateway Node</p>
                 <p className="text-sm font-bold leading-relaxed text-slate-300 uppercase">
                   Ghaziabad – 201009,<br />
                   Uttar Pradesh, India
@@ -75,15 +75,13 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="pt-8 border-t border-white/5 flex flex-col items-center justify-center gap-2">
-          <div className="flex flex-col items-center gap-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 text-center">
-              Copyright © {new Date().getFullYear()} 
-              <span className="text-[#1e3a8a] italic ml-2">SIKKA INDUSTRIES</span> 
-              <span className="text-slate-400 tracking-[0.2em] ml-1">& LOGISTICS</span>. 
-              All Rights Reserved.
-            </p>
-          </div>
+        <div className="pt-8 border-t border-white/5 flex flex-col items-center justify-center gap-2 text-center">
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500">
+            Copyright © {new Date().getFullYear()} 
+            <span className="text-[#1e3a8a] italic mx-2">SIKKA INDUSTRIES</span> 
+            <span className="text-slate-400 tracking-[0.2em]">& LOGISTICS</span>. 
+            All Rights Reserved.
+          </p>
         </div>
       </div>
     </footer>

@@ -44,7 +44,7 @@ export default function XKPage() {
         <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">XK01/02/03 - Vendor Master Registry</h2>
         <div className="flex items-center gap-3">
           <Button onClick={handleSave} disabled={isReadOnly} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm"><Save className="h-3.5 w-3.5 mr-2" /> Save (F8)</Button>
-          <Button onClick={() => router.back()} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
+          <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
         </div>
       </div>
 
@@ -53,29 +53,30 @@ export default function XKPage() {
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
               <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Vendor:</label>
-              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { const v = vendors?.find(v => v.vendorCode === searchId.toUpperCase()); if (v) setFormData(v); } }} placeholder="ENTER VENDOR CODE AND PRESS ENTER..." />
+              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER VENDOR CODE OR NAME..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 border-b border-slate-300 text-[10px] font-black uppercase">
                   <tr><th className="p-4 border-r">Code</th><th className="p-4 border-r">Name</th><th className="p-4">Updated</th></tr>
                 </thead>
-                <tbody>
+                <tbody className="font-bold uppercase">
                   {paginated.map(v => (
-                    <tr key={v.id} onClick={() => setFormData(v)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer text-[11px] font-bold uppercase">
+                    <tr key={v.id} onClick={() => setFormData(v)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer text-[11px]">
                       <td className="p-4 border-r text-[#0056d2] font-black">{v.vendorCode}</td>
                       <td className="p-4 border-r">{v.vendorName}</td>
-                      <td className="p-4 text-slate-400">{format(new Date(v.updatedAt || new Date()), 'dd-MM-yy HH:mm')}</td>
+                      <td className="p-4 text-slate-400">{format(new Date(v.updatedAt || new Date()), 'dd-MM HH:mm')}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-                 <div className="flex gap-2">
-                   <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} className="h-7 w-7 rounded-none p-0"><ChevronLeft className="h-3 w-3" /></Button>
-                   <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} className="h-7 w-7 rounded-none p-0"><ChevronRight className="h-3 w-3" /></Button>
+                 <div className="flex gap-2 items-center">
+                   <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 rounded-none p-0"><ChevronLeft className="h-3 w-3" /></Button>
+                   <input type="number" min="1" max={totalPages} value={currentPage} onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none" />
+                   <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 rounded-none p-0"><ChevronRight className="h-3 w-3" /></Button>
                  </div>
-                 <span className="text-[9px] font-black uppercase text-slate-400">Page {currentPage} of {totalPages || 1}</span>
+                 <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Registry Page {currentPage} of {totalPages || 1}</span>
               </div>
             </div>
           </div>

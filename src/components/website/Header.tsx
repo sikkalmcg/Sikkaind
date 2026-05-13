@@ -37,7 +37,7 @@ export default function Header() {
               )}
               <div className="h-8 w-[1px] bg-slate-200" />
               <div className="flex flex-col">
-                <span className="text-[14px] md:text-[18px] font-black text-[#1e3a8a] uppercase italic tracking-tight leading-none">
+                <span className="text-[14px] md:text-[18px] font-black text-[#1e3a8a] uppercase italic tracking-tighter leading-none">
                   SIKKA INDUSTRIES
                 </span>
                 <span className="text-[9px] md:text-[11px] font-bold text-slate-500 uppercase tracking-[0.25em] mt-1">

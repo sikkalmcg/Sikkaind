@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Save, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Save, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
@@ -30,7 +30,7 @@ export default function XDPage() {
 
     if (activeTCode === 'XD01') {
       const exists = customers?.find(c => c.customerCode === formData.customerCode);
-      if (exists) return alert(`Not Allow duplicate entry: Customer ID ${formData.customerCode} is already exist in registry.`);
+      if (exists) return alert(`Not Allow duplicate entry Customer ID ${formData.customerCode} is already exist.`);
     }
 
     const docId = formData.id || crypto.randomUUID();
@@ -61,12 +61,12 @@ export default function XDPage() {
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
               <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Registry:</label>
-              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { const c = customers?.find(c => c.customerCode === searchId.toUpperCase() || c.customerName.includes(searchId.toUpperCase())); if (c) setFormData(c); } }} placeholder="ENTER CODE AND PRESS ENTER..." />
+              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER CODE OR NAME..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
                <table className="w-full text-left text-[11px]">
                   <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase text-slate-500">
-                    <tr><th className="p-4 border-r">Code</th><th className="p-4 border-r">Name</th><th className="p-4 border-r">City</th><th className="p-4">Updated</th></tr>
+                    <tr><th className="p-4 border-r">Code</th><th className="p-4 border-r">Name</th><th className="p-4 border-r">City</th><th className="p-4 border-r">GSTIN</th><th className="p-4">Updated</th></tr>
                   </thead>
                   <tbody className="font-bold uppercase">
                     {paginated.map(c => (
@@ -74,7 +74,8 @@ export default function XDPage() {
                         <td className="p-4 border-r text-[#0056d2] font-black">{c.customerCode}</td>
                         <td className="p-4 border-r">{c.customerName}</td>
                         <td className="p-4 border-r">{c.city}</td>
-                        <td className="p-4 text-slate-400">{format(new Date(c.updatedAt || new Date()), 'dd/MM/yy HH:mm')}</td>
+                        <td className="p-4 border-r text-slate-400">{c.gstin}</td>
+                        <td className="p-4 text-slate-300">{format(new Date(c.updatedAt || new Date()), 'dd/MM HH:mm')}</td>
                       </tr>
                     ))}
                   </tbody>
