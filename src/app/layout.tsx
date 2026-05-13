@@ -2,6 +2,7 @@ import './globals.css';
 import { Inter } from 'next/font/google';
 import { ReactNode } from 'react';
 import dynamic from 'next/dynamic';
+import Script from 'next/script';
 
 /**
  * @fileOverview Root Layout Node (Server Component).
@@ -25,6 +26,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <Script 
+          src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC_G7Iog7OdQvs2owQ8IBDSIZwF2l8Mnjk&libraries=places"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body className="font-body antialiased bg-background">
         <RootLayoutClient>{children}</RootLayoutClient>
       </body>

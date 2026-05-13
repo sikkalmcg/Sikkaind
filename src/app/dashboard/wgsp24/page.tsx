@@ -15,6 +15,7 @@ export default function WGPS24Page() {
   const [gpsData, setGpsData] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedVehicle, setSelectedVehicle] = React.useState<any>(null);
+  const [resolvedAddress, setResolvedAddress] = React.useState<string>('RESOLVING GATEWAY...');
   
   const mapRef = React.useRef<HTMLDivElement>(null);
   const googleMap = React.useRef<any>(null);
@@ -42,6 +43,19 @@ export default function WGPS24Page() {
     const interval = setInterval(fetchGps, 30000); // 30s heartbeat
     return () => clearInterval(interval);
   }, [fetchGps]);
+
+  // Reverse Geocoding Helper
+  const reverseGeocode = React.useCallback((lat: number, lng: number) => {
+    if (!window.google) return;
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng } }, (results: any, status: string) => {
+      if (status === 'OK' && results?.[0]) {
+        setResolvedAddress(results[0].formatted_address);
+      } else {
+        setResolvedAddress('COORDINATE LOCK ACQUIRED (ADDRESS UNAVAILABLE)');
+      }
+    });
+  }, []);
 
   // Handle Map and Marker Lifecycle
   React.useEffect(() => {
@@ -81,9 +95,7 @@ export default function WGPS24Page() {
       });
 
       marker.addListener('click', () => {
-        setSelectedVehicle(v);
-        googleMap.current.setCenter({ lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) });
-        googleMap.current.setZoom(14);
+        handleSelectVehicle(v);
       });
 
       markersRef.current.push(marker);
@@ -92,9 +104,11 @@ export default function WGPS24Page() {
 
   const handleSelectVehicle = (v: any) => {
     setSelectedVehicle(v);
+    setResolvedAddress('SYNCHRONIZING LOCATION...');
+    reverseGeocode(parseFloat(v.latitude), parseFloat(v.longitude));
     if (googleMap.current) {
       googleMap.current.setCenter({ lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) });
-      googleMap.current.setZoom(15);
+      googleMap.current.setZoom(14);
     }
   };
 
@@ -195,13 +209,13 @@ export default function WGPS24Page() {
                              </Badge>
                           </div>
                           <div className="space-y-1">
-                             <p className="text-[10px] font-bold text-slate-600 uppercase italic flex items-center gap-1">
-                               <MapPin className="h-3 w-3 text-red-500" /> {selectedVehicle.lastLocation}
+                             <p className="text-[10px] font-bold text-slate-700 uppercase italic flex items-start gap-2">
+                               <MapPin className="h-3 w-3 text-red-500 shrink-0 mt-0.5" /> 
+                               <span className="leading-tight">{resolvedAddress}</span>
                              </p>
-                             <div className="flex gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                <span>Latitude: {selectedVehicle.latitude}</span>
-                                <span>Longitude: {selectedVehicle.longitude}</span>
+                             <div className="flex gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest pt-1">
                                 <span>Speed: {selectedVehicle.speed} KM/H</span>
+                                <span>Altitude Sync: ACTIVE</span>
                              </div>
                           </div>
                        </div>
