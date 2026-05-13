@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  Grid2X2, Package, Truck, Radar, ShoppingBag, 
+  Grid2X2, Package, Truck, Radar, ShoppingBag, XCircle,
   Calendar as CalendarIcon, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
