@@ -64,11 +64,21 @@ export default function VAPage() {
       return;
     }
 
+    if (activeTCode === 'VA01' && orders?.some(o => o.saleOrder === formData.saleOrder)) {
+      return alert(`Not Allow duplicate entry Sale order ${formData.saleOrder} is already exist.`);
+    }
+
     const docId = formData.id || crypto.randomUUID();
     let status = formData.status;
     if (activeTCode === 'VA02' && status === 'Short closed') status = 'Open';
 
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { ...formData, id: docId, status, updatedAt: new Date().toISOString() }, { merge: true });
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { 
+      ...formData, 
+      id: docId, 
+      status, 
+      updatedAt: new Date().toISOString(),
+      updatedBy: 'Sikkaind_System'
+    }, { merge: true });
     setFormData({});
   };
 
@@ -85,7 +95,7 @@ export default function VAPage() {
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
         <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - Sale Order Registry</h2>
         <div className="flex items-center gap-3">
-          <Button onClick={handleSave} disabled={isReadOnly && activeTCode !== 'VA04'} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm"><Save className="h-3.5 w-3.5 mr-2" /> {activeTCode === 'VA04' ? 'Short Close' : 'Save (F8)'}</Button>
+          <Button onClick={handleSave} disabled={isReadOnly && activeTCode !== 'VA04'} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"><Save className="h-3.5 w-3.5 mr-2" /> {activeTCode === 'VA04' ? 'Short Close' : 'Save (F8)'}</Button>
           <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
         </div>
       </div>
@@ -117,14 +127,7 @@ export default function VAPage() {
                <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
                  <div className="flex gap-2 items-center">
                    <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronLeft className="h-3 w-3" /></Button>
-                   <input 
-                      type="number" 
-                      min="1" 
-                      max={totalPages} 
-                      value={currentPage} 
-                      onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} 
-                      className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none focus:ring-1" 
-                    />
+                   <input type="number" min="1" max={totalPages} value={currentPage} onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none" />
                    <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronRight className="h-3 w-3" /></Button>
                  </div>
                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Registry Page {currentPage} of {totalPages || 1}</span>
@@ -162,33 +165,15 @@ export default function VAPage() {
                
                <div className="flex items-center gap-8">
                   <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Booked Date Time:</label>
-                  <input 
-                    type="datetime-local" 
-                    value={formData.saleOrderDate || ''} 
-                    onChange={e => setFormData({...formData, saleOrderDate: e.target.value})} 
-                    disabled={isReadOnly} 
-                    className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" 
-                  />
+                  <input type="datetime-local" value={formData.saleOrderDate || ''} onChange={e => setFormData({...formData, saleOrderDate: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" />
                </div>
                <div className="flex items-center gap-8">
                   <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Weight (MT):</label>
-                  <input 
-                    type="number" 
-                    step="0.001"
-                    value={formData.weight || ''} 
-                    onChange={e => setFormData({...formData, weight: e.target.value})} 
-                    disabled={isReadOnly && activeTCode !== 'VA02'} 
-                    className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" 
-                  />
+                  <input type="number" step="0.001" value={formData.weight || ''} onChange={e => setFormData({...formData, weight: e.target.value})} disabled={isReadOnly && activeTCode !== 'VA02'} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" />
                </div>
                <div className="flex items-center gap-8">
                   <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Destination:</label>
-                  <input 
-                    value={formData.destination || ''} 
-                    onChange={e => setFormData({...formData, destination: e.target.value.toUpperCase()})} 
-                    disabled={isReadOnly} 
-                    className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" 
-                  />
+                  <input value={formData.destination || ''} onChange={e => setFormData({...formData, destination: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" />
                </div>
              </div>
           </div>
