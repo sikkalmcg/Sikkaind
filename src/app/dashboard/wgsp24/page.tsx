@@ -1,9 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { Radar, MapPin, Truck, Loader2, Settings, List } from 'lucide-react';
+import { Radar, MapPin, Truck, Loader2, Settings, List, X, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export default function WGPS24Page() {
   const [view, setView] = React.useState<'MAP' | 'SETTING'>('MAP');
