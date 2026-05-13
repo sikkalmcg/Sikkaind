@@ -49,7 +49,10 @@ export default function VAPage() {
     const updates: any = {};
     if (type === 'consignor') updates.consignorId = party.customerCode;
     if (type === 'consignee') updates.consigneeId = party.customerCode;
-    if (type === 'shipTo') updates.shipToPartyId = party.customerCode;
+    if (type === 'shipTo') {
+      updates.shipToPartyId = party.customerCode;
+      updates.destination = party.address || ''; // Auto-fill destination with ship-to address
+    }
     
     setFormData(prev => ({ ...prev, ...updates }));
   };
