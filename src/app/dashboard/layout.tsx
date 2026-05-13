@@ -5,7 +5,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { 
   X, LogOut, Grid2X2, Package, Edit3, Info, User, Users, ShoppingBag, 
-  Truck, Radar, FileText, ShieldAlert, XCircle
+  Truck, Radar, FileText, ShieldAlert, XCircle, Save, ArrowLeft, LogOut as ExitIcon, Printer, Search
 } from 'lucide-react';
 import { useUser, initializeFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -132,8 +132,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* SAP Navigation & T-Code Bar */}
       <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden">
-        <div className="flex items-center px-2 py-1 gap-4">
-          <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">
+        <div className="flex items-center px-2 py-1 gap-4 h-10">
+          <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300 h-full">
             {logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />}
           </div>
           <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative">
@@ -155,10 +155,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             )}
           </div>
-          <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
-            {/* Global F-Key Buttons (Representational) */}
-            <button className="p-1 hover:bg-slate-200 rounded" title="Back (F3)" onClick={() => router.back()}><Radar className="h-4 w-4 text-slate-600 rotate-180" /></button>
-            <button className="p-1 hover:bg-slate-200 rounded" title="Cancel (F12)" onClick={() => setTCode('')}><XCircle className="h-4 w-4 text-slate-600" /></button>
+          <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-full">
+            {/* Standard SAP Toolbar Icons */}
+            <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Save (F8)"><Save className="h-4 w-4" /></button>
+            <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Back (F3)" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></button>
+            <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Exit (Shift+F3)" onClick={() => router.push('/dashboard')}><ExitIcon className="h-4 w-4" /></button>
+            <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Cancel (F12)" onClick={() => setTCode('')}><XCircle className="h-4 w-4" /></button>
+            <div className="w-[1px] h-4 bg-slate-300 mx-2" />
+            <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Print (Ctrl+P)"><Printer className="h-4 w-4" /></button>
+            <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Find (Ctrl+F)"><Search className="h-4 w-4" /></button>
           </div>
           <div className="flex-1" />
           <button onClick={() => executeTCode('/NEND')} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all">

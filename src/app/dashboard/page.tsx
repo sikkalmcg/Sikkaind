@@ -4,22 +4,21 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Grid2X2, Package, Truck, Radar, ShoppingBag, XCircle,
-  Calendar as CalendarIcon, Activity, BarChart3
+  Calendar as CalendarIcon, Activity, BarChart3, Badge
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 
 const SHARED_HUB_ID = 'Sikkaind'; 
 
 const FAVORITE_TCODES = [
-  { code: 'OX01', description: 'PLANT MASTER', icon: Package },
-  { code: 'FM01', description: 'COMPANY MASTER', icon: Grid2X2 },
-  { code: 'XK01', description: 'VENDOR MASTER', icon: Package },
-  { code: 'XD01', description: 'CUSTOMER MASTER', icon: ShoppingBag },
-  { code: 'VA01', description: 'SALES ORDER CREATE', icon: ShoppingBag },
+  { code: 'OX03', description: 'PLANT MASTER PREVIEW', icon: Package },
+  { code: 'FM03', description: 'COMPANY MASTER PREVIEW', icon: Grid2X2 },
+  { code: 'XK03', description: 'VENDOR MASTER PREVIEW', icon: Package },
+  { code: 'XD03', description: 'CUSTOMER MASTER PREVIEW', icon: ShoppingBag },
+  { code: 'VA03', description: 'SALES ORDER PREVIEW', icon: ShoppingBag },
   { code: 'TR21', description: 'TRIP BOARD CONTROL', icon: Truck },
   { code: 'WGPS24', description: 'GPS TRACKING HUB', icon: Radar },
 ];
@@ -75,7 +74,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-8 bg-[#f2f2f2] animate-fade-in">
+      <div className="flex-1 overflow-y-auto p-8 bg-[#f2f2f2] animate-fade-in text-[#333]">
         <div className="mb-10 flex justify-between items-end">
           <div className="flex flex-col">
             <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter leading-none">
@@ -88,7 +87,7 @@ export default function DashboardPage() {
           <div className="flex gap-4">
              <div className="flex flex-col gap-1">
                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Global Plant Filter</label>
-               <select className="h-8 border border-slate-300 bg-white px-2 text-[10px] font-black uppercase outline-none focus:ring-1" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}>
+               <select className="h-8 border border-slate-300 bg-white px-2 text-[10px] font-black uppercase outline-none focus:ring-1 focus:bg-yellow-50" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}>
                  <option value="ALL">ALL NODES</option>
                  <option value="IMPC">PLANT IMPC</option>
                  <option value="ID20">PLANT ID20</option>

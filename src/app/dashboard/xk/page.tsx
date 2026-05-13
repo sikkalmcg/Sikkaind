@@ -39,12 +39,14 @@ export default function XKPage() {
   const totalPages = Math.ceil((vendors || []).length / PAGE_SIZE);
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
+    <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono text-[#333]">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
-        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">XK01/02/03 - Vendor Master Registry</h2>
+        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">
+          {activeTCode === 'XK01' ? 'XK01 - VENDOR MASTER: CREATE' : activeTCode === 'XK02' ? 'XK02 - VENDOR MASTER: CHANGE' : 'XK03 - VENDOR MASTER: DISPLAY'}
+        </h2>
         <div className="flex items-center gap-3">
-          <Button onClick={handleSave} disabled={isReadOnly} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm"><Save className="h-3.5 w-3.5 mr-2" /> Save (F8)</Button>
-          <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
+          <Button onClick={handleSave} disabled={isReadOnly} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"><Save className="h-3.5 w-3.5 mr-2" /> Save (F8)</Button>
+          <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300 hover:bg-slate-100 transition-all">Exit (F3)</Button>
         </div>
       </div>
 
@@ -52,43 +54,69 @@ export default function XKPage() {
         {!formData.id && activeTCode !== 'XK01' ? (
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
-              <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Vendor:</label>
-              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER VENDOR CODE OR NAME..." />
+              <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Vendor Registry:</label>
+              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500 focus:bg-yellow-50 transition-all" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER VENDOR CODE OR NAME..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 border-b border-slate-300 text-[10px] font-black uppercase">
-                  <tr><th className="p-4 border-r">Code</th><th className="p-4 border-r">Name</th><th className="p-4">Updated</th></tr>
-                </thead>
-                <tbody className="font-bold uppercase">
-                  {paginated.map(v => (
-                    <tr key={v.id} onClick={() => setFormData(v)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer text-[11px]">
-                      <td className="p-4 border-r text-[#0056d2] font-black">{v.vendorCode}</td>
-                      <td className="p-4 border-r">{v.vendorName}</td>
-                      <td className="p-4 text-slate-400">{format(new Date(v.updatedAt || new Date()), 'dd-MM HH:mm')}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[1200px]">
+                  <thead className="bg-slate-50 border-b border-slate-300 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                    <tr>
+                      <th className="p-4 border-r border-slate-200">Vendor Code</th>
+                      <th className="p-4 border-r border-slate-200">Name</th>
+                      <th className="p-4 border-r border-slate-200">Firm Name</th>
+                      <th className="p-4 border-r border-slate-200">Address</th>
+                      <th className="p-4 border-r border-slate-200">Route</th>
+                      <th className="p-4">Updated</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="font-bold uppercase text-[11px]">
+                    {paginated.map(v => (
+                      <tr key={v.id} onClick={() => setFormData(v)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer transition-colors">
+                        <td className="p-4 border-r border-slate-200 text-[#0056d2] font-black">{v.vendorCode}</td>
+                        <td className="p-4 border-r border-slate-200">{v.vendorName}</td>
+                        <td className="p-4 border-r border-slate-200 text-slate-600">{v.vendorFirmName || '-'}</td>
+                        <td className="p-4 border-r border-slate-200 text-slate-500 italic max-w-[200px] truncate">{v.address || '-'}</td>
+                        <td className="p-4 border-r border-slate-200 text-slate-600 font-black">{v.route || '-'}</td>
+                        <td className="p-4 text-slate-300">{format(new Date(v.updatedAt || new Date()), 'dd-MM-yy HH:mm')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
                  <div className="flex gap-2 items-center">
-                   <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 rounded-none p-0"><ChevronLeft className="h-3 w-3" /></Button>
-                   <input type="number" min="1" max={totalPages} value={currentPage} onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none" />
-                   <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 rounded-none p-0"><ChevronRight className="h-3 w-3" /></Button>
+                   <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 rounded-none p-0 border-slate-300 hover:bg-white"><ChevronLeft className="h-3 w-3" /></Button>
+                   <input type="number" min="1" max={totalPages} value={currentPage} onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none focus:ring-1" />
+                   <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 rounded-none p-0 border-slate-300 hover:bg-white"><ChevronRight className="h-3 w-3" /></Button>
                  </div>
-                 <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Registry Page {currentPage} of {totalPages || 1}</span>
+                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Registry Page {currentPage} of {totalPages || 1}</span>
               </div>
             </div>
           </div>
         ) : (
           <div className="animate-slide-up space-y-12 bg-white p-12 border border-slate-300 shadow-inner">
-             <div className="flex items-center gap-8">
-               <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Vendor Name:</label>
-               <input value={formData.vendorName || ''} onChange={e => setFormData({...formData, vendorName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
-             </div>
-             <div className="flex items-center gap-8">
-               <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Mobile:</label>
-               <input value={formData.mobile || ''} onChange={e => setFormData({...formData, mobile: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
+             <div className="grid grid-cols-2 gap-y-6 gap-x-16">
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Vendor Name <span className="text-red-500">*</span>:</label>
+                 <input value={formData.vendorName || ''} onChange={e => setFormData({...formData, vendorName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-96 border border-slate-400 px-2 text-[12px] font-black outline-none focus:bg-yellow-50 focus:ring-1 transition-all" />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Vendor Firm Name:</label>
+                 <input value={formData.vendorFirmName || ''} onChange={e => setFormData({...formData, vendorFirmName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-96 border border-slate-400 px-2 text-[12px] font-black outline-none focus:bg-yellow-50 focus:ring-1 transition-all" />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Mobile <span className="text-red-500">*</span>:</label>
+                 <input value={formData.mobile || ''} onChange={e => setFormData({...formData, mobile: e.target.value})} disabled={isReadOnly} className="h-8 w-96 border border-slate-400 px-2 text-[12px] font-black outline-none focus:bg-yellow-50 focus:ring-1 transition-all" />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Operating Route:</label>
+                 <input value={formData.route || ''} onChange={e => setFormData({...formData, route: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-96 border border-slate-400 px-2 text-[12px] font-black outline-none focus:bg-yellow-50 focus:ring-1 transition-all" placeholder="E.G. GHAZIABAD TO MITHAPUR" />
+               </div>
+               <div className="flex items-center gap-8 col-span-2">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Firm Address:</label>
+                 <textarea value={formData.address || ''} onChange={e => setFormData({...formData, address: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-16 w-[calc(96*2+64px)] border border-slate-400 px-2 py-1 text-[12px] font-black outline-none focus:bg-yellow-50 focus:ring-1 transition-all resize-none" />
+               </div>
              </div>
           </div>
         )}
