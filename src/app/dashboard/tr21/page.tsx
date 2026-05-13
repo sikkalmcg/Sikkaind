@@ -4,11 +4,11 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Printer, Save, ChevronLeft, ChevronRight, X, Download, AlertTriangle, 
-  CheckCircle, Search, Edit3, Trash2, MapPin, Truck, RefreshCw
+  CheckCircle, Search, Edit3, Trash2, MapPin, Truck, RefreshCw, LogOut, Radar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -117,6 +117,7 @@ export default function TR21Page() {
       tripId,
       saleOrderId: selectedOrder.id,
       saleOrderNumber: selectedOrder.saleOrder,
+      saleOrderDate: selectedOrder.saleOrderDate || '',
       plantCode: selectedOrder.plantCode,
       consignor: selectedOrder.consignor,
       consignorId: selectedOrder.consignorId,
@@ -137,11 +138,22 @@ export default function TR21Page() {
       freightAmount: assignData.freightAmount,
       status: 'LOADING',
       createdAt: assignData.assignDate,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      cnNumber: '',
+      cnDate: '',
+      invoiceNo: '',
+      ewaybillNo: '',
+      goodsDescription: 'GENERAL CARGO'
     };
 
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', newTrip.id), newTrip, { merge: true });
     setShowAssign(false);
+  };
+
+  const handleUnassign = (tripId: string) => {
+    if (confirm('SATELLITE LOGISTICS WARNING: ARE YOU SURE YOU WANT TO UNASSIGN THIS NODE?')) {
+      deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', tripId));
+    }
   };
 
   if (!mounted) return null;
@@ -165,7 +177,7 @@ export default function TR21Page() {
         </div>
 
         <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner">
-          <table className="w-full text-left border-collapse min-w-[1800px]">
+          <table className="w-full text-left border-collapse min-w-[2000px]">
             <thead className="bg-[#f8fafc] sticky top-0 z-20 border-b border-slate-300">
               <tr className="text-[9px] font-black uppercase text-slate-500">
                 {activeTab === 'Open Orders' ? (
@@ -179,6 +191,21 @@ export default function TR21Page() {
                     <th className="p-3 border-r text-center">Order Qty</th>
                     <th className="p-3 border-r text-center text-blue-600">Dispatched Qty</th>
                     <th className="p-3 border-r text-center text-emerald-600">Balance Qty</th>
+                    <th className="p-3">Action</th>
+                  </>
+                ) : activeTab === 'Loading' ? (
+                  <>
+                    <th className="p-3 border-r">Plant</th>
+                    <th className="p-3 border-r">Sale Order / Order Date time</th>
+                    <th className="p-3 border-r">Trip ID / Date time</th>
+                    <th className="p-3 border-r">Material</th>
+                    <th className="p-3 border-r">Consignee</th>
+                    <th className="p-3 border-r">Ship to Party</th>
+                    <th className="p-3 border-r">Route</th>
+                    <th className="p-3 border-r">Vehicle / Driver Mobile</th>
+                    <th className="p-3 border-r">Invoice / Ewaybill</th>
+                    <th className="p-3 border-r">CN Number / Date</th>
+                    <th className="p-3 border-r text-center">Assign Qty</th>
                     <th className="p-3">Action</th>
                   </>
                 ) : (
@@ -212,6 +239,52 @@ export default function TR21Page() {
                       <td className="p-3 border-r text-center text-emerald-600 font-black">{formatWeight(item.balance)}</td>
                       <td className="p-3">
                          <Button onClick={() => handleOpenAssign(item)} size="sm" className="h-7 text-[9px] font-black uppercase bg-[#0056d2] rounded-none">Assign</Button>
+                      </td>
+                    </>
+                  ) : activeTab === 'Loading' ? (
+                    <>
+                      <td className="p-3 border-r">{item.plantCode}</td>
+                      <td className="p-3 border-r">
+                        <div className="flex flex-col">
+                          <span className="text-[#0056d2] font-black">{item.saleOrderNumber}</span>
+                          <span className="text-[9px] text-slate-400">{item.saleOrderDate ? format(new Date(item.saleOrderDate), 'dd-MM-yy HH:mm') : '-'}</span>
+                        </div>
+                      </td>
+                      <td className="p-3 border-r">
+                        <div className="flex flex-col">
+                          <span className="font-black text-slate-700">{item.tripId}</span>
+                          <span className="text-[9px] text-slate-400">{item.createdAt ? format(new Date(item.createdAt), 'dd-MM-yy HH:mm') : '-'}</span>
+                        </div>
+                      </td>
+                      <td className="p-3 border-r text-[10px] truncate max-w-[150px]">{item.goodsDescription || 'GENERAL MATERIAL'}</td>
+                      <td className="p-3 border-r truncate max-w-[200px]">{item.consignee}</td>
+                      <td className="p-3 border-r truncate max-w-[200px]">{item.shipToParty}</td>
+                      <td className="p-3 border-r truncate max-w-[200px]">{getRoute(item)}</td>
+                      <td className="p-3 border-r">
+                        <div className="flex flex-col">
+                          <span className="font-black">{item.vehicleNumber}</span>
+                          <span className="text-[9px] text-slate-400">{item.driverMobile || '-'}</span>
+                        </div>
+                      </td>
+                      <td className="p-3 border-r">
+                        <div className="flex flex-col">
+                          <span className="text-[10px]">{item.invoiceNo || '-'}</span>
+                          <span className="text-[9px] text-slate-400">{item.ewaybillNo || '-'}</span>
+                        </div>
+                      </td>
+                      <td className="p-3 border-r">
+                        <div className="flex flex-col">
+                          <span className="text-[#1e3a8a] font-black">{item.cnNumber || '-'}</span>
+                          <span className="text-[9px] text-slate-400">{item.cnDate ? format(new Date(item.cnDate), 'dd-MM-yy') : '-'}</span>
+                        </div>
+                      </td>
+                      <td className="p-3 border-r text-center font-black">{formatWeight(item.assignWeight)}</td>
+                      <td className="p-3">
+                        <div className="flex gap-2">
+                           <Button size="sm" className="h-7 text-[8px] font-black uppercase bg-[#1e3a8a] rounded-none">Out</Button>
+                           <Button onClick={() => router.push(`/dashboard/tr24?q=${item.saleOrderNumber}`)} size="sm" variant="outline" className="h-7 text-[8px] font-black uppercase rounded-none px-2"><Radar className="h-3 w-3" /></Button>
+                           <Button onClick={() => handleUnassign(item.id)} size="sm" variant="ghost" className="h-7 text-[8px] font-black uppercase rounded-none text-red-600 hover:bg-red-50">Unassign</Button>
+                        </div>
                       </td>
                     </>
                   ) : (
