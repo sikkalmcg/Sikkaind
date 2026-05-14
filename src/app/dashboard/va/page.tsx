@@ -45,7 +45,9 @@ export default function VAPage() {
         shipToParty: '',
         from: '',
         destination: '',
+        consignorId: '',
         consigneeId: '',
+        shipToPartyId: '',
         plantCode: ''
       });
     }
@@ -57,7 +59,11 @@ export default function VAPage() {
   }, [customers, formData.plantCode]);
 
   const handleLookupPartyId = (name: string, type: 'consignor' | 'consignee' | 'shipTo') => {
-    const party = customers?.find(c => c.customerName === name);
+    // CRITICAL: Filter by current plant first to ensure correct record node is used (Prevents Dasna/Ghaziabad mismatch)
+    const party = customers?.find(c => 
+      c.customerName === name && 
+      c.plantCodes?.includes(formData.plantCode)
+    );
     if (!party) return;
 
     const updates: any = {};
@@ -89,7 +95,11 @@ export default function VAPage() {
     }
 
     // Mandatory Validations
-    const mandatory = ['plantCode', 'saleOrder', 'consignor', 'consignee', 'shipToParty', 'saleOrderDate', 'weight', 'destination', 'from', 'consigneeId'];
+    const mandatory = [
+      'plantCode', 'saleOrder', 'consignor', 'consignorId', 'consignee', 
+      'consigneeId', 'shipToParty', 'shipToPartyId', 'saleOrderDate', 
+      'weight', 'destination', 'from'
+    ];
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
       setErrors(missing);
@@ -179,12 +189,14 @@ export default function VAPage() {
         ) : (
           <div className="animate-slide-up space-y-12 bg-white p-12 border border-slate-300 shadow-inner">
              <div className="grid grid-cols-2 gap-y-6 gap-x-24">
+               {/* Balanced 6x2 Layout matching reference image */}
+               
                {/* Row 1 */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">PLANT CODE:</label>
                  <select 
                    value={formData.plantCode || ''} 
-                   onChange={e => setFormData({...formData, plantCode: e.target.value, consignor: '', consignee: '', shipToParty: '', from: '', destination: '', consigneeId: ''})} 
+                   onChange={e => setFormData({...formData, plantCode: e.target.value, consignor: '', consignee: '', shipToParty: '', from: '', destination: '', consignorId: '', consigneeId: '', shipToPartyId: ''})} 
                    disabled={isReadOnly} 
                    className={cn("h-8 w-80 border bg-white px-2 text-[12px] font-black outline-none", errors.includes('plantCode') && !formData.plantCode ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
@@ -216,6 +228,16 @@ export default function VAPage() {
                  </select>
                </div>
                <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR CUSTOMER CODE:</label>
+                 <input 
+                   value={formData.consignorId || ''} 
+                   readOnly 
+                   className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('consignorId') && !formData.consignorId ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
+               </div>
+
+               {/* Row 3 */}
+               <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase italic">FROM (CONSIGNOR CITY):</label>
                  <input 
                    value={formData.from || ''} 
@@ -223,8 +245,6 @@ export default function VAPage() {
                    className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('from') && !formData.from ? "border-red-500 bg-red-50" : "border-slate-400")} 
                  />
                </div>
-
-               {/* Row 3 */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNEE:</label>
                  <select 
@@ -237,6 +257,8 @@ export default function VAPage() {
                    {filteredCustomers?.filter(c => c.customerType?.includes('Consignee')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
                  </select>
                </div>
+
+               {/* Row 4 */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNEE CUSTOMER CODE:</label>
                  <input 
@@ -245,8 +267,6 @@ export default function VAPage() {
                    className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('consigneeId') && !formData.consigneeId ? "border-red-500 bg-red-50" : "border-slate-400")} 
                  />
                </div>
-
-               {/* Row 4 */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">SHIP TO PARTY:</label>
                  <select 
@@ -259,6 +279,16 @@ export default function VAPage() {
                    {filteredCustomers?.filter(c => c.customerType?.includes('Consignee')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
                  </select>
                </div>
+
+               {/* Row 5 */}
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">SHIP TO PARTY CUSTOMER CODE:</label>
+                 <input 
+                   value={formData.shipToPartyId || ''} 
+                   readOnly 
+                   className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('shipToPartyId') && !formData.shipToPartyId ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
+               </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">DESTINATION (CITY):</label>
                  <input 
@@ -268,17 +298,7 @@ export default function VAPage() {
                  />
                </div>
                
-               {/* Row 5 */}
-               <div className="flex items-center gap-8">
-                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">BOOKED DATE TIME:</label>
-                  <input 
-                    type="datetime-local" 
-                    value={formData.saleOrderDate || ''} 
-                    onChange={e => setFormData({...formData, saleOrderDate: e.target.value})} 
-                    disabled={isReadOnly} 
-                    className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('saleOrderDate') && !formData.saleOrderDate ? "border-red-500 bg-red-50" : "border-slate-400")} 
-                  />
-               </div>
+               {/* Row 6 */}
                <div className="flex items-center gap-8">
                   <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">WEIGHT (MT):</label>
                   <input 
@@ -290,6 +310,16 @@ export default function VAPage() {
                     className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('weight') && !formData.weight ? "border-red-500 bg-red-50" : "border-slate-400")} 
                   />
                </div>
+               <div className="flex items-center gap-8">
+                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">BOOKED DATE TIME:</label>
+                  <input 
+                    type="datetime-local" 
+                    value={formData.saleOrderDate || ''} 
+                    onChange={e => setFormData({...formData, saleOrderDate: e.target.value})} 
+                    disabled={isReadOnly} 
+                    className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('saleOrderDate') && !formData.saleOrderDate ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                  />
+               </div>
              </div>
           </div>
         )}
@@ -297,3 +327,4 @@ export default function VAPage() {
     </div>
   );
 }
+
