@@ -99,11 +99,19 @@ export default function XDPage() {
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
                <table className="w-full text-left text-[11px]">
                   <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase text-slate-500">
-                    <tr><th className="p-4 border-r">Code</th><th className="p-4 border-r">Name</th><th className="p-4 border-r">City</th><th className="p-4 border-r">GSTIN</th><th className="p-4">Updated</th></tr>
+                    <tr>
+                      <th className="p-4 border-r">Plant</th>
+                      <th className="p-4 border-r">Code</th>
+                      <th className="p-4 border-r">Name</th>
+                      <th className="p-4 border-r">City</th>
+                      <th className="p-4 border-r">GSTIN</th>
+                      <th className="p-4">Updated</th>
+                    </tr>
                   </thead>
                   <tbody className="font-bold uppercase">
                     {paginated.map(c => (
                       <tr key={c.id} onClick={() => setFormData(c)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer">
+                        <td className="p-4 border-r text-slate-500 font-bold">{Array.isArray(c.plantCodes) ? c.plantCodes.join(', ') : c.plantCodes || '-'}</td>
                         <td className="p-4 border-r text-[#0056d2] font-black">{c.customerCode}</td>
                         <td className="p-4 border-r">{c.customerName}</td>
                         <td className="p-4 border-r">{c.city}</td>
