@@ -161,10 +161,8 @@ export default function TR21Page() {
     return `${total} ${label}`;
   };
 
-  const calculateWeightTotal = (items: any[]) => {
-    if (!items || !items.length) return '0.000 MT';
-    const total = items.reduce((acc, curr) => acc + (parseFloat(curr.weight) || 0), 0);
-    return `${total.toFixed(3)} MT`;
+  const calculateWeightTotal = (trip: any) => {
+    return `${formatWeight(trip?.assignWeight)} MT`;
   };
 
   const handlePostAssignment = () => {
@@ -508,7 +506,7 @@ export default function TR21Page() {
       <Dialog open={showCNPreview} onOpenChange={setShowCNPreview}>
         <DialogContent className="max-w-[1000px] p-0 rounded-none border-none bg-white h-[95vh] overflow-y-auto font-mono no-scrollbar shadow-2xl">
           <DialogHeader className="sr-only">
-            <DialogTitle>CN Print Preview</DialogTitle>
+            <DialogTitle>CN Print Preview: {selectedTrip?.cnNumber}</DialogTitle>
           </DialogHeader>
           <div className="sticky top-0 bg-slate-50 border-b p-4 flex justify-between items-center z-[100] print:hidden">
             <h3 className="text-xs font-black uppercase italic text-slate-500">Official Document Preview: {selectedTrip?.cnNumber}</h3>
@@ -529,7 +527,7 @@ export default function TR21Page() {
                          <h2 className="text-xl font-black uppercase leading-none">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h2>
                          <p className="text-[9px] font-bold text-slate-700 uppercase leading-tight whitespace-pre-line">{carrier?.address || 'GHAZIABAD - 201009, UP'}</p>
                          <div className="text-[9px] font-black text-slate-800 space-y-0.5">
-                            <p>GSTIN: {carrier?.gstin || '-'}</p>
+                            <p>GSTIN: {carrier?.gstin || '-'} • PAN: {carrier?.pan || '-'}</p>
                             <p>MOB: {carrier?.mobile || '-'} • EMAIL: {carrier?.email}</p>
                             <p>WEB: {carrier?.website || '-'}</p>
                          </div>
@@ -555,6 +553,7 @@ export default function TR21Page() {
                       <tr className="bg-slate-50 border-b border-black font-black uppercase">
                          <th className="p-2 border-r border-black">Vehicle Number</th>
                          <th className="p-2 border-r border-black">Driver Mobile</th>
+                         <th className="p-2 border-r border-black">Mode</th>
                          <th className="p-2 border-r border-black">Payment Term</th>
                          <th className="p-2">Trip ID</th>
                       </tr>
@@ -563,6 +562,7 @@ export default function TR21Page() {
                       <tr>
                          <td className="p-2 border-r border-black">{selectedTrip?.vehicleNumber}</td>
                          <td className="p-2 border-r border-black">{selectedTrip?.driverMobile}</td>
+                         <td className="p-2 border-r border-black">{selectedTrip?.mode}</td>
                          <td className="p-2 border-r border-black">{selectedTrip?.paymentTerms}</td>
                          <td className="p-2">{selectedTrip?.tripId}</td>
                       </tr>
@@ -611,19 +611,15 @@ export default function TR21Page() {
                            <td className="p-2 border-r border-black uppercase">{item.ewaybillNo}</td>
                            <td className="p-2 border-r border-black uppercase italic leading-tight">{item.goodsDescription}</td>
                            <td className="p-2 border-r border-black text-center">{item.package} {item.packageUom}</td>
-                           <td className="p-2 text-center">{formatWeight(item.weight)} MT</td>
+                           <td className="p-2 text-center">{formatWeight(selectedTrip?.assignWeight)} MT</td>
                         </tr>
-                      ))}
-                      {/* Spacer rows */}
-                      {Array.from({length: Math.max(0, 8 - (selectedTrip?.items?.length || 0))}).map((_, i) => (
-                        <tr key={i} className="h-6 border-b border-black/10 last:border-b-0"><td className="p-2 border-r border-black"></td><td className="p-2 border-r border-black"></td><td className="p-2 border-r border-black"></td><td className="p-2 border-r border-black"></td><td className="p-2"></td></tr>
                       ))}
                    </tbody>
                    <tfoot className="border-t border-black bg-slate-50 font-black uppercase text-[10px]">
                       <tr>
                          <td colSpan={3} className="p-2 text-right border-r border-black">Total Quantity:</td>
                          <td className="p-2 text-center border-r border-black">{calculatePackageTotal(selectedTrip?.items)}</td>
-                         <td className="p-2 text-center">{calculateWeightTotal(selectedTrip?.items)}</td>
+                         <td className="p-2 text-center">{calculateWeightTotal(selectedTrip)}</td>
                       </tr>
                    </tfoot>
                 </table>
@@ -633,7 +629,7 @@ export default function TR21Page() {
                    <h4 className="bg-slate-50 border-b border-black p-2 font-black text-[10px] uppercase">Delivery Address:</h4>
                    <div className="p-3">
                       <textarea 
-                        value={customDeliveryAddress} 
+                        value={customDeliveryAddress || shipToProfile?.address || ''} 
                         onChange={e => setCustomDeliveryAddress(e.target.value.toUpperCase())}
                         className="w-full h-12 text-[10px] font-bold uppercase resize-none outline-none border-none print:h-auto overflow-hidden" 
                       />
@@ -649,14 +645,11 @@ export default function TR21Page() {
                       4. This is a computer-generated document requiring no physical signature for digital original validation.
                    </div>
                    <div className="flex justify-between items-end pt-4">
-                      <p className="text-[10px] font-black uppercase">Note: "This Consignment Note was generated digitally and is to be considered as original."</p>
+                      <div className="flex-1">
+                         <p className="text-[10px] font-black uppercase">Note: "This Consignment Note was generated digitally and is to be considered as original."</p>
+                      </div>
                       <div className="text-center w-48 border-t border-black pt-2 font-black text-[10px] uppercase">Authorized Signatory</div>
                    </div>
-                </div>
-
-                <div className="absolute bottom-6 left-[15mm] right-[15mm] border-t border-dashed border-slate-300 pt-2 flex justify-between items-center text-[7px] font-black text-slate-400 uppercase italic">
-                   <span>Operational System Handshake Sync: {format(new Date(), 'dd-MM-yyyy HH:mm')}</span>
-                   <span>CN REGISTRY UID: {selectedTrip?.id?.substring(0, 12)}</span>
                 </div>
               </div>
             ))}
