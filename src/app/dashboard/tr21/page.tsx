@@ -73,7 +73,6 @@ export default function TR21Page() {
     const geocoder = new window.google.maps.Geocoder();
     geocoder.geocode({ location: { lat, lng } }, (results: any, status: string) => {
       if (status === 'OK' && results?.[0]) {
-        // Extract Street and City
         const components = results[0].address_components;
         const street = components.find((c: any) => c.types.includes('route'))?.long_name || '';
         const city = components.find((c: any) => c.types.includes('locality'))?.long_name || '';
@@ -271,7 +270,7 @@ export default function TR21Page() {
                 ) : (
                   <>
                     <th className="p-3 border-r">Plant</th>
-                    <th className="p-3 border-r">Sale Order/ Date time</th>
+                    <th className="p-3 border-r">Sale Order/ Order Date time</th>
                     <th className="p-3 border-r">Trip ID/ Date time</th>
                     <th className="p-3 border-r">Material</th>
                     <th className="p-3 border-r">Consignee</th>
@@ -354,7 +353,7 @@ export default function TR21Page() {
                             <button onClick={() => { 
                               setSelectedTrip(item); 
                               setCnData({cnDate: format(new Date(), 'yyyy-MM-dd'), paymentTerms: 'PAID', mode: 'Road'}); 
-                              setCnItems([{invoiceNo: '', ewaybillNo: '', goodsDescription: 'GENERAL CARGO', package: '0', packageUom: 'Bag'}]); 
+                              setCnItems([{invoiceNo: '', ewaybillNo: '', goodsDescription: '', package: '0', packageUom: 'Bag'}]); 
                               setPrevCN(findPreviousCN(item.plantCode));
                               setShowCNPortal(true); 
                             }} className="p-1.5 bg-blue-50 hover:bg-blue-100 transition-colors"><Plus className="h-4 w-4 text-[#0056d2]" /></button>
@@ -510,7 +509,7 @@ export default function TR21Page() {
                  </div>
                  <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase text-slate-600">Mode</label>
-                   <select value={item.mode} onChange={e => setCnData({...cnData, mode: e.target.value})} className="h-8 w-full border border-slate-400 bg-white px-2 text-[11px] font-black">
+                   <select value={cnData.mode} onChange={e => setCnData({...cnData, mode: e.target.value})} className="h-8 w-full border border-slate-400 bg-white px-2 text-[11px] font-black">
                      <option value="Road">Road</option>
                      <option value="Road from Rail">Road from Rail</option>
                    </select>
