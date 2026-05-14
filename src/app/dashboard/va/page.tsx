@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
@@ -22,6 +23,7 @@ export default function VAPage() {
   const [formData, setFormData] = React.useState<any>({});
   const [searchId, setSearchId] = React.useState('');
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [errors, setErrors] = React.useState<string[]>([]);
 
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
@@ -42,28 +44,47 @@ export default function VAPage() {
     }
   }, [activeTCode, formData.id]);
 
+  const filteredCustomers = React.useMemo(() => {
+    if (!customers || !formData.plantCode) return [];
+    return customers.filter(c => c.plantCodes?.includes(formData.plantCode));
+  }, [customers, formData.plantCode]);
+
   const handleLookupPartyId = (name: string, type: 'consignor' | 'consignee' | 'shipTo') => {
     const party = customers?.find(c => c.customerName === name);
     if (!party) return;
 
     const updates: any = {};
-    if (type === 'consignor') updates.consignorId = party.customerCode;
+    if (type === 'consignor') {
+      updates.consignorId = party.customerCode;
+      updates.from = party.city || '';
+    }
     if (type === 'consignee') updates.consigneeId = party.customerCode;
     if (type === 'shipTo') {
       updates.shipToPartyId = party.customerCode;
-      updates.destination = party.address || '';
+      updates.destination = party.city || '';
     }
     
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
   const handleSave = async () => {
+    if (activeTCode === 'VA03') return;
+
     if (activeTCode === 'VA04') {
       const o = orders?.find(ord => ord.saleOrder === formData.saleOrder);
       if (!o) return alert('Order Registry Node not found');
       setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'Short closed' }, { merge: true });
       alert('Order Status Updated: Short Closed');
       setFormData({});
+      return;
+    }
+
+    // Mandatory Validations
+    const mandatory = ['plantCode', 'saleOrder', 'consignor', 'consignee', 'shipToParty', 'saleOrderDate', 'weight', 'destination'];
+    const missing = mandatory.filter(key => !formData[key]);
+    if (missing.length > 0) {
+      setErrors(missing);
+      alert('Registry Error: Mandatory columns cannot be blank.');
       return;
     }
 
@@ -85,16 +106,18 @@ export default function VAPage() {
 
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), savePayload, { merge: true });
     setFormData({});
-    alert('Registry Synchronized with Firestore');
+    setErrors([]);
+    alert('Registry Synchronized');
   };
 
-  const filteredOrders = (orders || []).filter(o => {
-    if (!searchId) return true;
-    return o.saleOrder?.includes(searchId.toUpperCase()) || o.consignor?.toUpperCase().includes(searchId.toUpperCase());
-  }).sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+  React.useEffect(() => {
+    const handleGlobalSave = () => handleSave();
+    window.addEventListener('sap-save-triggered', handleGlobalSave);
+    return () => window.removeEventListener('sap-save-triggered', handleGlobalSave);
+  }, [formData, orders]);
 
-  const paginated = filteredOrders.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const totalPages = Math.ceil(filteredOrders.length / PAGE_SIZE);
+  const paginated = (orders || []).filter(o => !searchId || o.saleOrder?.includes(searchId.toUpperCase())).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const totalPages = Math.ceil((orders || []).length / PAGE_SIZE);
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
@@ -136,7 +159,7 @@ export default function VAPage() {
                    <input type="number" min="1" max={totalPages} value={currentPage} onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none" />
                    <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronRight className="h-3 w-3" /></Button>
                  </div>
-                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Registry Page {currentPage} of {totalPages || 1}</span>
+                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Page {currentPage} of {totalPages || 1}</span>
                </div>
             </div>
           </div>
@@ -151,35 +174,104 @@ export default function VAPage() {
         ) : (
           <div className="animate-slide-up space-y-12 bg-white p-12 border border-slate-300 shadow-inner">
              <div className="grid grid-cols-2 gap-y-6 gap-x-12">
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Plant Code:</label><select value={formData.plantCode || ''} onChange={e => setFormData({...formData, plantCode: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 bg-white px-2 text-[12px] font-black"><option value="">SELECT PLANT...</option>{plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Sale Order No:</label><input value={formData.saleOrder || ''} onChange={e => setFormData({...formData, saleOrder: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" /></div>
-               
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignor:</label>
-                 <select value={formData.consignor || ''} onChange={e => { setFormData({...formData, consignor: e.target.value}); handleLookupPartyId(e.target.value, 'consignor'); }} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 bg-white px-2 text-[11px] font-bold uppercase"><option value="">SELECT MASTER...</option>{customers?.filter(c => c.customerType?.includes('Consignor')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}</select>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Plant Code:</label>
+                 <select 
+                   value={formData.plantCode || ''} 
+                   onChange={e => setFormData({...formData, plantCode: e.target.value, consignor: '', consignee: '', shipToParty: ''})} 
+                   disabled={isReadOnly} 
+                   className={cn("h-8 w-80 border bg-white px-2 text-[12px] font-black outline-none", errors.includes('plantCode') && !formData.plantCode ? "border-red-500 bg-red-50" : "border-slate-400")}
+                 >
+                   <option value="">SELECT PLANT...</option>
+                   {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+                 </select>
                </div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignor Customer code:</label><input value={formData.consignorId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
-               
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignee:</label>
-                 <select value={formData.consignee || ''} onChange={e => { setFormData({...formData, consignee: e.target.value}); handleLookupPartyId(e.target.value, 'consignee'); }} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 bg-white px-2 text-[11px] font-bold uppercase"><option value="">SELECT MASTER...</option>{customers?.filter(c => c.customerType?.includes('Consignee')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}</select>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Sale Order No:</label>
+                 <input 
+                   value={formData.saleOrder || ''} 
+                   onChange={e => setFormData({...formData, saleOrder: e.target.value.toUpperCase()})} 
+                   disabled={isReadOnly} 
+                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('saleOrder') && !formData.saleOrder ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
                </div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignee Customer code:</label><input value={formData.consigneeId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
+               
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignor:</label>
+                 <select 
+                   value={formData.consignor || ''} 
+                   onChange={e => { setFormData({...formData, consignor: e.target.value}); handleLookupPartyId(e.target.value, 'consignor'); }} 
+                   disabled={isReadOnly || !formData.plantCode} 
+                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('consignor') && !formData.consignor ? "border-red-500 bg-red-50" : "border-slate-400")}
+                 >
+                   <option value="">SELECT MASTER...</option>
+                   {filteredCustomers?.filter(c => c.customerType?.includes('Consignor')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+                 </select>
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase italic">From (Consignor City):</label>
+                 <input value={formData.from || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold uppercase" />
+               </div>
 
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Ship To Party:</label>
-                 <select value={formData.shipToParty || ''} onChange={e => { setFormData({...formData, shipToParty: e.target.value}); handleLookupPartyId(e.target.value, 'shipTo'); }} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 bg-white px-2 text-[11px] font-bold uppercase"><option value="">SELECT MASTER...</option>{customers?.filter(c => c.customerType?.includes('Consignee')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}</select>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignee:</label>
+                 <select 
+                   value={formData.consignee || ''} 
+                   onChange={e => { setFormData({...formData, consignee: e.target.value}); handleLookupPartyId(e.target.value, 'consignee'); }} 
+                   disabled={isReadOnly || !formData.plantCode} 
+                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('consignee') && !formData.consignee ? "border-red-500 bg-red-50" : "border-slate-400")}
+                 >
+                   <option value="">SELECT MASTER...</option>
+                   {filteredCustomers?.filter(c => c.customerType?.includes('Consignee')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+                 </select>
                </div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Ship To Customer code:</label><input value={formData.shipToPartyId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" /></div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignee Customer code:</label>
+                 <input value={formData.consigneeId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" />
+               </div>
+
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Ship To Party:</label>
+                 <select 
+                   value={formData.shipToParty || ''} 
+                   onChange={e => { setFormData({...formData, shipToParty: e.target.value}); handleLookupPartyId(e.target.value, 'shipTo'); }} 
+                   disabled={isReadOnly || !formData.plantCode} 
+                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('shipToParty') && !formData.shipToParty ? "border-red-500 bg-red-50" : "border-slate-400")}
+                 >
+                   <option value="">SELECT MASTER...</option>
+                   {filteredCustomers?.filter(c => c.customerType?.includes('Consignee')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+                 </select>
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Destination (City):</label>
+                 <input 
+                   value={formData.destination || ''} 
+                   onChange={e => setFormData({...formData, destination: e.target.value.toUpperCase()})} 
+                   disabled={isReadOnly} 
+                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('destination') && !formData.destination ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
+               </div>
                
                <div className="flex items-center gap-8">
                   <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Booked Date Time:</label>
-                  <input type="datetime-local" value={formData.saleOrderDate || ''} onChange={e => setFormData({...formData, saleOrderDate: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" />
+                  <input 
+                    type="datetime-local" 
+                    value={formData.saleOrderDate || ''} 
+                    onChange={e => setFormData({...formData, saleOrderDate: e.target.value})} 
+                    disabled={isReadOnly} 
+                    className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('saleOrderDate') && !formData.saleOrderDate ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                  />
                </div>
                <div className="flex items-center gap-8">
                   <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Weight (MT):</label>
-                  <input type="number" step="0.001" value={formData.weight || ''} onChange={e => setFormData({...formData, weight: e.target.value})} disabled={isReadOnly && activeTCode !== 'VA02'} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" />
-               </div>
-               <div className="flex items-center gap-8">
-                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Destination:</label>
-                  <input value={formData.destination || ''} onChange={e => setFormData({...formData, destination: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black" />
+                  <input 
+                    type="number" 
+                    step="0.001" 
+                    value={formData.weight || ''} 
+                    onChange={e => setFormData({...formData, weight: e.target.value})} 
+                    disabled={isReadOnly && activeTCode !== 'VA02'} 
+                    className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('weight') && !formData.weight ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                  />
                </div>
              </div>
           </div>

@@ -117,6 +117,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setHistory(prev => [input, ...prev.filter(h => h !== input)].slice(0, 10));
   }, [isBootstrapAdmin, userProfile, router]);
 
+  const triggerGlobalSave = () => {
+    window.dispatchEvent(new CustomEvent('sap-save-triggered'));
+  };
+
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
       {/* SAP Top Menu Bar */}
@@ -156,7 +160,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </div>
           <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-full">
-            <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Save (F8)"><Save className="h-4 w-4" /></button>
+            <button onClick={triggerGlobalSave} className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Save (F8)"><Save className="h-4 w-4" /></button>
             <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Back (F3)" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></button>
             <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Exit (Shift+F3)" onClick={() => router.push('/dashboard')}><ExitIcon className="h-4 w-4" /></button>
             <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Cancel (F12)" onClick={() => setTCode('')}><XCircle className="h-4 w-4" /></button>

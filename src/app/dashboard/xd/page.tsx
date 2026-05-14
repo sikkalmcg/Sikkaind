@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
@@ -21,12 +22,28 @@ export default function XDPage() {
   const [formData, setFormData] = React.useState<any>({});
   const [searchId, setSearchId] = React.useState('');
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [errors, setErrors] = React.useState<string[]>([]);
 
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const { data: customers } = useCollection(customersQuery);
+  const { data: plants } = useCollection(plantsQuery);
 
   const handleSave = () => {
-    if (!formData.customerCode || !formData.customerName) return alert('Mandatory registry node missing');
+    if (isReadOnly) return;
+
+    // Mandatory Validations
+    const mandatory = ['plantCodes', 'customerCode', 'customerName', 'address', 'city'];
+    const missing = mandatory.filter(key => {
+      const val = formData[key];
+      return Array.isArray(val) ? val.length === 0 : !val;
+    });
+
+    if (missing.length > 0) {
+      setErrors(missing);
+      alert('Registry Error: Mandatory columns cannot be blank.');
+      return;
+    }
 
     if (activeTCode === 'XD01') {
       const exists = customers?.find(c => c.customerCode === formData.customerCode);
@@ -41,7 +58,15 @@ export default function XDPage() {
     }, { merge: true });
     
     setFormData({});
+    setErrors([]);
+    alert('Registry Synchronized');
   };
+
+  React.useEffect(() => {
+    const handleGlobalSave = () => handleSave();
+    window.addEventListener('sap-save-triggered', handleGlobalSave);
+    return () => window.removeEventListener('sap-save-triggered', handleGlobalSave);
+  }, [formData, customers]);
 
   const filteredCustomers = (customers || []).filter(c => {
     if (!searchId) return true;
@@ -57,7 +82,7 @@ export default function XDPage() {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
-        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - Customer Master Hub</h2>
+        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - Customer Master</h2>
         <div className="flex items-center gap-3">
           <Button onClick={handleSave} disabled={isReadOnly} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"><Save className="h-3.5 w-3.5 mr-2" /> Save (F8)</Button>
           <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
@@ -101,12 +126,74 @@ export default function XDPage() {
         ) : (
           <div className="animate-slide-up space-y-12 bg-white p-12 border border-slate-300 shadow-inner">
              <div className="grid grid-cols-2 gap-y-6 gap-x-12">
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Customer Code:</label><input value={formData.customerCode || ''} onChange={e => setFormData({...formData, customerCode: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Customer Name:</label><input value={formData.customerName || ''} onChange={e => setFormData({...formData, customerName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Address:</label><input value={formData.address || ''} onChange={e => setFormData({...formData, address: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">City:</label><input value={formData.city || ''} onChange={e => setFormData({...formData, city: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">GSTIN:</label><input value={formData.gstin || ''} onChange={e => setFormData({...formData, gstin: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Mobile:</label><input value={formData.mobile || ''} onChange={e => setFormData({...formData, mobile: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Plant Node Selection:</label>
+                 <div className="w-80 flex flex-wrap gap-2">
+                   {plants?.map(p => (
+                     <button
+                       key={p.id}
+                       type="button"
+                       disabled={isReadOnly}
+                       onClick={() => {
+                         const current = formData.plantCodes || [];
+                         const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
+                         setFormData({...formData, plantCodes: next});
+                       }}
+                       className={cn(
+                         "px-3 py-1 text-[10px] font-black uppercase border transition-all",
+                         formData.plantCodes?.includes(p.plantCode) ? "bg-[#0056d2] text-white border-[#0056d2]" : "bg-white text-slate-400 border-slate-300",
+                         errors.includes('plantCodes') && !formData.plantCodes?.length && "border-red-500 bg-red-50"
+                       )}
+                     >
+                       {p.plantCode}
+                     </button>
+                   ))}
+                 </div>
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Customer Code:</label>
+                 <input 
+                   value={formData.customerCode || ''} 
+                   onChange={e => setFormData({...formData, customerCode: e.target.value.toUpperCase()})} 
+                   disabled={isReadOnly} 
+                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('customerCode') && !formData.customerCode ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Customer Name:</label>
+                 <input 
+                   value={formData.customerName || ''} 
+                   onChange={e => setFormData({...formData, customerName: e.target.value.toUpperCase()})} 
+                   disabled={isReadOnly} 
+                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('customerName') && !formData.customerName ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Address:</label>
+                 <input 
+                   value={formData.address || ''} 
+                   onChange={e => setFormData({...formData, address: e.target.value.toUpperCase()})} 
+                   disabled={isReadOnly} 
+                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('address') && !formData.address ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">City:</label>
+                 <input 
+                   value={formData.city || ''} 
+                   onChange={e => setFormData({...formData, city: e.target.value.toUpperCase()})} 
+                   disabled={isReadOnly} 
+                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('city') && !formData.city ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">GSTIN:</label>
+                 <input value={formData.gstin || ''} onChange={e => setFormData({...formData, gstin: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Mobile:</label>
+                 <input value={formData.mobile || ''} onChange={e => setFormData({...formData, mobile: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
+               </div>
              </div>
           </div>
         )}
