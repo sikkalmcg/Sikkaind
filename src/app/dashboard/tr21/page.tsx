@@ -289,7 +289,7 @@ export default function TR21Page() {
                 ) : (
                   <>
                     <th className="p-3 border-r">Plant</th>
-                    <th className="p-3 border-r">Sale Order/ Order Date time</th>
+                    <th className="p-3 border-r w-[160px]">Sale Order/ Order Date time</th>
                     <th className="p-3 border-r">Trip ID/ Date time</th>
                     <th className="p-3 border-r">Material</th>
                     <th className="p-3 border-r">Consignee</th>
