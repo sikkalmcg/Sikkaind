@@ -152,7 +152,7 @@ export default function TR21Page() {
     if (!items || !items.length) return '0';
     const total = items.reduce((acc, curr) => acc + (parseInt(curr.package) || 0), 0);
     const uoms = new Set(items.map(i => i.uom || i.packageUom));
-    const label = uoms.size > 1 ? 'COMBINED' : (Array.from(uoms)[0] || 'PKG');
+    const label = uoms.size > 1 ? 'MIXED' : (Array.from(uoms)[0] || 'PKG');
     return `${total} ${label}`;
   };
 
@@ -192,8 +192,9 @@ export default function TR21Page() {
 
   const handlePostCN = () => {
     if (!cnData.cnNo) return alert('CN Number Mandatory');
-    if (activeTab === 'Loading' && trips?.some(t => t.cnNumber === cnData.cnNo.toUpperCase() && t.id !== selectedTrip.id)) {
-      return alert('Registry Error: Duplicate CN Number detected.');
+    // Global duplicate check across all trips
+    if (trips?.some(t => t.cnNumber === cnData.cnNo.toUpperCase() && t.id !== selectedTrip.id)) {
+      return alert('Registry Error: Duplicate CN Number detected in system.');
     }
     
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTrip.id), { 
@@ -361,19 +362,37 @@ export default function TR21Page() {
                         </div>
                       </td>
                       <td className="p-3 border-r text-center font-black">{formatWeight(item.assignWeight)}</td>
-                      <td className="p-3">
-                         <div className="flex gap-2">
-                           {activeTab === 'Loading' && (
-                             <Button 
-                               disabled={!item.cnNumber}
-                               onClick={() => { setSelectedTrip(item); setOutData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} 
-                               size="sm" 
-                               className="h-7 text-[8px] font-black uppercase bg-[#1e3a8a] rounded-none disabled:opacity-30"
-                             >Out</Button>
-                           )}
-                           <Button onClick={() => handleTrackClick(item)} size="sm" variant="outline" className="h-7 text-[8px] font-black uppercase rounded-none border-[#0056d2] text-[#0056d2] hover:bg-[#0056d2] hover:text-white">Track</Button>
-                           <Button onClick={() => { if(confirm('SATELLITE WARNING: Unassign this trip registry and return to open orders?')) deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', item.id)); }} size="sm" variant="ghost" className="h-7 text-[8px] font-black text-red-600 rounded-none hover:bg-red-50">Unassign</Button>
-                         </div>
+                      <td className="p-3 border-l border-slate-50">
+                        <div className="flex flex-col gap-2 min-w-[260px]">
+                          <div className="flex justify-end items-center gap-2">
+                            {activeTab === 'Loading' && (
+                              <Button 
+                                disabled={!item.cnNumber}
+                                onClick={() => { setSelectedTrip(item); setOutData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} 
+                                size="sm" 
+                                className="h-7 text-[8px] font-black uppercase bg-[#1e3a8a] rounded-none disabled:opacity-30 px-4"
+                              >Out</Button>
+                            )}
+                            <Button 
+                              onClick={() => { if(confirm('SATELLITE WARNING: Unassign this trip registry and return to open orders?')) deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', item.id)); }} 
+                              size="sm" 
+                              variant="outline" 
+                              className="h-7 text-[8px] font-black text-red-600 border-red-200 hover:border-red-600 hover:bg-red-50 rounded-none px-4"
+                            >Unassign</Button>
+                          </div>
+                          <div className="flex items-center gap-2 pt-1 border-t border-slate-50">
+                            <div className="flex-1 flex items-center gap-1.5 text-[8.5px] font-bold text-slate-400 uppercase italic truncate text-right pr-1">
+                              <MapPin className="h-2.5 w-2.5 text-red-400 shrink-0" />
+                              {gpsData.find(g => g.vehicleNumber === item.vehicleNumber)?.lastLocation || 'NODE OFFLINE'}
+                            </div>
+                            <Button 
+                              onClick={() => handleTrackClick(item)} 
+                              size="sm" 
+                              variant="outline" 
+                              className="h-7 text-[8px] font-black uppercase rounded-none border-[#0056d2] text-[#0056d2] hover:bg-[#0056d2] hover:text-white px-4"
+                            >Track</Button>
+                          </div>
+                        </div>
                       </td>
                     </>
                   )}
