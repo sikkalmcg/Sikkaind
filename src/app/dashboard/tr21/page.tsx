@@ -510,14 +510,14 @@ export default function TR21Page() {
                  </div>
                  <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase text-slate-600">Mode</label>
-                   <select value={cnData.mode} onChange={e => setCnData({...cnData, mode: e.target.value})} className="h-8 w-full border border-slate-400 bg-white px-2 text-[11px] font-black">
+                   <select value={item.mode} onChange={e => setCnData({...cnData, mode: e.target.value})} className="h-8 w-full border border-slate-400 bg-white px-2 text-[11px] font-black">
                      <option value="Road">Road</option>
                      <option value="Road from Rail">Road from Rail</option>
                    </select>
                  </div>
                  {cnData.mode === 'Road from Rail' && (
                    <div className="space-y-1 animate-fade-in">
-                     <label className="text-[10px] font-black uppercase text-slate-600">Rate Point</label>
+                     <label className="text-[10px] font-black uppercase text-slate-600">Rake Point</label>
                      <input value={cnData.ratePoint || ''} onChange={e => setCnData({...cnData, ratePoint: e.target.value.toUpperCase()})} className="h-8 w-full border border-slate-400 px-2 text-[12px] font-black focus:bg-yellow-50" placeholder="E.G. TKD DEPOT" />
                    </div>
                  )}
@@ -578,7 +578,7 @@ export default function TR21Page() {
 
       {/* 4. Gate Out Portal */}
       <Dialog open={showOutPortal} onOpenChange={setShowOutPortal}>
-        <DialogContent className="max-w-lg rounded-none border-[4px] border-[#1e3a8a] font-mono p-0">
+        <DialogContent className="max-lg rounded-none border-[4px] border-[#1e3a8a] font-mono p-0">
            <DialogHeader className="bg-slate-50 p-4 border-b border-slate-200">
               <DialogTitle className="text-sm font-black uppercase italic text-[#1e3a8a]">Operational Node: Gate Out</DialogTitle>
               <div className="flex gap-4 mt-2 text-[10px] font-black text-slate-500 uppercase">
