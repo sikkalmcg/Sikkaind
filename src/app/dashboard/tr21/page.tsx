@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Printer, Save, ChevronLeft, ChevronRight, X, Download, 
-  Plus, Trash, Edit3, Radar, Truck, MapPin, Package, ShoppingCart, CheckCircle
+  Plus, Trash, Edit3, Radar, Truck, MapPin, Package, ShoppingCart, CheckCircle, RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +40,7 @@ export default function TR21Page() {
   const [showOutPortal, setShowOutPortal] = React.useState(false);
   const [showVehiclePortal, setShowVehiclePortal] = React.useState(false);
   const [showCNPreview, setShowCNPreview] = React.useState(false);
+  const [showTrackPortal, setShowTrackPortal] = React.useState(false);
   
   // Form States
   const [assignData, setAssignData] = React.useState<any>({});
@@ -48,10 +49,53 @@ export default function TR21Page() {
   const [vehicleData, setVehicleData] = React.useState({ vehicleNumber: '', driverMobile: '' });
   const [outData, setOutData] = React.useState({ date: '', time: '' });
   const [prevCN, setPrevCN] = React.useState('');
+  const [trackMode, setTrackMode] = React.useState('GPS');
+  const [gpsData, setGpsData] = React.useState<any[]>([]);
+  const [liveLocation, setLiveLocation] = React.useState('SYNCING SATELLITE...');
 
   React.useEffect(() => {
     setMounted(true);
+    fetchGps();
   }, []);
+
+  const fetchGps = async () => {
+    try {
+      const res = await fetch('/api/gps');
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data?.list) setGpsData(json.data.list);
+      }
+    } catch (e) {}
+  };
+
+  const reverseGeocode = React.useCallback((lat: number, lng: number) => {
+    if (!window.google) return;
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng } }, (results: any, status: string) => {
+      if (status === 'OK' && results?.[0]) {
+        // Extract Street and City
+        const components = results[0].address_components;
+        const street = components.find((c: any) => c.types.includes('route'))?.long_name || '';
+        const city = components.find((c: any) => c.types.includes('locality'))?.long_name || '';
+        setLiveLocation(`${street}${street && city ? ', ' : ''}${city}` || 'LOCATION RESOLVED');
+      } else {
+        setLiveLocation('COORDINATE LOCK ACTIVE');
+      }
+    });
+  }, []);
+
+  const handleTrackClick = (trip: any) => {
+    setSelectedTrip(trip);
+    setLiveLocation('FETCHING NODE...');
+    setShowTrackPortal(true);
+    
+    const vGps = gpsData.find(g => g.vehicleNumber === trip.vehicleNumber);
+    if (vGps) {
+      reverseGeocode(parseFloat(vGps.latitude), parseFloat(vGps.longitude));
+    } else {
+      setLiveLocation('NODE OFFLINE / OUT OF RANGE');
+    }
+  };
 
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
@@ -320,9 +364,16 @@ export default function TR21Page() {
                       <td className="p-3 border-r text-center font-black">{formatWeight(item.assignWeight)}</td>
                       <td className="p-3">
                          <div className="flex gap-2">
-                           {activeTab === 'Loading' && <Button onClick={() => { setSelectedTrip(item); setOutData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} size="sm" className="h-7 text-[8px] font-black uppercase bg-[#1e3a8a] rounded-none">Out</Button>}
-                           <Button onClick={() => { router.push(`/dashboard/tr24?tcode=TR24&q=${item.saleOrderNumber}`); }} size="sm" variant="outline" className="h-7 text-[8px] font-black uppercase rounded-none">Track</Button>
-                           <Button onClick={() => { if(confirm('System Command: Unassign Trip Registry?')) deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', item.id)); }} size="sm" variant="ghost" className="h-7 text-[8px] font-black text-red-600 rounded-none">Unassign</Button>
+                           {activeTab === 'Loading' && (
+                             <Button 
+                               disabled={!item.cnNumber}
+                               onClick={() => { setSelectedTrip(item); setOutData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} 
+                               size="sm" 
+                               className="h-7 text-[8px] font-black uppercase bg-[#1e3a8a] rounded-none disabled:opacity-30"
+                             >Out</Button>
+                           )}
+                           <Button onClick={() => handleTrackClick(item)} size="sm" variant="outline" className="h-7 text-[8px] font-black uppercase rounded-none border-[#0056d2] text-[#0056d2] hover:bg-[#0056d2] hover:text-white">Track</Button>
+                           <Button onClick={() => { if(confirm('SATELLITE WARNING: Unassign this trip registry and return to open orders?')) deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', item.id)); }} size="sm" variant="ghost" className="h-7 text-[8px] font-black text-red-600 rounded-none hover:bg-red-50">Unassign</Button>
                          </div>
                       </td>
                     </>
@@ -345,7 +396,55 @@ export default function TR21Page() {
 
       {/* Popups */}
       
-      {/* 1. Vehicle Node Edit Popup */}
+      {/* 1. Track Portal */}
+      <Dialog open={showTrackPortal} onOpenChange={setShowTrackPortal}>
+        <DialogContent className="max-w-xl rounded-none border-[4px] border-[#0056d2] font-mono p-0 shadow-2xl">
+           <DialogHeader className="bg-[#f8fafc] p-6 border-b border-slate-200">
+              <DialogTitle className="text-sm font-black uppercase italic tracking-tighter text-[#0056d2]">Shipment Tracking Gateway</DialogTitle>
+              <div className="flex gap-4 mt-2 text-[10px] font-black text-slate-500 uppercase">
+                <span>Trip ID: {selectedTrip?.tripId}</span>
+                <span className="text-slate-200">|</span>
+                <span>Vehicle: {selectedTrip?.vehicleNumber}</span>
+              </div>
+           </DialogHeader>
+           <div className="p-8 space-y-6">
+              <div className="grid grid-cols-1 gap-6">
+                 <div className="space-y-1">
+                   <label className="text-[10px] font-black uppercase text-slate-400">Track Mode</label>
+                   <select value={trackMode} onChange={e => setTrackMode(e.target.value)} className="h-9 w-full border border-slate-400 bg-white px-3 text-[12px] font-black focus:bg-yellow-50 outline-none">
+                     <option value="GPS">GPS Satellite</option>
+                     <option value="SIM">SIM Triangulation</option>
+                   </select>
+                 </div>
+                 <div className="grid grid-cols-2 gap-6">
+                   <div className="space-y-1">
+                     <label className="text-[10px] font-black uppercase text-slate-400">Vehicle Number</label>
+                     <input value={selectedTrip?.vehicleNumber || ''} readOnly className="h-9 w-full border border-slate-200 bg-slate-50 px-3 text-[12px] font-black text-slate-500" />
+                   </div>
+                   <div className="space-y-1">
+                     <label className="text-[10px] font-black uppercase text-slate-400">Driver Mobile</label>
+                     <input value={selectedTrip?.driverMobile || ''} readOnly className="h-9 w-full border border-slate-200 bg-slate-50 px-3 text-[12px] font-black text-slate-500" />
+                   </div>
+                 </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-10 border-t border-slate-100">
+                 <div className="flex-1 pr-8">
+                    <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Live Node Location:</p>
+                    <p className="text-[11px] font-black text-blue-800 uppercase italic leading-tight truncate max-w-[300px]">
+                       <MapPin className="h-2.5 w-2.5 inline mr-1 text-red-500" /> {liveLocation}
+                    </p>
+                 </div>
+                 <div className="flex gap-2">
+                    <Button onClick={() => setShowTrackPortal(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase tracking-widest">Exit</Button>
+                    <Button onClick={() => setShowTrackPortal(false)} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase tracking-widest shadow-lg">Post</Button>
+                 </div>
+              </div>
+           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2. Vehicle Node Edit Popup */}
       <Dialog open={showVehiclePortal} onOpenChange={setShowVehiclePortal}>
         <DialogContent className="max-w-xl rounded-none border-[4px] border-[#1e3a8a] font-mono p-0">
            <DialogHeader className="bg-slate-50 p-4 border-b border-slate-200">
@@ -375,7 +474,7 @@ export default function TR21Page() {
         </DialogContent>
       </Dialog>
 
-      {/* 2. CN Entry Portal */}
+      {/* 3. CN Entry Portal */}
       <Dialog open={showCNPortal} onOpenChange={setShowCNPortal}>
         <DialogContent className="max-w-[1100px] rounded-none border-[4px] border-[#0056d2] font-mono p-0 max-h-[90vh] overflow-y-auto">
            <DialogHeader className="bg-[#f8fafc] p-6 border-b border-slate-200 sticky top-0 z-30">
@@ -477,7 +576,7 @@ export default function TR21Page() {
         </DialogContent>
       </Dialog>
 
-      {/* 3. Gate Out Portal */}
+      {/* 4. Gate Out Portal */}
       <Dialog open={showOutPortal} onOpenChange={setShowOutPortal}>
         <DialogContent className="max-w-lg rounded-none border-[4px] border-[#1e3a8a] font-mono p-0">
            <DialogHeader className="bg-slate-50 p-4 border-b border-slate-200">
@@ -499,14 +598,14 @@ export default function TR21Page() {
                  </div>
               </div>
               <div className="flex justify-end gap-3 pt-4">
-                 <Button onClick={() => setShowOutPortal(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase">Cancel</Button>
-                 <Button onClick={handlePostGateOut} className="h-10 px-12 bg-[#1e3a8a] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post Dispatch (F8)</Button>
+                 <Button onClick={() => setShowOutPortal(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase tracking-widest">Exit</Button>
+                 <Button onClick={handlePostGateOut} className="h-10 px-12 bg-[#1e3a8a] text-white rounded-none text-[10px] font-black uppercase shadow-lg tracking-widest">Post</Button>
               </div>
            </div>
         </DialogContent>
       </Dialog>
 
-      {/* 4. CN 3-Copy Preview Portal */}
+      {/* 5. CN 3-Copy Preview Portal */}
       <Dialog open={showCNPreview} onOpenChange={setShowCNPreview}>
         <DialogContent className="max-w-[1000px] p-0 rounded-none border-none bg-slate-900/50 backdrop-blur-sm h-[95vh] overflow-y-auto font-mono no-scrollbar">
           <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center z-50 shadow-md">
