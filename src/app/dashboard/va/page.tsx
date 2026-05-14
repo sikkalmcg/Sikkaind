@@ -39,7 +39,14 @@ export default function VAPage() {
         saleOrderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"), 
         status: 'Open', 
         weightUom: 'MT',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        consignor: '',
+        consignee: '',
+        shipToParty: '',
+        from: '',
+        destination: '',
+        consigneeId: '',
+        plantCode: ''
       });
     }
   }, [activeTCode, formData.id]);
@@ -58,7 +65,9 @@ export default function VAPage() {
       updates.consignorId = party.customerCode;
       updates.from = party.city || '';
     }
-    if (type === 'consignee') updates.consigneeId = party.customerCode;
+    if (type === 'consignee') {
+      updates.consigneeId = party.customerCode;
+    }
     if (type === 'shipTo') {
       updates.shipToPartyId = party.customerCode;
       updates.destination = party.city || '';
@@ -80,7 +89,7 @@ export default function VAPage() {
     }
 
     // Mandatory Validations
-    const mandatory = ['plantCode', 'saleOrder', 'consignor', 'consignee', 'shipToParty', 'saleOrderDate', 'weight', 'destination'];
+    const mandatory = ['plantCode', 'saleOrder', 'consignor', 'consignee', 'shipToParty', 'saleOrderDate', 'weight', 'destination', 'from', 'consigneeId'];
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
       setErrors(missing);
@@ -122,10 +131,10 @@ export default function VAPage() {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
-        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - Sale Order Registry</h2>
+        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - SALE ORDER REGISTRY</h2>
         <div className="flex items-center gap-3">
-          <Button onClick={handleSave} disabled={isReadOnly && activeTCode !== 'VA04'} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"><Save className="h-3.5 w-3.5 mr-2" /> {activeTCode === 'VA04' ? 'Short Close' : 'Save (F8)'}</Button>
-          <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
+          <Button onClick={handleSave} disabled={isReadOnly && activeTCode !== 'VA04'} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"><Save className="h-3.5 w-3.5 mr-2" /> {activeTCode === 'VA04' ? 'Short Close' : 'SAVE (F8)'}</Button>
+          <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">EXIT (F3)</Button>
         </div>
       </div>
 
@@ -173,12 +182,13 @@ export default function VAPage() {
           </div>
         ) : (
           <div className="animate-slide-up space-y-12 bg-white p-12 border border-slate-300 shadow-inner">
-             <div className="grid grid-cols-2 gap-y-6 gap-x-12">
+             <div className="grid grid-cols-2 gap-y-6 gap-x-24">
+               {/* Row 1 */}
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Plant Code:</label>
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">PLANT CODE:</label>
                  <select 
                    value={formData.plantCode || ''} 
-                   onChange={e => setFormData({...formData, plantCode: e.target.value, consignor: '', consignee: '', shipToParty: ''})} 
+                   onChange={e => setFormData({...formData, plantCode: e.target.value, consignor: '', consignee: '', shipToParty: '', from: '', destination: '', consigneeId: ''})} 
                    disabled={isReadOnly} 
                    className={cn("h-8 w-80 border bg-white px-2 text-[12px] font-black outline-none", errors.includes('plantCode') && !formData.plantCode ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
@@ -187,7 +197,7 @@ export default function VAPage() {
                  </select>
                </div>
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Sale Order No:</label>
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">SALE ORDER NO:</label>
                  <input 
                    value={formData.saleOrder || ''} 
                    onChange={e => setFormData({...formData, saleOrder: e.target.value.toUpperCase()})} 
@@ -196,8 +206,9 @@ export default function VAPage() {
                  />
                </div>
                
+               {/* Row 2 */}
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignor:</label>
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR:</label>
                  <select 
                    value={formData.consignor || ''} 
                    onChange={e => { setFormData({...formData, consignor: e.target.value}); handleLookupPartyId(e.target.value, 'consignor'); }} 
@@ -209,12 +220,17 @@ export default function VAPage() {
                  </select>
                </div>
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase italic">From (Consignor City):</label>
-                 <input value={formData.from || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold uppercase" />
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase italic">FROM (CONSIGNOR CITY):</label>
+                 <input 
+                   value={formData.from || ''} 
+                   readOnly 
+                   className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('from') && !formData.from ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
                </div>
 
+               {/* Row 3 */}
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignee:</label>
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNEE:</label>
                  <select 
                    value={formData.consignee || ''} 
                    onChange={e => { setFormData({...formData, consignee: e.target.value}); handleLookupPartyId(e.target.value, 'consignee'); }} 
@@ -226,12 +242,17 @@ export default function VAPage() {
                  </select>
                </div>
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Consignee Customer code:</label>
-                 <input value={formData.consigneeId || ''} disabled className="h-8 w-80 border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold" />
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNEE CUSTOMER CODE:</label>
+                 <input 
+                   value={formData.consigneeId || ''} 
+                   readOnly 
+                   className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('consigneeId') && !formData.consigneeId ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
                </div>
 
+               {/* Row 4 */}
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Ship To Party:</label>
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">SHIP TO PARTY:</label>
                  <select 
                    value={formData.shipToParty || ''} 
                    onChange={e => { setFormData({...formData, shipToParty: e.target.value}); handleLookupPartyId(e.target.value, 'shipTo'); }} 
@@ -243,17 +264,17 @@ export default function VAPage() {
                  </select>
                </div>
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Destination (City):</label>
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">DESTINATION (CITY):</label>
                  <input 
                    value={formData.destination || ''} 
-                   onChange={e => setFormData({...formData, destination: e.target.value.toUpperCase()})} 
-                   disabled={isReadOnly} 
-                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('destination') && !formData.destination ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                   readOnly 
+                   className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('destination') && !formData.destination ? "border-red-500 bg-red-50" : "border-slate-400")} 
                  />
                </div>
                
+               {/* Row 5 */}
                <div className="flex items-center gap-8">
-                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Booked Date Time:</label>
+                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">BOOKED DATE TIME:</label>
                   <input 
                     type="datetime-local" 
                     value={formData.saleOrderDate || ''} 
@@ -263,7 +284,7 @@ export default function VAPage() {
                   />
                </div>
                <div className="flex items-center gap-8">
-                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Weight (MT):</label>
+                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">WEIGHT (MT):</label>
                   <input 
                     type="number" 
                     step="0.001" 
