@@ -507,6 +507,9 @@ export default function TR21Page() {
       {/* 2. CN 3-Copy Print Preview */}
       <Dialog open={showCNPreview} onOpenChange={setShowCNPreview}>
         <DialogContent className="max-w-[1000px] p-0 rounded-none border-none bg-white h-[95vh] overflow-y-auto font-mono no-scrollbar shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>CN Print Preview</DialogTitle>
+          </DialogHeader>
           <div className="sticky top-0 bg-slate-50 border-b p-4 flex justify-between items-center z-[100] print:hidden">
             <h3 className="text-xs font-black uppercase italic text-slate-500">Official Document Preview: {selectedTrip?.cnNumber}</h3>
             <div className="flex gap-2">
