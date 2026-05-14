@@ -398,12 +398,29 @@ export default function TR21Page() {
                               className="h-7 text-[9px] font-black text-red-600 border-red-200 hover:bg-red-50 rounded-none px-4"
                             >Unassign</Button>
                           </div>
-                          <div className="flex items-center gap-2">
-                             <div className="flex-1 text-[8.5px] font-bold text-slate-400 uppercase italic truncate text-right">
-                                {gpsData.find(g => g.vehicleNumber === item.vehicleNumber)?.lastLocation || 'NODE OFFLINE'}
-                             </div>
-                             <Button onClick={() => handleTrackClick(item)} size="sm" variant="outline" className="h-7 text-[9px] font-black uppercase rounded-none border-[#0056d2] text-[#0056d2] px-4">Track</Button>
-                          </div>
+                          
+                          {/* Track Button and Location Logic for Loading, In-Transit, Arrived */}
+                          {(activeTab === 'Loading' || activeTab === 'In-Transit' || activeTab === 'Arrived') && (
+                            <div className="flex items-center gap-2">
+                               <div className="flex-1 text-[8.5px] font-bold text-slate-400 uppercase italic truncate text-right">
+                                  {(() => {
+                                    const vGps = gpsData.find(g => g.vehicleNumber === item.vehicleNumber);
+                                    const locationText = vGps?.lastLocation || 'NODE OFFLINE';
+                                    const mapsUrl = vGps ? `https://www.google.com/maps?q=${vGps.latitude},${vGps.longitude}` : null;
+                                    
+                                    if (mapsUrl) {
+                                      return (
+                                        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline transition-all">
+                                          {locationText}
+                                        </a>
+                                      );
+                                    }
+                                    return <span>{locationText}</span>;
+                                  })()}
+                               </div>
+                               <Button onClick={() => handleTrackClick(item)} size="sm" variant="outline" className="h-7 text-[9px] font-black uppercase rounded-none border-[#0056d2] text-[#0056d2] px-4">Track</Button>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </>
