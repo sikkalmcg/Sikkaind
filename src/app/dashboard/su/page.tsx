@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -8,6 +9,7 @@ import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } 
 import { collection, doc } from 'firebase/firestore';
 import { format } from 'date-fns';
 
+const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
 
 export default function SUPage() {
@@ -21,12 +23,19 @@ export default function SUPage() {
   const [searchId, setSearchId] = React.useState('');
   const [currentPage, setCurrentPage] = React.useState(1);
 
-  const usersQuery = useMemoFirebase(() => collection(db, 'user_registry'), [db]);
+  // Standardized users_master collection
+  const usersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'users_master'), [db]);
   const { data: users } = useCollection(usersQuery);
 
   const handleSave = () => {
     const docId = formData.id || crypto.randomUUID();
-    setDocumentNonBlocking(doc(db, 'user_registry', docId), { ...formData, id: docId, updatedAt: new Date().toISOString() }, { merge: true });
+    const savePayload = { 
+      ...formData, 
+      id: docId, 
+      employeeName: formData.fullName || formData.employeeName,
+      updatedAt: new Date().toISOString() 
+    };
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'users_master', docId), savePayload, { merge: true });
     setFormData({});
   };
 
@@ -59,7 +68,7 @@ export default function SUPage() {
                   {paginated.map(u => (
                     <tr key={u.id} onClick={() => setFormData(u)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer text-[11px] font-bold uppercase">
                       <td className="p-4 border-r text-[#0056d2] font-black">{u.username}</td>
-                      <td className="p-4 border-r">{u.fullName}</td>
+                      <td className="p-4 border-r">{u.fullName || u.employeeName}</td>
                       <td className="p-4 text-slate-400">{format(new Date(u.updatedAt || new Date()), 'dd-MM-yy HH:mm')}</td>
                     </tr>
                   ))}
@@ -82,7 +91,7 @@ export default function SUPage() {
              </div>
              <div className="flex items-center gap-8">
                <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Full Name:</label>
-               <input value={formData.fullName || ''} onChange={e => setFormData({...formData, fullName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
+               <input value={formData.fullName || formData.employeeName || ''} onChange={e => setFormData({...formData, fullName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
              </div>
           </div>
         )}

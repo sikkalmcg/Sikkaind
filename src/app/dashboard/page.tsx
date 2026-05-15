@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -30,12 +31,11 @@ export default function DashboardPage() {
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); 
   const [counts, setCounts] = React.useState({ open: 0, loading: 0, transit: 0, arrived: 0, pod: 0 });
 
-  // Fetch real-time plants registry for the filter dropdown
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const { data: plants } = useCollection(plantsQuery);
 
   React.useEffect(() => {
-    const tripsRef = collection(db, 'users', SHARED_HUB_ID, 'trips');
+    const tripsRef = collection(db, 'users', SHARED_HUB_ID, 'trip_board');
     const ordersRef = collection(db, 'users', SHARED_HUB_ID, 'sales_orders');
 
     const unsubscribeTrips = onSnapshot(tripsRef, (snapshot) => {
@@ -62,14 +62,9 @@ export default function DashboardPage() {
 
   const handleNavigate = (code: string) => {
     const c = code.toUpperCase();
-    
-    // Correctly resolve target for all codes
     const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(c) ? c : c.substring(0, 2);
     let target = baseCode.toLowerCase();
-    
-    // Special handling for GPS route node
     if (target === 'wgps24') target = 'wgsp24';
-
     router.push(`/dashboard/${target}?tcode=${c}`);
   };
 
@@ -126,25 +121,6 @@ export default function DashboardPage() {
               <span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span>
             </div>
           ))}
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-8">
-           <div className="bg-white border border-slate-300 p-6 shadow-sm">
-              <h3 className="text-[11px] font-black uppercase text-slate-400 border-b pb-2 mb-4 flex items-center gap-2"><Activity className="h-3.5 w-3.5" /> Moving Stock Registry</h3>
-              <div className="h-40 flex items-center justify-center text-[10px] font-black text-slate-300 uppercase italic">Camera Stream Node Active</div>
-           </div>
-           <div className="bg-white border border-slate-300 p-6 shadow-sm">
-              <h3 className="text-[11px] font-black uppercase text-slate-400 border-b pb-2 mb-4 flex items-center gap-2"><BarChart3 className="h-3.5 w-3.5" /> Stacking Statistics</h3>
-              <div className="h-40 flex items-center justify-center text-[10px] font-black text-slate-300 uppercase italic">Object Counting: Box/Bag Node</div>
-           </div>
-           <div className="bg-white border border-slate-300 p-6 shadow-sm">
-              <h3 className="text-[11px] font-black uppercase text-slate-400 border-b pb-2 mb-4">Node Health Status</h3>
-              <div className="space-y-4">
-                 <div className="flex justify-between items-center text-[10px] font-black uppercase"><span>Satellite Sync</span><Badge className="bg-emerald-500 rounded-none h-4 px-2">ACTIVE</Badge></div>
-                 <div className="flex justify-between items-center text-[10px] font-black uppercase"><span>Database Latency</span><span className="text-slate-400">12ms</span></div>
-                 <div className="flex justify-between items-center text-[10px] font-black uppercase"><span>API Handshake</span><Badge className="bg-blue-500 rounded-none h-4 px-2">VERIFIED</Badge></div>
-              </div>
-           </div>
         </div>
       </div>
     </div>

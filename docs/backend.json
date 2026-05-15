@@ -1,182 +1,125 @@
 
 {
   "entities": {
-    "UserProfile": {
-      "title": "UserProfile",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "firstName": { "type": "string" },
-        "lastName": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "email", "firstName", "lastName", "createdAt", "updatedAt"]
-    },
-    "UserRegistry": {
-      "title": "UserRegistry",
-      "type": "object",
-      "description": "System User Management and Access Control.",
-      "properties": {
-        "id": { "type": "string" },
-        "fullName": { "type": "string" },
-        "username": { "type": "string" },
-        "password": { "type": "string" },
-        "mobile": { "type": "string" },
-        "plants": { "type": "array", "items": { "type": "string" } },
-        "tcodes": { "type": "array", "items": { "type": "string" } },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["fullName", "username", "password", "plants", "tcodes"]
-    },
     "Plant": {
-      "title": "Plant",
+      "title": "Plant Master",
       "type": "object",
-      "description": "Plant master data.",
       "properties": {
-        "id": { "type": "string" },
         "plantCode": { "type": "string" },
         "plantName": { "type": "string" },
+        "plantType": { "type": "string" },
+        "address": { "type": "string" },
         "city": { "type": "string" },
         "state": { "type": "string" },
-        "stateCode": { "type": "string" },
-        "postalCode": { "type": "string" },
-        "address": { "type": "string" },
-        "gstin": { "type": "string" },
-        "pan": { "type": "string" },
+        "country": { "type": "string" },
+        "pincode": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "contactNumber": { "type": "string" },
         "email": { "type": "string" },
-        "website": { "type": "string" },
-        "mobileNumbers": { "type": "array", "items": { "type": "string" } },
-        "location": { "type": "string", "description": "Stored coordinates for map start points." }
-      },
-      "required": ["plantCode"]
+        "gstNo": { "type": "string" },
+        "status": { "type": "string" }
+      }
     },
     "Company": {
-      "title": "Company",
+      "title": "Company Master",
       "type": "object",
-      "description": "Company hub.",
       "properties": {
-        "id": { "type": "string" },
-        "plantCodes": { "type": "array", "items": { "type": "string" } },
         "companyCode": { "type": "string" },
         "companyName": { "type": "string" },
+        "companyShortName": { "type": "string" },
+        "companyType": { "type": "string" },
+        "linkedPlantCode": { "type": "string" },
+        "gstNo": { "type": "string" },
+        "panNo": { "type": "string" },
+        "cinNo": { "type": "string" },
         "address": { "type": "string" },
         "city": { "type": "string" },
-        "gstin": { "type": "string" },
-        "pan": { "type": "string" },
-        "state": { "type": "string" },
-        "stateCode": { "type": "string" },
-        "postalCode": { "type": "string" },
-        "mobile": { "type": "string" },
         "email": { "type": "string" },
-        "website": { "type": "string" },
-        "logo": { "type": "string" },
-        "termsAndConditions": { "type": "array", "items": { "type": "string" }, "maxItems": 8 }
-      },
-      "required": ["companyCode", "companyName"]
+        "mobile": { "type": "string" },
+        "logoUrl": { "type": "string" }
+      }
     },
     "Vendor": {
-      "title": "Vendor",
+      "title": "Vendor Master",
       "type": "object",
-      "description": "Vendor master data.",
       "properties": {
-        "id": { "type": "string" },
         "vendorCode": { "type": "string" },
-        "plantCodes": { "type": "array", "items": { "type": "string" } },
         "vendorName": { "type": "string" },
-        "vendorFirmName": { "type": "string" },
-        "address": { "type": "string" },
+        "vendorType": { "type": "string" },
         "mobile": { "type": "string" },
-        "route": { "type": "string" },
-        "gstin": { "type": "string" },
-        "pan": { "type": "string" }
-      },
-      "required": ["mobile", "address", "route"]
+        "address": { "type": "string" },
+        "gstNo": { "type": "string" },
+        "panNo": { "type": "string" },
+        "paymentTerms": { "type": "string" }
+      }
     },
     "Customer": {
-      "title": "Customer",
+      "title": "Customer Master",
       "type": "object",
-      "description": "Customer (Consignor/Consignee).",
       "properties": {
-        "id": { "type": "string" },
         "customerCode": { "type": "string" },
-        "plantCodes": { "type": "array", "items": { "type": "string" } },
-        "customerType": { "type": "string", "enum": ["Consignor", "Consignee - Ship to Party"] },
         "customerName": { "type": "string" },
-        "address": { "type": "string" },
+        "customerType": { "type": "string" },
+        "billingAddress": { "type": "string" },
+        "shippingAddress": { "type": "string" },
         "city": { "type": "string" },
-        "postalCode": { "type": "string" },
-        "gstin": { "type": "string" },
-        "pan": { "type": "string" },
-        "mobile": { "type": "string" },
-        "email": { "type": "string" }
-      },
-      "required": ["customerCode", "plantCodes", "customerName", "customerType", "city"]
+        "gstNo": { "type": "string" },
+        "mobile": { "type": "string" }
+      }
     },
     "SalesOrder": {
-      "title": "SalesOrder",
+      "title": "Sales Order",
       "type": "object",
-      "description": "Sales Order.",
       "properties": {
-        "id": { "type": "string" },
+        "orderNo": { "type": "string" },
         "plantCode": { "type": "string" },
-        "saleOrder": { "type": "string" },
-        "saleOrderDate": { "type": "string" },
-        "consignor": { "type": "string" },
-        "consignorId": { "type": "string" },
-        "from": { "type": "string" },
-        "consignee": { "type": "string" },
-        "consigneeId": { "type": "string" },
-        "shipToParty": { "type": "string" },
-        "shipToPartyId": { "type": "string" },
-        "destination": { "type": "string" },
-        "weight": { "type": "string" },
-        "weightUom": { "type": "string" },
-        "status": { "type": "string" },
-        "shortClosedDate": { "type": "string" }
-      },
-      "required": ["plantCode", "saleOrder", "consignor"]
+        "companyCode": { "type": "string" },
+        "customerCode": { "type": "string" },
+        "quantity": { "type": "number" },
+        "uom": { "type": "string" },
+        "orderDate": { "type": "string" },
+        "status": { "type": "string" }
+      }
     },
-    "Trip": {
-      "title": "Trip",
+    "TripBoard": {
+      "title": "Trip Board",
       "type": "object",
-      "description": "Logistics Trip.",
       "properties": {
-        "id": { "type": "string" },
-        "tripId": { "type": "string" },
-        "saleOrderId": { "type": "string" },
-        "saleOrderNumber": { "type": "string" },
-        "plantCode": { "type": "string" },
-        "cnNumber": { "type": "string" },
-        "cnDate": { "type": "string" },
-        "shipToParty": { "type": "string" },
+        "tripNo": { "type": "string" },
+        "orderNo": { "type": "string" },
+        "vehicleNo": { "type": "string" },
+        "transporterName": { "type": "string" },
+        "driverMobile": { "type": "string" },
         "route": { "type": "string" },
-        "assignWeight": { "type": "number" },
-        "vehicleType": { "type": "string" },
-        "vehicleNumber": { "type": "string" },
-        "mode": { "type": "string" },
-        "via": { "type": "string" },
-        "vendorName": { "type": "string" },
-        "status": { "type": "string" },
-        "outDate": { "type": "string" },
-        "arrivedDate": { "type": "string" },
-        "closedDate": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["tripId", "saleOrderId", "vehicleNumber", "status"]
+        "status": { "type": "string" }
+      }
+    },
+    "UserMaster": {
+      "title": "User Registry",
+      "type": "object",
+      "properties": {
+        "employeeCode": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "username": { "type": "string" },
+        "passwordEncrypted": { "type": "string" },
+        "role": { "type": "string" },
+        "tcodeAccess": { "type": "array", "items": { "type": "string" } }
+      }
     }
   },
   "auth": {
     "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "/user_registry/{userId}": { "schema": "UserRegistry", "description": "System Authorization." },
-    "/users/Sikkaind/plants/{plantId}": { "schema": "Plant", "description": "Shared plants." },
-    "/users/Sikkaind/companies/{companyId}": { "schema": "Company", "description": "Shared companies." },
-    "/users/Sikkaind/vendors/{vendorId}": { "schema": "Vendor", "description": "Shared vendors." },
-    "/users/Sikkaind/customers/{customerId}": { "schema": "Customer", "description": "Shared customers." },
-    "/users/Sikkaind/sales_orders/{orderId}": { "schema": "SalesOrder", "description": "Shared sales orders." },
-    "/users/Sikkaind/trips/{tripId}": { "schema": "Trip", "description": "Shared trip." }
+    "/users/Sikkaind/plants/{plantId}": { "schema": "Plant", "description": "Plant master data." },
+    "/users/Sikkaind/companies/{companyId}": { "schema": "Company", "description": "Company master data." },
+    "/users/Sikkaind/vendors/{vendorId}": { "schema": "Vendor", "description": "Vendor master data." },
+    "/users/Sikkaind/customers/{customerId}": { "schema": "Customer", "description": "Customer master data." },
+    "/users/Sikkaind/sales_orders/{orderId}": { "schema": "SalesOrder", "description": "Sales order registry." },
+    "/users/Sikkaind/trip_board/{tripId}": { "schema": "TripBoard", "description": "Trip execution board." },
+    "/users/Sikkaind/users_master/{employeeId}": { "schema": "UserMaster", "description": "System access control." },
+    "/users/Sikkaind/gps_tracking/{gpsId}": { "schema": "object", "description": "Live GPS node data." },
+    "/users/Sikkaind/shipments/{shipId}": { "schema": "object", "description": "Shipment tracking nodes." },
+    "/users/Sikkaind/reports/{reportId}": { "schema": "object", "description": "System analytics reports." }
   }
 }

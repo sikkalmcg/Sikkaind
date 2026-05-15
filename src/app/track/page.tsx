@@ -1,3 +1,4 @@
+
 'use client';
 
 export const dynamic = 'force-dynamic';
@@ -16,11 +17,6 @@ import { Badge } from '@/components/ui/badge';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
-const formatWeight = (val: any) => {
-  const num = parseFloat(val);
-  return isNaN(num) ? "0.000" : num.toFixed(3);
-};
-
 export default function TrackPage() {
   const db = useFirestore();
   const [searchSo, setSearchSo] = React.useState('');
@@ -30,41 +26,23 @@ export default function TrackPage() {
   const [linkedTrips, setLinkedTrips] = React.useState<any[]>([]);
   const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
   const [activeStep, setActiveStep] = React.useState(0);
-  const mapRef = React.useRef<HTMLDivElement>(null);
   const [gpsData, setGpsData] = React.useState<any[]>([]);
 
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
-  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
-  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
-  const { data: customers } = useCollection(customersQuery);
-
-  React.useEffect(() => {
-    const fetchGps = async () => { 
-      try { 
-        const res = await fetch('/api/gps'); 
-        if (res.ok) { 
-          const json = await res.json(); 
-          if (json?.data?.list) setGpsData(json.data.list); 
-        } 
-      } catch (e) {} 
-    };
-    fetchGps(); 
-    const i = setInterval(fetchGps, 30000); 
-    return () => clearInterval(i);
-  }, []);
 
   const handleTrack = () => {
     if (!searchSo) return;
     setLoading(true);
     setTimeout(() => {
       const val = searchSo.trim().toUpperCase();
-      const order = orders?.find((o: any) => o.saleOrder === val);
+      const order = orders?.find((o: any) => (o.orderNo === val || o.saleOrder === val));
       if (order) {
         setSelectedOrder(order);
-        const tList = trips?.filter((t: any) => t.saleOrderId === order.id) || [];
+        const tList = trips?.filter((t: any) => (t.orderNo === order.orderNo || t.saleOrderId === order.id)) || [];
         setLinkedTrips(tList);
         setView('order_details');
       } else {
@@ -78,7 +56,6 @@ export default function TrackPage() {
     setSelectedTrip(trip);
     setView('trip_tracking');
     
-    // Animation Logic
     let target = 0;
     if (trip.status === 'LOADING') target = 1;
     else if (trip.status === 'IN-TRANSIT') target = 2;
@@ -129,11 +106,11 @@ export default function TrackPage() {
             {linkedTrips.length > 0 ? (
               <div className="space-y-6">
                 <p className="text-[12px] font-black text-[#1e3a8a] italic uppercase leading-relaxed">
-                  Sale order {selectedOrder.saleOrder} synchronized with {linkedTrips.length} execution trip(s). Select a Trip ID node for live mapping.
+                  Sale order {selectedOrder.orderNo || selectedOrder.saleOrder} synchronized with {linkedTrips.length} execution trip(s). Select a Trip ID node for live mapping.
                 </p>
                 <div className="flex flex-wrap gap-4">
                   {linkedTrips.map(t => (
-                    <button key={t.id} onClick={() => handleSelectTrip(t)} className="px-8 py-3 bg-blue-50 border border-blue-200 text-[#0056d2] font-black text-[11px] uppercase hover:bg-blue-600 hover:text-white transition-all shadow-sm">Execution Node: {t.tripId}</button>
+                    <button key={t.id} onClick={() => handleSelectTrip(t)} className="px-8 py-3 bg-blue-50 border border-blue-200 text-[#0056d2] font-black text-[11px] uppercase hover:bg-blue-600 hover:text-white transition-all shadow-sm">Execution Node: {t.tripNo || t.tripId}</button>
                   ))}
                 </div>
               </div>
@@ -148,8 +125,8 @@ export default function TrackPage() {
             <div className="bg-white border border-slate-300 p-10 shadow-lg relative overflow-hidden">
                <div className="flex justify-between items-start mb-20">
                   <div className="space-y-1">
-                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">Live Node Tracking: {selectedTrip.tripId}</h3>
-                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedTrip.vehicleNumber} • {selectedTrip.mode}</p>
+                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">Live Node Tracking: {selectedTrip.tripNo || selectedTrip.tripId}</h3>
+                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedTrip.vehicleNo || selectedTrip.vehicleNumber} • {selectedTrip.mode}</p>
                   </div>
                   <Badge className="bg-blue-600 rounded-none font-black text-[9px] px-6 uppercase">{selectedTrip.status}</Badge>
                </div>
@@ -168,10 +145,6 @@ export default function TrackPage() {
                     </div>
                   ))}
                   <div className="absolute top-6 left-[15%] right-[15%] h-[2px] bg-slate-100 -z-0" />
-               </div>
-
-               <div className="h-[450px] bg-slate-100 border border-slate-200 shadow-inner rounded-sm">
-                  <div className="w-full h-full flex items-center justify-center text-[10px] font-black uppercase text-slate-400 italic">Sikka Satellite Gateway Synchronized • Google Maps Active</div>
                </div>
             </div>
           </div>

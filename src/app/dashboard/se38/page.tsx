@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -16,7 +17,7 @@ export default function SE38Page() {
   const [results, setResults] = React.useState<any[]>([]);
 
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
+  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
   
   const { data: plants } = useCollection(plantsQuery);
   const { data: trips } = useCollection(tripsQuery);
@@ -53,8 +54,8 @@ export default function SE38Page() {
              <tbody>{results.map((r, i) => (
                <tr key={i} className="hover:bg-blue-50/30 border-b border-slate-100">
                  <td className="p-3 border-r border-slate-100 uppercase">{r.plantCode}</td>
-                 <td className="p-3 border-r border-slate-100 font-black text-blue-700 uppercase">{r.tripId}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase">{r.vehicleNumber}</td>
+                 <td className="p-3 border-r border-slate-100 font-black text-blue-700 uppercase">{r.tripNo || r.tripId}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase">{r.vehicleNo || r.vehicleNumber}</td>
                  <td className="p-3 border-r border-slate-100 uppercase font-black">{r.status}</td>
                  <td className="p-3 uppercase">{r.assignWeight}</td>
                </tr>

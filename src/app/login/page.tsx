@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -52,8 +53,9 @@ export default function LoginPage() {
         return;
       }
 
+      // Check standardized users_master collection
       const q = query(
-        collection(db, 'user_registry'),
+        collection(db, 'users', 'Sikkaind', 'users_master'),
         where('username', '==', username),
         where('password', '==', password)
       );

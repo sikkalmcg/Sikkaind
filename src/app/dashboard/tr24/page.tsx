@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -20,7 +21,7 @@ export default function TR24Page() {
   const { data: orders } = useCollection(ordersQuery);
 
   const handleTrack = () => {
-    const o = orders?.find(ord => ord.saleOrder === q.toUpperCase());
+    const o = orders?.find(ord => (ord.orderNo === q.toUpperCase() || ord.saleOrder === q.toUpperCase()));
     if (o) { setOrder(o); setView('details'); }
     else alert("Order Node Not Found");
   };
@@ -30,13 +31,13 @@ export default function TR24Page() {
       <div className="flex-1 flex flex-col p-10 font-mono bg-[#f2f2f2]">
         <div className="bg-white border border-slate-300 p-10 shadow-sm">
           <div className="flex justify-between items-center mb-10">
-            <h2 className="text-xl font-black uppercase italic text-[#1e3a8a]">Shipment Trace: {order.saleOrder}</h2>
+            <h2 className="text-xl font-black uppercase italic text-[#1e3a8a]">Shipment Trace: {order.orderNo || order.saleOrder}</h2>
             <Button onClick={() => setView('search')} variant="outline" className="h-8 rounded-none uppercase text-[9px] font-black">Back</Button>
           </div>
           <div className="grid grid-cols-2 gap-8 text-[11px] font-bold uppercase">
              <div className="flex justify-between border-b pb-2"><span className="text-slate-400">Ship To Party:</span><span>{order.shipToParty}</span></div>
              <div className="flex justify-between border-b pb-2"><span className="text-slate-400">Destination:</span><span>{order.destination}</span></div>
-             <div className="flex justify-between border-b pb-2"><span className="text-slate-400">Order Qty:</span><span>{order.weight} {order.weightUom}</span></div>
+             <div className="flex justify-between border-b pb-2"><span className="text-slate-400">Order Qty:</span><span>{order.weight || order.quantity} {order.weightUom || order.uom}</span></div>
              <div className="flex justify-between border-b pb-2"><span className="text-slate-400">Status:</span><span className="text-blue-600">{order.status}</span></div>
           </div>
         </div>

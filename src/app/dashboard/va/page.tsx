@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -59,7 +60,6 @@ export default function VAPage() {
   }, [customers, formData.plantCode]);
 
   const handleLookupPartyId = (name: string, type: 'consignor' | 'consignee' | 'shipTo') => {
-    // CRITICAL: Filter by current plant first to ensure correct record node is used (Prevents Dasna/Ghaziabad mismatch)
     const party = customers?.find(c => 
       c.customerName === name && 
       c.plantCodes?.includes(formData.plantCode)
@@ -86,7 +86,7 @@ export default function VAPage() {
     if (activeTCode === 'VA03') return;
 
     if (activeTCode === 'VA04') {
-      const o = orders?.find(ord => ord.saleOrder === formData.saleOrder);
+      const o = orders?.find(ord => (ord.orderNo === formData.saleOrder || ord.saleOrder === formData.saleOrder));
       if (!o) return alert('Order Registry Node not found');
       setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'Short closed' }, { merge: true });
       alert('Order Status Updated: Short Closed');
@@ -94,7 +94,6 @@ export default function VAPage() {
       return;
     }
 
-    // Mandatory Validations
     const mandatory = [
       'plantCode', 'saleOrder', 'consignor', 'consignorId', 'consignee', 
       'consigneeId', 'shipToParty', 'shipToPartyId', 'saleOrderDate', 
@@ -107,7 +106,7 @@ export default function VAPage() {
       return;
     }
 
-    if (activeTCode === 'VA01' && orders?.some(o => o.saleOrder === formData.saleOrder)) {
+    if (activeTCode === 'VA01' && orders?.some(o => (o.orderNo === formData.saleOrder || o.saleOrder === formData.saleOrder))) {
       return alert(`System Error: Duplicate Sale Order ${formData.saleOrder} Node found`);
     }
 
@@ -118,6 +117,9 @@ export default function VAPage() {
     const savePayload = { 
       ...formData, 
       id: docId, 
+      orderNo: formData.saleOrder,
+      quantity: formData.weight,
+      orderDate: formData.saleOrderDate,
       status, 
       updatedAt: new Date().toISOString(),
       updatedBy: 'Sikkaind_System'
@@ -135,7 +137,7 @@ export default function VAPage() {
     return () => window.removeEventListener('sap-save-triggered', handleGlobalSave);
   }, [formData, orders]);
 
-  const paginated = (orders || []).filter(o => !searchId || o.saleOrder?.includes(searchId.toUpperCase())).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paginated = (orders || []).filter(o => !searchId || (o.orderNo || o.saleOrder)?.includes(searchId.toUpperCase())).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const totalPages = Math.ceil((orders || []).length / PAGE_SIZE);
 
   return (
@@ -159,7 +161,7 @@ export default function VAPage() {
                   <tbody className="font-bold uppercase text-[12px]">
                     {paginated.map(o => (
                       <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer">
-                        <td className="p-4 border-r text-[#0056d2] font-black">{o.saleOrder}</td>
+                        <td className="p-4 border-r text-[#0056d2] font-black">{o.orderNo || o.saleOrder}</td>
                         <td className="p-4 border-r"><Badge variant="outline" className="rounded-none text-[8px] font-black uppercase">{o.status}</Badge></td>
                         <td className="p-4 border-r">{o.consignor}</td>
                         <td className="p-4 border-r">{o.consignee}</td>
@@ -183,15 +185,12 @@ export default function VAPage() {
              <h3 className="text-red-600 font-black uppercase italic mb-8 border-b pb-4">Short Close Workflow</h3>
              <div className="flex items-center gap-8">
                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Sale Order No:</label>
-                <input value={formData.saleOrder || ''} onChange={e => setFormData({...formData, saleOrder: e.target.value.toUpperCase()})} className="h-9 w-80 border border-slate-400 px-3 text-[12px] font-black outline-none" placeholder="ENTER ORDER NO..." />
+                <input value={formData.saleOrder || formData.orderNo || ''} onChange={e => setFormData({...formData, saleOrder: e.target.value.toUpperCase()})} className="h-9 w-80 border border-slate-400 px-3 text-[12px] font-black outline-none" placeholder="ENTER ORDER NO..." />
              </div>
           </div>
         ) : (
           <div className="animate-slide-up space-y-12 bg-white p-12 border border-slate-300 shadow-inner">
              <div className="grid grid-cols-2 gap-y-6 gap-x-24">
-               {/* Balanced 6x2 Layout matching reference image */}
-               
-               {/* Row 1 */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">PLANT CODE:</label>
                  <select 
@@ -207,14 +206,13 @@ export default function VAPage() {
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">SALE ORDER NO:</label>
                  <input 
-                   value={formData.saleOrder || ''} 
+                   value={formData.saleOrder || formData.orderNo || ''} 
                    onChange={e => setFormData({...formData, saleOrder: e.target.value.toUpperCase()})} 
                    disabled={isReadOnly} 
                    className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('saleOrder') && !formData.saleOrder ? "border-red-500 bg-red-50" : "border-slate-400")} 
                  />
                </div>
                
-               {/* Row 2 */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR:</label>
                  <select 
@@ -236,7 +234,6 @@ export default function VAPage() {
                  />
                </div>
 
-               {/* Row 3 */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase italic">FROM (CONSIGNOR CITY):</label>
                  <input 
@@ -258,7 +255,6 @@ export default function VAPage() {
                  </select>
                </div>
 
-               {/* Row 4 */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNEE CUSTOMER CODE:</label>
                  <input 
@@ -280,7 +276,6 @@ export default function VAPage() {
                  </select>
                </div>
 
-               {/* Row 5 */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">SHIP TO PARTY CUSTOMER CODE:</label>
                  <input 
@@ -298,13 +293,12 @@ export default function VAPage() {
                  />
                </div>
                
-               {/* Row 6 */}
                <div className="flex items-center gap-8">
                   <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">WEIGHT (MT):</label>
                   <input 
                     type="number" 
                     step="0.001" 
-                    value={formData.weight || ''} 
+                    value={formData.weight || formData.quantity || ''} 
                     onChange={e => setFormData({...formData, weight: e.target.value})} 
                     disabled={isReadOnly && activeTCode !== 'VA02'} 
                     className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('weight') && !formData.weight ? "border-red-500 bg-red-50" : "border-slate-400")} 
@@ -314,7 +308,7 @@ export default function VAPage() {
                   <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">BOOKED DATE TIME:</label>
                   <input 
                     type="datetime-local" 
-                    value={formData.saleOrderDate || ''} 
+                    value={formData.saleOrderDate || formData.orderDate || ''} 
                     onChange={e => setFormData({...formData, saleOrderDate: e.target.value})} 
                     disabled={isReadOnly} 
                     className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('saleOrderDate') && !formData.saleOrderDate ? "border-red-500 bg-red-50" : "border-slate-400")} 
@@ -327,4 +321,3 @@ export default function VAPage() {
     </div>
   );
 }
-
