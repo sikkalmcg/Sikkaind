@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -5,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -33,7 +34,7 @@ export default function FMPage() {
     if (isReadOnly) return;
     
     // Mandatory Validations
-    const mandatory = ['companyCode', 'companyName', 'address', 'city', 'gstin', 'pan', 'mobile', 'email'];
+    const mandatory = ['companyCode', 'companyName', 'address', 'city', 'gstNo', 'panNo', 'mobile', 'email'];
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
       setErrors(missing);
@@ -50,7 +51,8 @@ export default function FMPage() {
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'companies', docId), { 
       ...formData, 
       id: docId, 
-      updatedAt: new Date().toISOString(),
+      updatedAt: serverTimestamp(),
+      createdAt: formData.createdAt || serverTimestamp(),
       updatedBy: 'Sikkaind_System'
     }, { merge: true });
     setFormData({});
@@ -69,7 +71,7 @@ export default function FMPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData({ ...formData, logo: reader.result as string });
+        setFormData({ ...formData, logoUrl: reader.result as string });
       };
       reader.readAsDataURL(file);
     }
@@ -106,7 +108,7 @@ export default function FMPage() {
                         <td className="p-4 border-r text-[#0056d2] font-black">{c.companyCode}</td>
                         <td className="p-4 border-r">{c.companyName}</td>
                         <td className="p-4 border-r">{c.city}</td>
-                        <td className="p-4 text-slate-300">{format(new Date(c.updatedAt || new Date()), 'dd-MM HH:mm')}</td>
+                        <td className="p-4 text-slate-300">{c.updatedAt?.seconds ? format(new Date(c.updatedAt.seconds * 1000), 'dd-MM HH:mm') : '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -163,19 +165,19 @@ export default function FMPage() {
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">GSTIN:</label>
                  <input 
-                   value={formData.gstin || ''} 
-                   onChange={e => setFormData({...formData, gstin: e.target.value.toUpperCase()})} 
+                   value={formData.gstNo || ''} 
+                   onChange={e => setFormData({...formData, gstNo: e.target.value.toUpperCase()})} 
                    disabled={isReadOnly} 
-                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('gstin') ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('gstNo') ? "border-red-500 bg-red-50" : "border-slate-400")} 
                  />
                </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">PAN:</label>
                  <input 
-                   value={formData.pan || ''} 
-                   onChange={e => setFormData({...formData, pan: e.target.value.toUpperCase()})} 
+                   value={formData.panNo || ''} 
+                   onChange={e => setFormData({...formData, panNo: e.target.value.toUpperCase()})} 
                    disabled={isReadOnly} 
-                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('pan') ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('panNo') ? "border-red-500 bg-red-50" : "border-slate-400")} 
                  />
                </div>
                <div className="flex items-center gap-8">
@@ -234,13 +236,13 @@ export default function FMPage() {
                       onClick={() => !isReadOnly && document.getElementById('logo-upload')?.click()}
                       className={cn(
                         "h-32 w-32 border-2 border-dashed flex flex-col items-center justify-center bg-slate-50 cursor-pointer hover:bg-slate-100 transition-all overflow-hidden relative",
-                        errors.includes('logo') ? "border-red-500 bg-red-50" : "border-slate-300"
+                        errors.includes('logoUrl') ? "border-red-500 bg-red-50" : "border-slate-300"
                       )}
                     >
-                      {formData.logo ? (
+                      {formData.logoUrl ? (
                         <>
-                          <img src={formData.logo} alt="Logo Preview" className="h-full w-full object-contain" />
-                          {!isReadOnly && <button onClick={(e) => { e.stopPropagation(); setFormData({...formData, logo: null}); }} className="absolute top-1 right-1 bg-red-500 text-white p-0.5"><X className="h-3 w-3" /></button>}
+                          <img src={formData.logoUrl} alt="Logo Preview" className="h-full w-full object-contain" />
+                          {!isReadOnly && <button onClick={(e) => { e.stopPropagation(); setFormData({...formData, logoUrl: null}); }} className="absolute top-1 right-1 bg-red-500 text-white p-0.5"><X className="h-3 w-3" /></button>}
                         </>
                       ) : (
                         <div className="flex flex-col items-center text-slate-400">

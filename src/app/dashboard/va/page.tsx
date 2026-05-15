@@ -7,7 +7,7 @@ import { Save, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -62,7 +62,7 @@ export default function VAPage() {
   const handleLookupPartyId = (name: string, type: 'consignor' | 'consignee' | 'shipTo') => {
     const party = customers?.find(c => 
       c.customerName === name && 
-      c.plantCodes?.includes(formData.plantCode)
+      (c.plantCodes?.includes(formData.plantCode) || !formData.plantCode)
     );
     if (!party) return;
 
@@ -121,7 +121,8 @@ export default function VAPage() {
       quantity: formData.weight,
       orderDate: formData.saleOrderDate,
       status, 
-      updatedAt: new Date().toISOString(),
+      updatedAt: serverTimestamp(),
+      createdAt: formData.createdAt || serverTimestamp(),
       updatedBy: 'Sikkaind_System'
     };
 
@@ -144,6 +145,12 @@ export default function VAPage() {
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
         <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - SALE ORDER REGISTRY</h2>
+        <div className="flex items-center gap-3">
+          <Button onClick={handleSave} disabled={isReadOnly && activeTCode !== 'VA04'} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95">
+            <Save className="h-3.5 w-3.5 mr-2" /> {activeTCode === 'VA04' ? 'Execute Short Close' : 'Save (F8)'}
+          </Button>
+          <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
+        </div>
       </div>
 
       <div className="px-2">
@@ -165,7 +172,7 @@ export default function VAPage() {
                         <td className="p-4 border-r"><Badge variant="outline" className="rounded-none text-[8px] font-black uppercase">{o.status}</Badge></td>
                         <td className="p-4 border-r">{o.consignor}</td>
                         <td className="p-4 border-r">{o.consignee}</td>
-                        <td className="p-4 text-slate-300">{format(new Date(o.updatedAt || new Date()), 'dd/MM HH:mm')}</td>
+                        <td className="p-4 text-slate-300">{o.updatedAt?.seconds ? format(new Date(o.updatedAt.seconds * 1000), 'dd/MM HH:mm') : '-'}</td>
                       </tr>
                     ))}
                   </tbody>

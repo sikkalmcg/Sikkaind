@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -5,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 const SHARED_HUB_ID = 'Sikkaind';
@@ -30,10 +31,12 @@ export default function OXPage() {
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'plants', docId), { 
       ...formData, 
       id: docId, 
-      updatedAt: new Date().toISOString(),
+      updatedAt: serverTimestamp(),
+      createdAt: formData.createdAt || serverTimestamp(),
       updatedBy: 'Sikkaind_System'
     }, { merge: true });
     setFormData({});
+    alert('Registry Synchronized');
   };
 
   const paginated = (plants || []).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -67,7 +70,7 @@ export default function OXPage() {
                       <td className="p-4 border-r text-[#0056d2] font-black">{p.plantCode}</td>
                       <td className="p-4 border-r">{p.plantName}</td>
                       <td className="p-4 border-r text-slate-400 italic">{p.location || '-'}</td>
-                      <td className="p-4 text-slate-300">{format(new Date(p.updatedAt || new Date()), 'dd-MM HH:mm')}</td>
+                      <td className="p-4 text-slate-300">{p.updatedAt?.seconds ? format(new Date(p.updatedAt.seconds * 1000), 'dd-MM HH:mm') : '-'}</td>
                     </tr>
                   ))}
                 </tbody>
