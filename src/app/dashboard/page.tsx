@@ -62,11 +62,13 @@ export default function DashboardPage() {
 
   const handleNavigate = (code: string) => {
     const c = code.toUpperCase();
-    let target = c.substring(0, 2).toLowerCase();
     
-    if (c === 'TR21') target = 'tr21';
-    else if (c === 'TR24') target = 'tr24';
-    else if (c === 'WGPS24') target = 'wgsp24';
+    // Correctly resolve target for all codes
+    const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(c) ? c : c.substring(0, 2);
+    let target = baseCode.toLowerCase();
+    
+    // Special handling for GPS route node
+    if (target === 'wgps24') target = 'wgsp24';
 
     router.push(`/dashboard/${target}?tcode=${c}`);
   };

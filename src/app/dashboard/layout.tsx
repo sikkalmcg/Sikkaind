@@ -88,7 +88,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (input.startsWith('/N')) code = input.substring(2);
     else if (input.startsWith('/O')) {
       const target = input.substring(2);
-      window.open(`${window.location.origin}/dashboard/${target.toLowerCase().substring(0, 2)}?tcode=${target}`, '_blank');
+      // Open in new tab logic using routeMap
+      const routeMap: any = {
+        'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
+        'XD': '/dashboard/xd', 'VA': '/dashboard/va', 'SU': '/dashboard/su',
+        'TR21': '/dashboard/tr21', 'TR24': '/dashboard/tr24', 'WGPS24': '/dashboard/wgsp24',
+        'SE38': '/dashboard/se38', 'ZCODE': '/dashboard/zcode'
+      };
+      const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(target) ? target : target.substring(0, 2);
+      const targetRoute = routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
+      window.open(`${window.location.origin}${targetRoute}?tcode=${target}`, '_blank');
       setTCode('');
       return;
     }
@@ -108,7 +117,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       'SE38': '/dashboard/se38', 'ZCODE': '/dashboard/zcode'
     };
 
-    const baseCode = code.startsWith('WGPS') ? 'WGPS24' : (code.startsWith('TR2') ? code : code.substring(0, 2));
+    // Correctly handle multi-character codes and 2-character prefixes
+    const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(code) ? code : code.substring(0, 2);
     const targetRoute = routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
     
     router.push(`${targetRoute}?tcode=${code}`);
