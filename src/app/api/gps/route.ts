@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 
 /**
@@ -6,7 +5,8 @@ import { NextResponse } from 'next/server';
  * Proxies requests to the Wheelseye API to bypass client-side CORS restrictions.
  */
 export async function GET() {
-  const apiUrl = 'https://api.wheelseye.com/currentLoc?accessToken=53afc208-0981-48c7-b134-d85d2f33dc0c';
+  const token = process.env.WHEELSEYE_ACCESS_TOKEN;
+  const apiUrl = `https://api.wheelseye.com/currentLoc?accessToken=${token}`;
   
   try {
     const response = await fetch(apiUrl, {

@@ -6,7 +6,7 @@ import {
   Grid2X2, Package, Truck, Radar, ShoppingBag, XCircle,
   Activity, BarChart3
 } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,10 @@ export default function DashboardPage() {
   
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); 
   const [counts, setCounts] = React.useState({ open: 0, loading: 0, transit: 0, arrived: 0, pod: 0 });
+
+  // Fetch real-time plants registry for the filter dropdown
+  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const { data: plants } = useCollection(plantsQuery);
 
   React.useEffect(() => {
     const tripsRef = collection(db, 'users', SHARED_HUB_ID, 'trips');
@@ -99,9 +103,9 @@ export default function DashboardPage() {
                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Global Plant Filter</label>
                <select className="h-8 border border-slate-300 bg-white px-2 text-[10px] font-black uppercase outline-none focus:ring-1 focus:bg-yellow-50" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}>
                  <option value="ALL">ALL NODES</option>
-                 <option value="IMPC">PLANT IMPC</option>
-                 <option value="ID20">PLANT ID20</option>
-                 <option value="ID23">PLANT ID23</option>
+                 {plants?.map(p => (
+                   <option key={p.id} value={p.plantCode}>PLANT {p.plantCode}</option>
+                 ))}
                </select>
              </div>
           </div>
