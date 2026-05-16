@@ -21,7 +21,7 @@ export default function XDPage() {
   
   const [formData, setFormData] = React.useState<any>({});
   const [searchId, setSearchId] = React.useState('');
-  const [currentPage, React.useState] = React.useState(1);
+  const [currentPage, setCurrentPage] = React.useState(1);
   const [errors, setErrors] = React.useState<string[]>([]);
 
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
