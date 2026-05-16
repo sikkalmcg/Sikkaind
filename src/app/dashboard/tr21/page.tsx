@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -87,12 +88,14 @@ export default function TR21Page() {
   const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: vendors } = useCollection(vendorsQuery);
   const { data: customers } = useCollection(customersQuery);
   const { data: plants } = useCollection(plantsQuery);
+  const { data: companies } = useCollection(companiesQuery);
 
   // Tab Calculation Logic
   const counts = React.useMemo(() => {
@@ -122,6 +125,15 @@ export default function TR21Page() {
     { label: 'POD Verify', count: counts.pod },
     { label: 'Closed', count: counts.closed }
   ];
+
+  const getCarrierForPlant = (plantCode: string) => {
+    if (!companies || !plantCode) return 'SIKKA INDUSTRIES';
+    const carrier = companies.find(c => 
+      c.linkedPlantCode === plantCode || 
+      (Array.isArray(c.plantCodes) && c.plantCodes.includes(plantCode))
+    );
+    return carrier?.companyName || 'SIKKA INDUSTRIES';
+  };
 
   const filteredData = React.useMemo(() => {
     if (!orders || !trips || !mounted) return [];
@@ -216,6 +228,7 @@ export default function TR21Page() {
       fleetType: assignData.fleetType || 'Own Vehicle',
       transporterName: assignData.vendorName || '',
       carrierPan: assignData.vendorPan || '',
+      arrangeBy: assignData.arrangeBy || '',
       status: 'LOADING',
       createdAt: now,
       updatedAt: now,
@@ -477,7 +490,7 @@ export default function TR21Page() {
 
               return (
                 <div key={item.id} className="flex flex-col border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
-                  <div className="flex items-center text-[10px] font-bold uppercase min-h-[60px]">
+                  <div className="flex items-center text-[10px] font-bold uppercase min-h-[75px]">
                     {activeTab === 'Open Orders' ? (
                       <>
                         <div className="p-3 w-[4%] border-r text-center text-slate-400 font-black">{item.plantCode}</div>
@@ -504,16 +517,26 @@ export default function TR21Page() {
                         </div>
                         <div className="p-3 w-[10%] border-r font-black text-slate-700 truncate">{item.shipToParty}</div>
                         <div className="p-3 w-[8%] border-r italic text-slate-500 text-[8px] leading-tight">{item.from} → {item.destination}</div>
+                        
+                        {/* Fleet / Vehicle Column Updated */}
                         <div className="p-3 w-[10%] border-r flex flex-col gap-0.5 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedTrip(item); setVehicleEdit({vehicleNo: item.vehicleNo, mobile: item.driverMobile}); setShowVehiclePortal(true); }}>
-                           <span className="text-slate-400 text-[8px] font-black">{item.fleetType}</span>
+                           <span className="text-slate-400 text-[8px] font-black uppercase">{item.fleetType}</span>
                            <span className="font-black text-slate-800">{item.vehicleNo}</span>
-                           <span className="text-[8px] font-bold text-slate-300">{item.driverMobile}</span>
+                           <span className="text-[8px] font-bold text-slate-300">{item.driverMobile || '-'}</span>
                         </div>
+
                         <div className="p-3 w-[4%] border-r text-center font-black text-blue-600 text-[11px]">{item.assignWeight}</div>
                         <div className="p-3 w-[8%] border-r truncate text-slate-400 text-[8px] leading-tight">
                            INV: {item.invoiceDisplay}<br/>EWB: {item.ewaybillDisplay}
                         </div>
-                        <div className="p-3 w-[8%] border-r truncate text-slate-500 font-black italic">{item.transporterName || 'OWN FLEET'}</div>
+
+                        {/* Carrier / Vendor Column Updated */}
+                        <div className="p-3 w-[8%] border-r flex flex-col gap-0.5">
+                           <span className="text-[9px] font-black text-slate-800 truncate">{getCarrierForPlant(item.plantCode)}</span>
+                           {item.transporterName && <span className="text-[8px] font-bold text-slate-400 italic truncate">{item.transporterName}</span>}
+                           <span className="text-[7px] font-black text-slate-300 uppercase truncate">{item.arrangeBy || '-'}</span>
+                        </div>
+
                         <div className="p-3 w-[8%] border-r">
                            <button onClick={() => { setSelectedTrip(item); if(item.cnNumber) { setShowPrintView(true); } else { setCnData({mode: 'Road', paymentTerms: item.paymentTerms || 'TO PAY'}); setCnItems([{invoiceNo: '', goodsDescription: item.materialName || '', weight: item.assignWeight, package: '', packageUom: 'Bag'}]); fetchPreviousCN(item.plantCode, item.vehicleNo); setShowCNPortal(true); } }} className="flex flex-col gap-0.5 hover:text-[#0056d2] transition-colors group w-full font-black text-left text-[10px]">
                               {item.cnNumber ? (
@@ -690,11 +713,11 @@ export default function TR21Page() {
       </Dialog>
 
       <Dialog open={showPODPortal} onOpenChange={setShowPODPortal}>
-        <DialogContent className="max-w-md rounded-none border-[3px] border-purple-600 font-mono text-slate-900">
+        <DialogContent className="max-w-md rounded-none border-[3px] border-purple-600 font-mono text-slate-900 shadow-2xl">
            <DialogHeader>
-             <DialogTitle className="text-sm font-black uppercase italic text-purple-600">POD: {selectedTrip?.tripNo}</DialogTitle>
+             <DialogTitle className="text-sm font-black uppercase italic text-purple-600">POD Upload Workflow</DialogTitle>
            </DialogHeader>
-           <div className="py-6 space-y-6">
+           <div className="py-6 space-y-6 text-slate-800">
               <div className="space-y-1.5">
                  <label className="text-[10px] font-black text-slate-400 uppercase">Received By *</label>
                  <input autoFocus value={podData.receivedBy} onChange={e => setPodData({...podData, receivedBy: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-yellow-50" />
@@ -757,7 +780,7 @@ export default function TR21Page() {
 
       <Dialog open={showCNPortal} onOpenChange={setShowCNPortal}>
         <DialogContent className="max-w-[950px] max-h-[95vh] rounded-none border-[3px] border-[#0056d2] font-mono p-0 flex flex-col text-slate-900">
-           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0"><DialogTitle className="text-sm font-black uppercase text-[#0056d2]">CN: {selectedTrip?.tripNo}</DialogTitle></DialogHeader>
+           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0"><DialogTitle className="text-sm font-black uppercase text-[#0056d2]">CN Assignment</DialogTitle></DialogHeader>
            <div className="p-8 space-y-8 flex-1 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-3 gap-8">
                  <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase italic">Previous CN</label><input readOnly value={previousCN} className="h-9 w-full border border-slate-200 bg-slate-50 px-3 text-[11px] font-black outline-none" /></div>
@@ -779,7 +802,7 @@ export default function TR21Page() {
         <DialogContent className="max-w-[700px] rounded-none border-[3px] border-[#0056d2] font-mono text-slate-900 p-0 overflow-hidden">
            <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
              <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2] flex justify-between items-center">
-               <span>Tracking: {selectedTrip?.vehicleNo}</span>
+               <span>Tracking Mapping</span>
                <Badge className="bg-emerald-600 rounded-none font-black text-[9px] px-3 uppercase">{selectedTrip?.status}</Badge>
              </DialogTitle>
            </DialogHeader>
@@ -794,7 +817,7 @@ export default function TR21Page() {
                  <div className="flex items-start gap-3">
                     <MapPin className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                     <div className="space-y-1">
-                       <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Sync</span>
+                       <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Sync Location</span>
                        <p className="text-sm font-black text-slate-800 leading-relaxed uppercase italic">
                           {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING ADDRESS...'}
                        </p>
@@ -840,12 +863,14 @@ const CNPrintView = ({ trip }: { trip: any }) => {
   
   const getPartyData = React.useCallback((idOrCode: string) => {
     if (!customers || !idOrCode) return {};
-    return customers.find(c => c.customerCode === idOrCode || c.id === idOrCode) || {};
+    const found = customers.find(c => c.customerCode === idOrCode || c.id === idOrCode);
+    return found || {};
   }, [customers]);
 
   const getCompanyData = React.useCallback((plantCode: string) => {
     if (!companies || !plantCode) return {};
-    return companies.find(c => c.linkedPlantCode === plantCode || (Array.isArray(c.plantCodes) && c.plantCodes.includes(plantCode))) || {};
+    const found = companies.find(c => c.linkedPlantCode === plantCode || (Array.isArray(c.plantCodes) && c.plantCodes.includes(plantCode)));
+    return found || {};
   }, [companies]);
 
   const consignor = getPartyData(trip.consignorCode);
@@ -872,11 +897,11 @@ const CNPrintView = ({ trip }: { trip: any }) => {
           </div>
           <div className="flex flex-col">
             <h1 className="text-[27px] leading-none mb-1 font-normal text-blue-900 uppercase tracking-tighter">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
-            <p className="text-[10px] max-w-[420px] leading-tight mb-2 font-normal uppercase">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
+            <p className="text-[8.5px] max-w-[420px] leading-tight mb-2 font-normal uppercase">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
             <div className="flex flex-col gap-0 text-[10px] font-normal uppercase">
-              <div className="flex items-center">
+              <div className="flex items-center gap-1.5">
                  <div className="flex gap-1"><span>GSTIN:</span><span>{carrier.gstNo || '-'}</span></div>
-                 <div className="flex gap-1 ml-3"><span>PAN:</span><span>{carrier.panNo || '-'}</span></div>
+                 <div className="flex gap-1"><span>PAN:</span><span>{carrier.panNo || '-'}</span></div>
               </div>
               <div className="flex gap-1"><span>MOBILE:</span><span>{carrier.mobile || '-'}</span></div>
               <div className="flex gap-1"><span>EMAIL:</span><span className="lowercase">{carrier.email?.toLowerCase() || '-'}</span></div>
@@ -885,19 +910,19 @@ const CNPrintView = ({ trip }: { trip: any }) => {
           </div>
         </div>
         <div className="flex flex-col items-end">
-          <div className="border border-black bg-black text-white px-3 py-0.5 text-[16px] mb-3 font-normal tracking-wider">{label}</div>
-          <div className="text-right space-y-1 font-normal uppercase">
-            <div className="flex justify-end items-center gap-2 text-[17.5px] tracking-tighter font-normal"><span>DATE:</span><span>{formattedDate}</span></div>
-            <div className="flex justify-end gap-2 text-[17.5px] tracking-tighter font-normal"><span>CN:</span><span>{trip.cnNumber || 'DRAFT'}</span></div>
-            <div className="flex justify-end gap-2 text-[17.5px] font-normal mt-0.5 text-emerald-800"><span>FROM:</span><span>{consignor.city || trip.from}</span></div>
-            <div className="flex justify-end gap-2 text-[17.5px] font-normal text-blue-800"><span>TO:</span><span>{shipTo.city || trip.destination}</span></div>
+          <div className="border border-black bg-black text-white px-3 py-0.5 text-[16px] mb-1 font-normal tracking-wider">{label}</div>
+          <div className="text-right space-y-0.5 font-normal uppercase">
+            <div className="flex justify-end items-center gap-1.5 text-[17.5px] tracking-tighter font-normal"><span>DATE:</span><span>{formattedDate}</span></div>
+            <div className="flex justify-end gap-1.5 text-[17.5px] tracking-tighter font-normal"><span>CN:</span><span>{trip.cnNumber || 'DRAFT'}</span></div>
+            <div className="flex justify-end gap-1.5 text-[17.5px] font-normal mt-0.5 text-emerald-800"><span>FROM:</span><span>{consignor.city || trip.from}</span></div>
+            <div className="flex justify-end gap-1.5 text-[17.5px] font-normal text-blue-800"><span>TO:</span><span>{shipTo.city || trip.destination}</span></div>
           </div>
         </div>
       </div>
 
       <div className="border-t border-black mb-3" />
 
-      <table className="w-full border-collapse border border-black mb-3 font-normal text-[12px]">
+      <table className="w-full border-collapse border border-black mb-3 font-normal text-[11px]">
         <thead>
           <tr className="bg-slate-50 border-b border-black text-center font-normal">
             <th className="p-2 border-r border-black font-normal uppercase">VEHICLE NUMBER</th>
@@ -906,7 +931,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
             <th className="p-2 font-normal uppercase">TRIP ID</th>
           </tr>
         </thead>
-        <tbody className="text-center text-[13px]">
+        <tbody className="text-center text-[12px]">
           <tr className="font-normal">
             <td className="p-2 border-r border-black font-normal">{trip.vehicleNo}</td>
             <td className="p-2 border-r border-black font-normal">{trip.driverMobile}</td>
@@ -922,14 +947,14 @@ const CNPrintView = ({ trip }: { trip: any }) => {
           { title: 'CONSIGNEE', data: consignee, fallback: trip.consigneeName, code: trip.consigneeCode },
           { title: 'SHIP TO PARTY', data: shipTo, fallback: trip.shipToParty, code: trip.shipToPartyCode }
         ].map((node, i) => (
-          <div key={i} className={cn("p-2.5 flex flex-col font-normal uppercase", i < 2 && "border-r border-black")}>
-            <h4 className="border-b border-black mb-1.5 pb-0.5 text-[15px] font-normal tracking-tight flex justify-between items-end">
+          <div key={i} className={cn("p-2 flex flex-col font-normal uppercase", i < 2 && "border-r border-black")}>
+            <h4 className="border-b border-black mb-1 pb-0.5 text-[14px] font-normal tracking-tight flex justify-between items-end">
                <span>{node.title}</span>
                <span className="text-[8px] font-bold opacity-50">{node.data.customerCode || node.code || '-'}</span>
             </h4>
-            <p className="text-[11.5px] leading-tight mb-1 font-normal">{node.data.customerName || node.fallback || '-'}</p>
-            <p className="text-[11px] leading-snug flex-1 italic mb-1.5 font-normal">{node.data.address || '-'}</p>
-            <div className="mt-auto space-y-0.5 text-[11px] font-normal">
+            <p className="text-[10px] leading-tight mb-0.5 font-normal">{node.data.customerName || node.fallback || '-'}</p>
+            <p className="text-[9px] leading-snug flex-1 italic mb-1 font-normal">{node.data.address || '-'}</p>
+            <div className="mt-auto space-y-0.5 text-[10px] font-normal">
               <div className="flex gap-1"><span>MOBILE:</span><span>{node.data.mobile || '-'}</span></div>
               <div className="flex gap-1 pt-0.5 border-t border-slate-100"><span>GSTIN:</span><span>{node.data.gstNo || node.data.gstin || '-'}</span></div>
             </div>
@@ -937,7 +962,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
         ))}
       </div>
 
-      <table className="w-full border-collapse border border-black mb-3 font-normal text-[11px]">
+      <table className="w-full border-collapse border border-black mb-3 font-normal text-[10px]">
         <thead>
           <tr className="bg-slate-50 border-b border-black font-normal">
             <th className="p-2 border-r border-black text-left font-normal uppercase">INVOICE NO</th>
@@ -947,7 +972,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
             <th className="p-2 text-right w-24 font-normal uppercase">WEIGHT (MT)</th>
           </tr>
         </thead>
-        <tbody className="text-[12px] font-normal uppercase">
+        <tbody className="text-[11px] font-normal uppercase">
           {(trip.items?.length ? trip.items : [{invoiceNo: '-', ewaybillNo: '-', goodsDescription: trip.materialName || '-', package: '-', packageUom: '-', weight: trip.assignWeight || '0.000'}]).map((it: any, i: number) => (
             <tr key={i} className="border-b border-black last:border-b-0 font-normal">
               <td className="p-2 border-r border-black font-normal">{it.invoiceNo}</td>
@@ -957,11 +982,11 @@ const CNPrintView = ({ trip }: { trip: any }) => {
               <td className="p-2 text-right font-normal">{parseFloat(it.weight || 0).toFixed(3)}</td>
             </tr>
           ))}
-          <tr className="h-5"><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td></td></tr>
-          <tr className="h-5"><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td></td></tr>
+          <tr className="h-4 border-b border-black"><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td></td></tr>
+          <tr className="h-4"><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td></td></tr>
         </tbody>
         <tfoot>
-          <tr className="bg-slate-50 text-[13px] border-t border-black font-normal uppercase">
+          <tr className="bg-slate-50 text-[11px] border-t border-black font-normal uppercase">
             <td colSpan={3} className="p-2 border-r border-black text-right font-normal">TOTAL CONSIGNMENT</td>
             <td className="p-2 border-r border-black text-center font-normal">{totalPkg} PKG</td>
             <td className="p-2 text-right font-normal">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
@@ -969,25 +994,25 @@ const CNPrintView = ({ trip }: { trip: any }) => {
         </tfoot>
       </table>
 
-      <div className="h-12 w-full border border-black border-t-0 mb-3 bg-slate-50/20" />
+      <div className="h-10 w-full border border-black border-t-0 mb-3 bg-slate-50/10" />
 
       <div className="flex justify-between items-end mt-4 font-normal uppercase">
         <div className="w-2/3 font-normal">
           <h6 className="text-[11px] mb-1 underline font-normal">TERMS & CONDITIONS:</h6>
-          <p className="text-[11px] leading-relaxed italic text-justify pr-10 font-normal">
+          <p className="text-[9px] leading-relaxed italic text-justify pr-10 font-normal">
             1. THE CARRIER IS RESPONSIBLE FOR SAFE DELIVERY IN ORIGINAL CONDITION.<br/>
             2. CONSIGNOR MUST ENSURE CORRECT MATERIAL COUNT BEFORE SEALING.<br/>
             3. RATES ARE BASED ON {trip.fleetType || 'AGREED'} STRATEGY.
           </p>
         </div>
-        <div className="flex flex-col items-center gap-2 w-56 font-normal">
-          <div className="border-b border-black w-full h-10" />
-          <span className="text-[13px] font-normal tracking-wide">AUTHORIZED SIGNATORY</span>
+        <div className="flex flex-col items-center gap-1.5 w-56 font-normal">
+          <div className="border-b border-black w-full h-8" />
+          <span className="text-[12px] font-normal tracking-wide">AUTHORIZED SIGNATORY</span>
         </div>
       </div>
 
-      <div className="mt-8 text-center w-full">
-         <p className="text-[9px] font-normal text-slate-500">Note: This consignment copy was generated digitally and is to be considered as original</p>
+      <div className="mt-6 text-center w-full">
+         <p className="text-[8px] font-normal text-slate-500">Note: This consignment copy was generated digitally and is to be considered as original</p>
       </div>
     </div>
   );
