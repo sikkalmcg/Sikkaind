@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Printer, Save, ChevronLeft, ChevronRight, X, Download, 
   Plus, Trash, Edit3, Radar, Truck, MapPin, Package, ShoppingCart, CheckCircle, RefreshCw, Loader2,
-  Calendar, CheckSquare, AlertTriangle, Edit, Upload, FileText
+  Calendar, CheckSquare, AlertTriangle, Edit, Upload, FileText, Search, Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,10 @@ export default function TR21Page() {
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
   
+  // Filter States
+  const [plantFilter, setPlantFilter] = React.useState('ALL');
+  const [searchQuery, setSearchQuery] = React.useState('');
+
   // Dialog States
   const [showAssign, setShowAssign] = React.useState(false);
   const [showCNPortal, setShowCNPortal] = React.useState(false);
@@ -57,6 +61,7 @@ export default function TR21Page() {
   const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
+  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const gpsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'gps_tracking'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
@@ -64,6 +69,7 @@ export default function TR21Page() {
   const { data: vendors } = useCollection(vendorsQuery);
   const { data: customers } = useCollection(customersQuery);
   const { data: companies } = useCollection(companiesQuery);
+  const { data: plants } = useCollection(plantsQuery);
   const { data: gpsNodes } = useCollection(gpsQuery);
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
@@ -87,8 +93,10 @@ export default function TR21Page() {
       return found?.customerName || fallbackName || '-';
     };
 
+    let baseData: any[] = [];
+
     if (activeTab === 'Open Orders') {
-      return orders.filter(o => o.status === 'Open').map(o => {
+      baseData = orders.filter(o => o.status === 'Open').map(o => {
         const dispatched = trips.filter(t => t.orderNo === o.orderNo && t.status !== 'REJECTION')
                                 .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
         const weight = parseFloat(o.quantity) || 0;
@@ -101,33 +109,64 @@ export default function TR21Page() {
           consignorName: resolveParty(o.consignorCode, o.consignorName)
         };
       }).filter(o => o.balance > 0.001);
+    } else {
+      const statusMap: any = { 
+        'Loading': 'LOADING', 
+        'In-Transit': 'IN-TRANSIT', 
+        'Arrived': 'ARRIVED', 
+        'Reject': 'REJECTION', 
+        'POD Verify': 'POD', 
+        'Closed': 'CLOSED' 
+      };
+
+      baseData = trips.filter(t => t.status === statusMap[activeTab]).map(t => {
+        const invoices = (t.items || []).map((it: any) => it.invoiceNo).filter(Boolean).join(', ');
+        const ewaybills = (t.items || []).map((it: any) => it.ewaybillNo).filter(Boolean).join(', ');
+        return {
+          ...t,
+          consigneeName: resolveParty(t.consigneeCode, t.consigneeName),
+          consignorName: resolveParty(t.consignorCode, t.consignorName),
+          invoiceDisplay: invoices || '-',
+          ewaybillDisplay: ewaybills || '-',
+          vehicleDetail: `${t.vehicleNo} / ${t.driverMobile || '-'}`
+        };
+      });
     }
 
-    const statusMap: any = { 
-      'Loading': 'LOADING', 
-      'In-Transit': 'IN-TRANSIT', 
-      'Arrived': 'ARRIVED', 
-      'Reject': 'REJECTION', 
-      'POD Verify': 'POD', 
-      'Closed': 'CLOSED' 
-    };
+    // Apply Plant Filter
+    if (plantFilter !== 'ALL') {
+      baseData = baseData.filter(d => d.plantCode === plantFilter);
+    }
 
-    return trips.filter(t => t.status === statusMap[activeTab]).map(t => {
-      const invoices = (t.items || []).map((it: any) => it.invoiceNo).filter(Boolean).join(', ');
-      const ewaybills = (t.items || []).map((it: any) => it.ewaybillNo).filter(Boolean).join(', ');
-      return {
-        ...t,
-        consigneeName: resolveParty(t.consigneeCode, t.consigneeName),
-        consignorName: resolveParty(t.consignorCode, t.consignorName),
-        invoiceDisplay: invoices || '-',
-        ewaybillDisplay: ewaybills || '-',
-        vehicleDetail: `${t.vehicleNo} / ${t.driverMobile || '-'}`
-      };
-    });
-  }, [orders, trips, customers, activeTab, mounted]);
+    // Apply Search Query
+    if (searchQuery) {
+      const query = searchQuery.toUpperCase();
+      baseData = baseData.filter(d => 
+        (d.orderNo || '').toUpperCase().includes(query) ||
+        (d.tripNo || '').toUpperCase().includes(query) ||
+        (d.vehicleNo || '').toUpperCase().includes(query) ||
+        (d.consignorName || '').toUpperCase().includes(query) ||
+        (d.consigneeName || '').toUpperCase().includes(query) ||
+        (d.shipToParty || '').toUpperCase().includes(query) ||
+        (d.cnNumber || '').toUpperCase().includes(query)
+      );
+    }
+
+    return baseData;
+  }, [orders, trips, customers, activeTab, mounted, plantFilter, searchQuery]);
 
   const handlePostAssignment = () => {
     if (!assignData.vehicleNo || !assignData.assignWeight) return alert('Mandatory fields missing');
+    
+    // BUSINESS RULE: Quantity Validation
+    const assignWgt = parseFloat(assignData.assignWeight) || 0;
+    const balanceWgt = parseFloat(selectedOrder.balance) || 0;
+    
+    if (assignWgt > balanceWgt) {
+      alert(`VALIDATION ERROR: Assigned weight (${assignWgt} MT) cannot exceed Sale Order Balance (${balanceWgt.toFixed(3)} MT).`);
+      return;
+    }
+
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
     
     const newTrip = {
@@ -244,7 +283,6 @@ export default function TR21Page() {
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      // Simulation of compression < 200KB for MVP
       setPodData({ ...podData, podFile: reader.result as string });
     };
     reader.readAsDataURL(file);
@@ -258,7 +296,7 @@ export default function TR21Page() {
       receivedBy: podData.receivedBy.toUpperCase(),
       receivedDate: podData.receivedDate,
       podRemarks: podData.remarks.toUpperCase(),
-      podUrl: podData.podFile, // In production this would be Firebase Storage URL
+      podUrl: podData.podFile,
       closedDate: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
@@ -451,12 +489,38 @@ export default function TR21Page() {
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden">
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
         <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD CONTROL HUB</h2>
-        {showPrintView && (
-          <div className="flex gap-4">
-             <Button onClick={() => window.print()} className="h-8 bg-emerald-600 rounded-none text-[10px] font-black uppercase px-6"><Printer className="h-3.5 w-3.5 mr-2" /> Print All (F8)</Button>
-             <Button onClick={() => setShowPrintView(false)} variant="outline" className="h-8 border-red-500 text-red-500 rounded-none text-[10px] font-black uppercase px-6 hover:bg-red-50 transition-all"><X className="h-3.5 w-3.5 mr-2" /> Exit Preview</Button>
-          </div>
-        )}
+        <div className="flex gap-4 items-center">
+           {showPrintView ? (
+             <>
+                <Button onClick={() => window.print()} className="h-8 bg-emerald-600 rounded-none text-[10px] font-black uppercase px-6"><Printer className="h-3.5 w-3.5 mr-2" /> Print All (F8)</Button>
+                <Button onClick={() => setShowPrintView(false)} variant="outline" className="h-8 border-red-500 text-red-500 rounded-none text-[10px] font-black uppercase px-6 hover:bg-red-50 transition-all"><X className="h-3.5 w-3.5 mr-2" /> Exit Preview</Button>
+             </>
+           ) : (
+             <div className="flex items-center gap-6 bg-[#f8fafc] border border-slate-200 p-1 px-4 shadow-inner">
+               <div className="flex items-center gap-2">
+                 <Filter className="h-3.5 w-3.5 text-slate-400" />
+                 <select 
+                   value={plantFilter} 
+                   onChange={e => setPlantFilter(e.target.value)}
+                   className="h-7 bg-transparent text-[10px] font-black uppercase outline-none focus:text-blue-600"
+                 >
+                   <option value="ALL">All Plants</option>
+                   {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+                 </select>
+               </div>
+               <div className="w-[1px] h-4 bg-slate-300" />
+               <div className="flex items-center gap-2">
+                 <Search className="h-3.5 w-3.5 text-slate-400" />
+                 <input 
+                   value={searchQuery}
+                   onChange={e => setSearchQuery(e.target.value)}
+                   className="h-7 w-48 bg-transparent text-[10px] font-black uppercase outline-none focus:w-64 transition-all"
+                   placeholder="SEARCH REGISTRY..."
+                 />
+               </div>
+             </div>
+           )}
+        </div>
       </div>
 
       <div className={cn("flex-1 flex flex-col p-8 transition-opacity duration-300", showPrintView ? "opacity-0 pointer-events-none" : "opacity-100")}>
