@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Plant": {
@@ -127,10 +128,12 @@
         "transporterName": { "type": "string" },
         "driverMobile": { "type": "string" },
         "route": { "type": "string" },
-        "loadingStatus": { "type": "string" },
-        "transitStatus": { "type": "string" },
-        "arrivalStatus": { "type": "string" },
-        "podStatus": { "type": "string" },
+        "carrierPan": { "type": "string" },
+        "mode": { "type": "string", "enum": ["Road", "Road from Rail"] },
+        "paymentTerms": { "type": "string" },
+        "cnNumber": { "type": "string" },
+        "cnDate": { "type": "string" },
+        "dispatchDate": { "type": "string" },
         "status": { "type": "string", "enum": ["LOADING", "IN-TRANSIT", "ARRIVED", "POD", "CLOSED", "REJECTION"] }
       }
     }
