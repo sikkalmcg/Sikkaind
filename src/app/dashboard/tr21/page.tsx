@@ -34,7 +34,7 @@ export default function TR21Page() {
   const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  // Live GPS State (Mirroring WGPS24)
+  // Live GPS State
   const [gpsLive, setGpsLive] = React.useState<any[]>([]);
   const [isGpsLoading, setIsGpsLoading] = React.useState(true);
 
@@ -59,7 +59,7 @@ export default function TR21Page() {
 
   React.useEffect(() => { setMounted(true); }, []);
 
-  // Fetch Live GPS data for integration
+  // Fetch Live GPS data
   const fetchGps = React.useCallback(async () => {
     try {
       const res = await fetch('/api/gps');
@@ -541,7 +541,7 @@ export default function TR21Page() {
           ))}
         </div>
 
-        {/* Horizontal List Registry */}
+        {/* High-Density Grid Registry */}
         <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner green-scrollbar p-1">
           <div className="flex flex-col gap-0.5">
             {/* Legend Header */}
@@ -560,89 +560,105 @@ export default function TR21Page() {
               const liveNode = gpsLive.find(n => n.vehicleNumber === item.vehicleNo);
               
               return (
-                <div key={item.id} className="flex border-b border-slate-100 hover:bg-blue-50/30 transition-colors text-[10px] font-bold uppercase items-center min-h-[85px]">
-                  <div className="p-3 w-[20%] border-r font-black text-slate-700 leading-tight">
-                    {item.shipToParty || '-'}
-                  </div>
-                  <div className="p-3 w-[12%] border-r text-[9px] italic text-slate-500 space-y-0.5">
-                    <div className="truncate">{item.from}</div>
-                    <div className="truncate text-blue-400">&bull; {item.destination}</div>
-                  </div>
-                  <div className="p-3 w-[15%] border-r font-black text-slate-800 hover:bg-slate-50 cursor-pointer group" onClick={() => { setSelectedTrip(item); setVehicleEdit({vehicleNo: item.vehicleNo, mobile: item.driverMobile}); setShowVehiclePortal(true); }}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate">{item.vehicleDetail}</span>
-                      <Edit3 className="h-3 w-3 text-slate-300 shrink-0 group-hover:text-blue-500 transition-colors" />
+                <div key={item.id} className="flex flex-col border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
+                  {/* Top Data Row */}
+                  <div className="flex items-center text-[10px] font-bold uppercase min-h-[75px]">
+                    <div className="p-3 w-[20%] border-r font-black text-slate-700 leading-tight">
+                      {item.shipToParty || '-'}
+                    </div>
+                    <div className="p-3 w-[12%] border-r text-[9px] italic text-slate-500 space-y-0.5">
+                      <div className="truncate">{item.from}</div>
+                      <div className="truncate text-blue-400">&bull; {item.destination}</div>
+                    </div>
+                    <div className="p-3 w-[15%] border-r font-black text-slate-800 hover:bg-slate-50 cursor-pointer group" onClick={() => { setSelectedTrip(item); setVehicleEdit({vehicleNo: item.vehicleNo, mobile: item.driverMobile}); setShowVehiclePortal(true); }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate">{item.vehicleDetail}</span>
+                        <Edit3 className="h-3 w-3 text-slate-300 shrink-0 group-hover:text-blue-500 transition-colors" />
+                      </div>
+                    </div>
+                    <div className="p-3 w-[10%] border-r text-center font-black text-slate-800 text-[11px]">
+                      {item.assignWeight}
+                    </div>
+                    <div className="p-3 w-[15%] border-r">
+                       <div className="flex flex-col gap-0.5">
+                          <div className="truncate"><span className="text-[8px] text-slate-300 font-black">INV:</span> <span className="text-slate-400 font-bold">{item.invoiceDisplay}</span></div>
+                          <div className="truncate"><span className="text-[8px] text-slate-300 font-black">EWB:</span> <span className="text-slate-400 font-bold">{item.ewaybillDisplay}</span></div>
+                       </div>
+                    </div>
+                    <div className="p-3 w-[13%] border-r">
+                       <button onClick={() => { setSelectedTrip(item); if(item.cnNumber) { setShowPrintView(true); } else { setCnData({mode: 'Road', paymentTerms: item.paymentTerms || 'TO PAY'}); setCnItems([{invoiceNo: '', goodsDescription: item.materialName || '', weight: item.assignWeight, package: '', packageUom: 'Bag'}]); fetchPreviousCN(item.plantCode, item.vehicleNo); setShowCNPortal(true); } }} className="flex flex-col gap-1 hover:text-[#0056d2] transition-colors group w-full font-black text-left">
+                          {item.cnNumber ? (
+                            <>
+                              <div className="flex items-center gap-1.5 text-[#0056d2]">
+                                <Printer className="h-3 w-3 shrink-0 text-slate-400 group-hover:text-[#0056d2]" />
+                                <span className="truncate">{item.cnNumber}</span>
+                              </div>
+                              <span className="text-[8px] text-slate-300 font-bold pl-4.5">{item.cnDate ? format(new Date(item.cnDate), 'dd-MM-yyyy') : '-'}</span>
+                            </>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <Plus className="h-3 w-3 shrink-0 text-slate-300" />
+                              <span className="text-[9px] text-slate-400">REGISTRY</span>
+                            </div>
+                          )}
+                       </button>
+                    </div>
+                    <div className="p-3 flex-1 flex flex-col gap-2 items-end">
+                       <div className="flex gap-4 items-center">
+                          {activeTab === 'Open Orders' ? (
+                            <Button onClick={() => { setSelectedOrder(item); setAssignData({assignWeight: item.balance.toFixed(3), paymentTerms: 'TO PAY'}); setShowAssign(true); }} className="h-8 text-[10px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-8 shadow-sm">Assign</Button>
+                          ) : (
+                            <>
+                              {activeTab === 'Loading' && (
+                                <>
+                                  <Button onClick={() => { setSelectedTrip(item); setOutData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} className="h-7 text-[10px] font-black bg-[#1e3a8a] text-white rounded-none px-6 shadow-sm">OUT</Button>
+                                  <button onClick={() => { setSelectedTrip(item); setShowUnassignWarning(true); }} className="text-[9px] font-black text-red-500 hover:underline uppercase tracking-tighter">UNASSIGN</button>
+                                </>
+                              )}
+                              {activeTab === 'In-Transit' && (
+                                <Button onClick={() => handleArrival(item.id)} className="h-7 text-[10px] font-black bg-emerald-600 text-white rounded-none px-8 shadow-sm">ARRIVED</Button>
+                              )}
+                              {activeTab === 'Arrived' && (
+                                <>
+                                  <Button onClick={() => handleUnload(item.id)} className="h-7 text-[10px] font-black bg-blue-600 text-white rounded-none px-8 shadow-sm">UNLOAD</Button>
+                                  <button onClick={() => handleReject(item.id)} className="text-[9px] font-black text-red-500 hover:underline uppercase tracking-tighter">REJECT</button>
+                                </>
+                              )}
+                              {activeTab === 'POD Verify' && (
+                                <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className="h-7 text-[10px] font-black bg-purple-600 text-white rounded-none px-6 shadow-sm">UPLOAD POD</Button>
+                              )}
+                              {activeTab === 'Closed' && (
+                                <div className="flex gap-2">
+                                   <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} variant="outline" className="h-7 text-[10px] font-black border-slate-300 rounded-none px-4">POD UPDATE</Button>
+                                   {item.podUrl && <Button onClick={() => window.open(item.podUrl, '_blank')} variant="ghost" className="h-7 text-blue-600 p-1"><FileCheck className="h-4 w-4" /></Button>}
+                                </div>
+                              )}
+                            </>
+                          )}
+                       </div>
                     </div>
                   </div>
-                  <div className="p-3 w-[10%] border-r text-center font-black text-slate-800 text-[11px]">
-                    {item.assignWeight}
-                  </div>
-                  <div className="p-3 w-[15%] border-r">
-                     <div className="flex flex-col gap-0.5">
-                        <div className="truncate"><span className="text-[8px] text-slate-300 font-black">INV:</span> <span className="text-slate-400 font-bold">{item.invoiceDisplay}</span></div>
-                        <div className="truncate"><span className="text-[8px] text-slate-300 font-black">EWB:</span> <span className="text-slate-400 font-bold">{item.ewaybillDisplay}</span></div>
-                     </div>
-                  </div>
-                  <div className="p-3 w-[13%] border-r">
-                     <button onClick={() => { setSelectedTrip(item); if(item.cnNumber) { setShowPrintView(true); } else { setCnData({mode: 'Road', paymentTerms: item.paymentTerms || 'TO PAY'}); setCnItems([{invoiceNo: '', goodsDescription: item.materialName || '', weight: item.assignWeight, package: '', packageUom: 'Bag'}]); fetchPreviousCN(item.plantCode, item.vehicleNo); setShowCNPortal(true); } }} className="flex items-center gap-2 hover:text-[#0056d2] transition-colors group w-full font-black">
-                        {item.cnNumber ? <><Printer className="h-3.5 w-3.5 shrink-0 text-slate-400 group-hover:text-[#0056d2]" /> <span className="truncate text-[#0056d2]">{item.cnNumber}</span></> : <><Plus className="h-3 w-3 shrink-0 text-slate-300" /> <span className="text-[9px] text-slate-400">REGISTRY</span></>}
-                     </button>
-                  </div>
-                  <div className="p-3 flex-1 flex flex-col gap-2 items-end">
-                     {/* Row 1: Registry Lifecycle Actions */}
-                     <div className="flex gap-4 items-center">
-                        {activeTab === 'Open Orders' ? (
-                          <Button onClick={() => { setSelectedOrder(item); setAssignData({assignWeight: item.balance.toFixed(3), paymentTerms: 'TO PAY'}); setShowAssign(true); }} className="h-8 text-[10px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-8 shadow-sm">Assign</Button>
-                        ) : (
-                          <>
-                            {activeTab === 'Loading' && (
-                              <>
-                                <Button onClick={() => { setSelectedTrip(item); setOutData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} className="h-7 text-[10px] font-black bg-[#1e3a8a] text-white rounded-none px-6 shadow-sm">OUT</Button>
-                                <button onClick={() => { setSelectedTrip(item); setShowUnassignWarning(true); }} className="text-[9px] font-black text-red-500 hover:underline uppercase tracking-tighter">UNASSIGN</button>
-                              </>
-                            )}
-                            {activeTab === 'In-Transit' && (
-                              <Button onClick={() => handleArrival(item.id)} className="h-7 text-[10px] font-black bg-emerald-600 text-white rounded-none px-8 shadow-sm">ARRIVED</Button>
-                            )}
-                            {activeTab === 'Arrived' && (
-                              <>
-                                <Button onClick={() => handleUnload(item.id)} className="h-7 text-[10px] font-black bg-blue-600 text-white rounded-none px-8 shadow-sm">UNLOAD</Button>
-                                <button onClick={() => handleReject(item.id)} className="text-[9px] font-black text-red-500 hover:underline uppercase tracking-tighter">REJECT</button>
-                              </>
-                            )}
-                            {activeTab === 'POD Verify' && (
-                              <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className="h-7 text-[10px] font-black bg-purple-600 text-white rounded-none px-6 shadow-sm">UPLOAD POD</Button>
-                            )}
-                            {activeTab === 'Closed' && (
-                              <div className="flex gap-2">
-                                 <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} variant="outline" className="h-7 text-[10px] font-black border-slate-300 rounded-none px-4">POD UPDATE</Button>
-                                 {item.podUrl && <Button onClick={() => window.open(item.podUrl, '_blank')} variant="ghost" className="h-7 text-blue-600 p-1"><FileCheck className="h-4 w-4" /></Button>}
-                              </div>
-                            )}
-                          </>
-                        )}
-                     </div>
-                     
-                     {/* Row 2: Live Location Footer (Street + City) */}
-                     {['Loading', 'In-Transit', 'Arrived'].includes(activeTab) && (
-                       <div className="flex items-center gap-3">
-                         {liveNode && (
-                           <button 
-                             onClick={() => {
-                               if (liveNode?.latitude && liveNode?.longitude) window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode.latitude},${liveNode.longitude}`, '_blank');
-                             }}
-                             className="text-[8px] font-black text-[#0056d2] uppercase truncate max-w-[200px] hover:underline leading-tight text-right italic"
-                           >
-                             {liveNode.lastLocation || 'SYNCHRONIZING...'}
-                           </button>
-                         )}
-                         <button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} className="flex items-center gap-2 h-7 bg-slate-50 border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all text-[8px] font-black uppercase tracking-[0.2em] rounded-full px-4 group">
-                            <Radar className="h-3 w-3 transition-transform group-hover:scale-110" /> 
-                            Track Mode
-                         </button>
+
+                  {/* Redesigned Merged Footer Node */}
+                  {['Loading', 'In-Transit', 'Arrived'].includes(activeTab) && (
+                    <div className="flex bg-slate-50/50 border-t border-slate-100/50 h-8 items-center">
+                       <div className="w-[32%]" /> {/* Spacer for columns 1 and 2 */}
+                       <div className="flex-1 flex items-center justify-between px-3 gap-6">
+                          <div className="flex items-center gap-2 group cursor-pointer" onClick={() => {
+                             if (liveNode?.latitude && liveNode?.longitude) window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode.latitude},${liveNode.longitude}`, '_blank');
+                          }}>
+                             <MapPin className="h-3 w-3 text-red-400 shrink-0" />
+                             <span className="text-[9px] font-black text-[#0056d2] uppercase truncate group-hover:underline italic leading-none">
+                                {liveNode?.lastLocation || 'SYNCHRONIZING SATELLITE GATEWAY...'}
+                             </span>
+                          </div>
+                          <button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} className="flex items-center gap-2 h-6 bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all text-[8px] font-black uppercase tracking-[0.2em] rounded-full px-3 shrink-0">
+                             <Radar className="h-2.5 w-2.5" /> 
+                             Track Mode
+                          </button>
                        </div>
-                     )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -719,7 +735,7 @@ export default function TR21Page() {
                          <div className="flex items-center justify-between">
                             <label className="text-[10px] font-black text-slate-400 uppercase">Rate (Per MT)</label>
                             <div className="flex items-center gap-2 px-2 bg-slate-200/50">
-                               <Checkbox id="fix-rate" checked={assignData.isFixRate} onCheckedChange={(c) => setAssignData({...assignData, isFixRate: !!c})} className="h-3 w-3 rounded-none border-slate-400" />
+                               <Checkbox id="fix-rate" checked={assignData.isFixRate} onCheckedChange={(checked) => setAssignData({ ...assignData, isFixRate: !!checked })} className="h-3 w-3 rounded-none border-slate-400" />
                                <label htmlFor="fix-rate" className="text-[8px] font-black text-slate-600 uppercase cursor-pointer">Fix Rate</label>
                             </div>
                          </div>
