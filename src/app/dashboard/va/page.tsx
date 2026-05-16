@@ -1,12 +1,11 @@
-
 'use client';
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Save, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Save, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -37,18 +36,18 @@ export default function VAPage() {
   React.useEffect(() => {
     if (activeTCode === 'VA01' && !formData.id) {
       setFormData({ 
-        saleOrderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"), 
+        orderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"), 
         status: 'Open', 
-        weightUom: 'MT',
+        uom: 'MT',
         createdAt: new Date().toISOString(),
-        consignor: '',
-        consignee: '',
+        consignorName: '',
+        consigneeName: '',
         shipToParty: '',
         from: '',
         destination: '',
-        consignorId: '',
-        consigneeId: '',
-        shipToPartyId: '',
+        consignorCode: '',
+        consigneeCode: '',
+        shipToPartyCode: '',
         plantCode: ''
       });
     }
@@ -56,48 +55,49 @@ export default function VAPage() {
 
   const filteredCustomers = React.useMemo(() => {
     if (!customers || !formData.plantCode) return [];
-    return customers.filter(c => c.plantCodes?.includes(formData.plantCode));
+    return customers.filter(c => Array.isArray(c.plantCodes) ? c.plantCodes.includes(formData.plantCode) : c.plantCodes === formData.plantCode);
   }, [customers, formData.plantCode]);
 
   const handleLookupPartyId = (name: string, type: 'consignor' | 'consignee' | 'shipTo') => {
-    const party = customers?.find(c => 
-      c.customerName === name && 
-      (c.plantCodes?.includes(formData.plantCode) || !formData.plantCode)
-    );
+    const party = customers?.find(c => c.customerName === name);
     if (!party) return;
 
     const updates: any = {};
     if (type === 'consignor') {
-      updates.consignorId = party.customerCode;
+      updates.consignorCode = party.customerCode;
       updates.from = party.city || '';
     }
     if (type === 'consignee') {
-      updates.consigneeId = party.customerCode;
+      updates.consigneeCode = party.customerCode;
     }
     if (type === 'shipTo') {
-      updates.shipToPartyId = party.customerCode;
+      updates.shipToPartyCode = party.customerCode;
       updates.destination = party.city || '';
     }
     
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (activeTCode === 'VA03') return;
 
     if (activeTCode === 'VA04') {
-      const o = orders?.find(ord => (ord.orderNo === formData.saleOrder || ord.saleOrder === formData.saleOrder));
+      const o = orders?.find(ord => ord.orderNo === formData.orderNo);
       if (!o) return alert('Order Registry Node not found');
-      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'Short closed' }, { merge: true });
+      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { 
+        status: 'Short closed',
+        shortCloseReason: formData.shortCloseReason || 'Manual Termination',
+        updatedAt: serverTimestamp() 
+      }, { merge: true });
       alert('Order Status Updated: Short Closed');
       setFormData({});
       return;
     }
 
     const mandatory = [
-      'plantCode', 'saleOrder', 'consignor', 'consignorId', 'consignee', 
-      'consigneeId', 'shipToParty', 'shipToPartyId', 'saleOrderDate', 
-      'weight', 'destination', 'from'
+      'plantCode', 'orderNo', 'consignorName', 'consignorCode', 'consigneeName', 
+      'consigneeCode', 'shipToParty', 'shipToPartyCode', 'orderDate', 
+      'quantity', 'destination', 'from'
     ];
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
@@ -106,8 +106,8 @@ export default function VAPage() {
       return;
     }
 
-    if (activeTCode === 'VA01' && orders?.some(o => (o.orderNo === formData.saleOrder || o.saleOrder === formData.saleOrder))) {
-      return alert(`System Error: Duplicate Sale Order ${formData.saleOrder} Node found`);
+    if (activeTCode === 'VA01' && orders?.some(o => o.orderNo === formData.orderNo)) {
+      return alert(`System Error: Duplicate Order No ${formData.orderNo} found`);
     }
 
     const docId = formData.id || crypto.randomUUID();
@@ -117,9 +117,6 @@ export default function VAPage() {
     const savePayload = { 
       ...formData, 
       id: docId, 
-      orderNo: formData.saleOrder,
-      quantity: formData.weight,
-      orderDate: formData.saleOrderDate,
       status, 
       updatedAt: serverTimestamp(),
       createdAt: formData.createdAt || serverTimestamp(),
@@ -132,13 +129,15 @@ export default function VAPage() {
     alert('Registry Synchronized');
   };
 
-  React.useEffect(() => {
-    const handleGlobalSave = () => handleSave();
-    window.addEventListener('sap-save-triggered', handleGlobalSave);
-    return () => window.removeEventListener('sap-save-triggered', handleGlobalSave);
-  }, [formData, orders]);
+  const handleDelete = (id: string) => {
+    if (confirm('SATELLITE WARNING: Permanently delete this order node?')) {
+      deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', id));
+    }
+  };
 
-  const paginated = (orders || []).filter(o => !searchId || (o.orderNo || o.saleOrder)?.includes(searchId.toUpperCase())).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paginated = (orders || [])
+    .filter(o => !searchId || o.orderNo?.includes(searchId.toUpperCase()))
+    .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const totalPages = Math.ceil((orders || []).length / PAGE_SIZE);
 
   return (
@@ -158,21 +157,23 @@ export default function VAPage() {
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
               <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Registry:</label>
-              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:bg-yellow-50" value={searchId} onChange={e => { setSearchId(e.target.value); setCurrentPage(1); }} placeholder="ENTER SALE ORDER NO..." />
+              <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:bg-yellow-50 shadow-inner" value={searchId} onChange={e => { setSearchId(e.target.value); setCurrentPage(1); }} placeholder="ENTER SALE ORDER NO..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
                <table className="w-full text-left text-[11px]">
                   <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase text-slate-500">
-                    <tr><th className="p-4 border-r">Order No</th><th className="p-4 border-r">Status</th><th className="p-4 border-r">Consignor</th><th className="p-4 border-r">Consignee</th><th className="p-4">Updated</th></tr>
+                    <tr><th className="p-4 border-r">Order No</th><th className="p-4 border-r">Status</th><th className="p-4 border-r">Consignor</th><th className="p-4 border-r">Consignee</th><th className="p-4">Action</th></tr>
                   </thead>
                   <tbody className="font-bold uppercase text-[12px]">
                     {paginated.map(o => (
                       <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer">
-                        <td className="p-4 border-r text-[#0056d2] font-black">{o.orderNo || o.saleOrder}</td>
+                        <td className="p-4 border-r text-[#0056d2] font-black">{o.orderNo}</td>
                         <td className="p-4 border-r"><Badge variant="outline" className="rounded-none text-[8px] font-black uppercase">{o.status}</Badge></td>
-                        <td className="p-4 border-r">{o.consignor}</td>
-                        <td className="p-4 border-r">{o.consignee}</td>
-                        <td className="p-4 text-slate-300">{o.updatedAt?.seconds ? format(new Date(o.updatedAt.seconds * 1000), 'dd/MM HH:mm') : '-'}</td>
+                        <td className="p-4 border-r">{o.consignorName}</td>
+                        <td className="p-4 border-r">{o.consigneeName}</td>
+                        <td className="p-4">
+                           {activeTCode === 'VA02' && <button onClick={(e) => { e.stopPropagation(); handleDelete(o.id); }} className="p-1 hover:bg-red-50 text-red-400 transition-colors"><Trash2 className="h-4 w-4" /></button>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -190,9 +191,15 @@ export default function VAPage() {
         ) : activeTCode === 'VA04' ? (
           <div className="bg-white p-12 border border-slate-300 shadow-sm max-w-4xl mx-auto w-full">
              <h3 className="text-red-600 font-black uppercase italic mb-8 border-b pb-4">Short Close Workflow</h3>
-             <div className="flex items-center gap-8">
-                <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Sale Order No:</label>
-                <input value={formData.saleOrder || formData.orderNo || ''} onChange={e => setFormData({...formData, saleOrder: e.target.value.toUpperCase()})} className="h-9 w-80 border border-slate-400 px-3 text-[12px] font-black outline-none" placeholder="ENTER ORDER NO..." />
+             <div className="space-y-6">
+                <div className="flex items-center gap-8">
+                    <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Sale Order No:</label>
+                    <input value={formData.orderNo || ''} onChange={e => setFormData({...formData, orderNo: e.target.value.toUpperCase()})} className="h-9 w-80 border border-slate-400 px-3 text-[12px] font-black outline-none" placeholder="ENTER ORDER NO..." />
+                </div>
+                <div className="flex items-center gap-8">
+                    <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Reason:</label>
+                    <input value={formData.shortCloseReason || ''} onChange={e => setFormData({...formData, shortCloseReason: e.target.value.toUpperCase()})} className="h-9 w-80 border border-slate-400 px-3 text-[12px] font-black outline-none" placeholder="OPTIONAL..." />
+                </div>
              </div>
           </div>
         ) : (
@@ -202,9 +209,9 @@ export default function VAPage() {
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">PLANT CODE:</label>
                  <select 
                    value={formData.plantCode || ''} 
-                   onChange={e => setFormData({...formData, plantCode: e.target.value, consignor: '', consignee: '', shipToParty: '', from: '', destination: '', consignorId: '', consigneeId: '', shipToPartyId: ''})} 
+                   onChange={e => setFormData({...formData, plantCode: e.target.value})} 
                    disabled={isReadOnly} 
-                   className={cn("h-8 w-80 border bg-white px-2 text-[12px] font-black outline-none", errors.includes('plantCode') && !formData.plantCode ? "border-red-500 bg-red-50" : "border-slate-400")}
+                   className={cn("h-8 w-80 border bg-white px-2 text-[12px] font-black outline-none", errors.includes('plantCode') ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
                    <option value="">SELECT PLANT...</option>
                    {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
@@ -213,113 +220,70 @@ export default function VAPage() {
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">SALE ORDER NO:</label>
                  <input 
-                   value={formData.saleOrder || formData.orderNo || ''} 
-                   onChange={e => setFormData({...formData, saleOrder: e.target.value.toUpperCase()})} 
+                   value={formData.orderNo || ''} 
+                   onChange={e => setFormData({...formData, orderNo: e.target.value.toUpperCase()})} 
                    disabled={isReadOnly} 
-                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('saleOrder') && !formData.saleOrder ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderNo') ? "border-red-500 bg-red-50" : "border-slate-400")} 
                  />
                </div>
                
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR:</label>
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR NAME:</label>
                  <select 
-                   value={formData.consignor || ''} 
-                   onChange={e => { setFormData({...formData, consignor: e.target.value}); handleLookupPartyId(e.target.value, 'consignor'); }} 
-                   disabled={isReadOnly || !formData.plantCode} 
-                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('consignor') && !formData.consignor ? "border-red-500 bg-red-50" : "border-slate-400")}
+                   value={formData.consignorName || ''} 
+                   onChange={e => { setFormData({...formData, consignorName: e.target.value}); handleLookupPartyId(e.target.value, 'consignor'); }} 
+                   disabled={isReadOnly} 
+                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('consignorName') ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
                    <option value="">SELECT MASTER...</option>
-                   {filteredCustomers?.filter(c => c.customerType?.includes('Consignor')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+                   {customers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
                  </select>
                </div>
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR CUSTOMER CODE:</label>
-                 <input 
-                   value={formData.consignorId || ''} 
-                   readOnly 
-                   className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('consignorId') && !formData.consignorId ? "border-red-500 bg-red-50" : "border-slate-400")} 
-                 />
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR CODE:</label>
+                 <input value={formData.consignorCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black outline-none" />
                </div>
 
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase italic">FROM (CONSIGNOR CITY):</label>
-                 <input 
-                   value={formData.from || ''} 
-                   readOnly 
-                   className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('from') && !formData.from ? "border-red-500 bg-red-50" : "border-slate-400")} 
-                 />
-               </div>
-               <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNEE:</label>
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNEE NAME:</label>
                  <select 
-                   value={formData.consignee || ''} 
-                   onChange={e => { setFormData({...formData, consignee: e.target.value}); handleLookupPartyId(e.target.value, 'consignee'); }} 
-                   disabled={isReadOnly || !formData.plantCode} 
-                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('consignee') && !formData.consignee ? "border-red-500 bg-red-50" : "border-slate-400")}
+                   value={formData.consigneeName || ''} 
+                   onChange={e => { setFormData({...formData, consigneeName: e.target.value}); handleLookupPartyId(e.target.value, 'consignee'); }} 
+                   disabled={isReadOnly} 
+                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('consigneeName') ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
                    <option value="">SELECT MASTER...</option>
-                   {filteredCustomers?.filter(c => c.customerType?.includes('Consignee')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+                   {customers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
                  </select>
-               </div>
-
-               <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNEE CUSTOMER CODE:</label>
-                 <input 
-                   value={formData.consigneeId || ''} 
-                   readOnly 
-                   className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('consigneeId') && !formData.consigneeId ? "border-red-500 bg-red-50" : "border-slate-400")} 
-                 />
                </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">SHIP TO PARTY:</label>
                  <select 
                    value={formData.shipToParty || ''} 
                    onChange={e => { setFormData({...formData, shipToParty: e.target.value}); handleLookupPartyId(e.target.value, 'shipTo'); }} 
-                   disabled={isReadOnly || !formData.plantCode} 
-                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('shipToParty') && !formData.shipToParty ? "border-red-500 bg-red-50" : "border-slate-400")}
+                   disabled={isReadOnly} 
+                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('shipToParty') ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
                    <option value="">SELECT MASTER...</option>
-                   {filteredCustomers?.filter(c => c.customerType?.includes('Consignee')).map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+                   {customers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
                  </select>
                </div>
 
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">SHIP TO PARTY CUSTOMER CODE:</label>
-                 <input 
-                   value={formData.shipToPartyId || ''} 
-                   readOnly 
-                   className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('shipToPartyId') && !formData.shipToPartyId ? "border-red-500 bg-red-50" : "border-slate-400")} 
-                 />
+                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">QUANTITY (MT):</label>
+                  <input type="number" step="0.001" value={formData.quantity || ''} onChange={e => setFormData({...formData, quantity: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('quantity') ? "border-red-500 bg-red-50" : "border-slate-400")} />
                </div>
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">DESTINATION (CITY):</label>
-                 <input 
-                   value={formData.destination || ''} 
-                   readOnly 
-                   className={cn("h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none bg-slate-50", errors.includes('destination') && !formData.destination ? "border-red-500 bg-red-50" : "border-slate-400")} 
-                 />
-               </div>
-               
-               <div className="flex items-center gap-8">
-                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">WEIGHT (MT):</label>
-                  <input 
-                    type="number" 
-                    step="0.001" 
-                    value={formData.weight || formData.quantity || ''} 
-                    onChange={e => setFormData({...formData, weight: e.target.value})} 
-                    disabled={isReadOnly && activeTCode !== 'VA02'} 
-                    className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('weight') && !formData.weight ? "border-red-500 bg-red-50" : "border-slate-400")} 
-                  />
+                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">ORDER DATE TIME:</label>
+                  <input type="datetime-local" value={formData.orderDate || ''} onChange={e => setFormData({...formData, orderDate: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderDate') ? "border-red-500 bg-red-50" : "border-slate-400")} />
                </div>
                <div className="flex items-center gap-8">
-                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">BOOKED DATE TIME:</label>
-                  <input 
-                    type="datetime-local" 
-                    value={formData.saleOrderDate || formData.orderDate || ''} 
-                    onChange={e => setFormData({...formData, saleOrderDate: e.target.value})} 
-                    disabled={isReadOnly} 
-                    className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('saleOrderDate') && !formData.saleOrderDate ? "border-red-500 bg-red-50" : "border-slate-400")} 
-                  />
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">MATERIAL NAME:</label>
+                 <input value={formData.materialName || ''} onChange={e => setFormData({...formData, materialName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase italic">DESTINATION:</label>
+                 <input value={formData.destination || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black outline-none" />
                </div>
              </div>
           </div>
