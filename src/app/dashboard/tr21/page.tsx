@@ -617,7 +617,23 @@ export default function TR21Page() {
                               )}
                            </div>
                            {['Loading', 'In-Transit', 'Arrived'].includes(activeTab) && (
-                             <Button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} size="sm" variant="outline" className="h-6 w-full text-[8px] font-black border-slate-200 text-slate-400 hover:text-blue-600 transition-all uppercase tracking-widest"><Radar className="h-2.5 w-2.5 mr-1" /> Track Mission</Button>
+                             <div className="flex items-center gap-2">
+                               {gpsNodes?.some(n => n.vehicleNumber === item.vehicleNo) && (
+                                 <button 
+                                   onClick={() => {
+                                     const node = gpsNodes.find(n => n.vehicleNumber === item.vehicleNo);
+                                     if (node?.latitude && node?.longitude) {
+                                       window.open(`https://www.google.com/maps/search/?api=1&query=${node.latitude},${node.longitude}`, '_blank');
+                                     }
+                                   }}
+                                   className="text-[7px] font-black text-[#0056d2] uppercase text-left truncate flex-1 hover:underline leading-tight"
+                                   title="Open Google Maps Registry"
+                                 >
+                                   {gpsNodes.find(n => n.vehicleNumber === item.vehicleNo)?.lastLocation || 'RESOLVING...'}
+                                 </button>
+                               )}
+                               <Button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} size="sm" variant="outline" className="h-6 shrink-0 text-[8px] font-black border-slate-200 text-slate-400 hover:text-blue-600 transition-all uppercase tracking-widest min-w-[85px]"><Radar className="h-2.5 w-2.5 mr-1" /> Track Mode</Button>
+                             </div>
                            )}
                          </div>
                       </td>
