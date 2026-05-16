@@ -745,13 +745,13 @@ export default function TR21Page() {
                  <input type="date" value={podData.receivedDate} onChange={e => setPodData({...podData, receivedDate: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs outline-none" />
               </div>
               <div className="space-y-3">
-                 <label className="text-[10px] font-black text-slate-400 uppercase flex justify-between">Upload Proof Document <span className="text-slate-300 italic">(PDF/IMG < 2MB)</span></label>
+                 <label className="text-[10px] font-black text-slate-400 uppercase flex justify-between">Upload Proof Document <span className="text-slate-300 italic">(PDF/IMG &lt; 2MB)</span></label>
                  <input type="file" id="pod-upload" className="hidden" accept="application/pdf,image/*" onChange={handleFileUpload} />
                  <div onClick={() => document.getElementById('pod-upload')?.click()} className={cn("h-32 w-full border-2 border-dashed flex flex-col items-center justify-center bg-slate-50 cursor-pointer hover:bg-slate-100 transition-all", podData.podFile ? "border-emerald-400 bg-emerald-50" : "border-slate-300")}>
                     {podData.podFile ? (
                       <div className="flex flex-col items-center text-emerald-700">
                          <CheckCircle className="h-6 w-6 mb-2" />
-                         <span className="text-[9px] font-black uppercase">Document Registry Synchronized (< 200KB)</span>
+                         <span className="text-[9px] font-black uppercase">Document Registry Synchronized (&lt; 200KB)</span>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center text-slate-400">
