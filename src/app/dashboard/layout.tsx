@@ -66,10 +66,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user } = useUser();
   const { firestore: db } = React.useMemo(() => initializeFirebase(), []);
   
+  const [mounted, setMounted] = React.useState(false);
   const [tCode, setTCode] = React.useState('');
   const [history, setHistory] = React.useState<string[]>([]);
   const [showHistory, setShowHistory] = React.useState(false);
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
+  const [registryId, setRegistryId] = React.useState<string | null>(null);
 
   // Favorite States
   const [userFavorites, setUserFavorites] = React.useState<any[]>([]);
@@ -80,16 +82,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
 
-  const profileRef = useMemoFirebase(() => {
-    if (!user) return null;
-    const rid = localStorage.getItem('sap_registry_id');
-    return rid ? doc(db, 'users', 'Sikkaind', 'users_master', rid) : null;
-  }, [user, db]);
-  const { data: userProfile } = useDoc(profileRef);
-
   React.useEffect(() => {
+    setMounted(true);
     const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true';
     setIsBootstrapAdmin(isAdmin);
+    setRegistryId(localStorage.getItem('sap_registry_id'));
 
     // Initialize Favorites
     const saved = localStorage.getItem('sap_user_favorites');
@@ -108,6 +105,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setUserFavorites(INITIAL_FAVORITES.map(f => ({ ...f, icon: MASTER_TCODES.find(m => m.code === f.code)?.icon || Grid2X2 })));
     }
   }, []);
+
+  const profileRef = useMemoFirebase(() => {
+    if (!user || !registryId) return null;
+    return doc(db, 'users', 'Sikkaind', 'users_master', registryId);
+  }, [user, db, registryId]);
+  
+  const { data: userProfile } = useDoc(profileRef);
 
   const executeTCode = React.useCallback((cmd: string) => {
     const input = cmd.toUpperCase().trim();
@@ -293,7 +297,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
           <div className="flex-1 overflow-y-auto green-scrollbar">
-            {userFavorites.map(t => (
+            {mounted && userFavorites.map(t => (
               <div 
                 key={t.code} 
                 onClick={() => {
@@ -333,7 +337,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-8 overflow-hidden flex-1">
           <span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span>
           <span className="shrink-0">{searchParams.get('tcode') || 'HOME'}</span>
-          <span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.employeeName || 'IDENTIFYING...') }</span>
+          <span className="truncate">USER: {!mounted ? 'IDENTIFYING...' : (isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.employeeName || 'IDENTIFYING...') )}</span>
         </div>
         <div className="shrink-0 ml-4 hidden sm:block text-blue-400 font-bold italic tracking-wider">SIKKA INDUSTRIES & LOGISTICS</div>
       </div>
