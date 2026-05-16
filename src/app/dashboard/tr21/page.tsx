@@ -52,7 +52,6 @@ export default function TR21Page() {
   const [outData, setOutData] = React.useState({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   const [vehicleEdit, setVehicleEdit] = React.useState({ vehicleNo: '', mobile: '' });
   const [previousCN, setPreviousCN] = React.useState('');
-  const [editableDeliveryAddr, setEditableDeliveryAddr] = React.useState('');
 
   React.useEffect(() => { setMounted(true); }, []);
 
@@ -315,10 +314,10 @@ export default function TR21Page() {
     const totalWgt = (trip.items || []).reduce((acc: number, it: any) => acc + (parseFloat(it.weight) || 0), 0);
 
     const CopyPage = ({ label }: { label: string }) => (
-      <div className="cn-print-page p-8 font-sans text-[11px] uppercase border border-black mb-10 bg-white relative">
-        <div className="flex justify-between items-start mb-6">
+      <div className="cn-print-page p-6 font-sans text-[11px] uppercase border border-black mb-8 bg-white relative">
+        <div className="flex justify-between items-start mb-3">
           <div className="flex gap-4 items-start">
-            <div className="relative w-16 h-16">
+            <div className="relative w-14 h-14">
               {carrier.logoUrl ? (
                 <img src={carrier.logoUrl} alt="Logo" className="object-contain w-full h-full" />
               ) : logoAsset && (
@@ -326,11 +325,11 @@ export default function TR21Page() {
               )}
             </div>
             <div className="flex flex-col">
-              <h1 className="text-xl font-black text-blue-900 leading-none mb-1">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
-              <p className="text-[9px] font-bold text-slate-600 max-w-[400px] leading-tight mb-2">
+              <h1 className="text-lg font-black text-blue-900 leading-none mb-1">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
+              <p className="text-[8px] font-bold text-slate-600 max-w-[380px] leading-tight mb-1">
                 {carrier.address || 'C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, UTTAR PRADESH, 201009'}
               </p>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-0.5 text-[8px] font-black text-slate-500">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-[7px] font-black text-slate-500">
                 <div className="flex gap-1"><span>GSTIN:</span> <span className="text-black">{carrier.gstNo || '-'}</span></div>
                 <div className="flex gap-1"><span>PAN:</span> <span className="text-black">{carrier.panNo || '-'}</span></div>
                 <div className="flex gap-1"><span>MOB:</span> <span className="text-black">{carrier.mobile || '-'}</span></div>
@@ -340,127 +339,127 @@ export default function TR21Page() {
             </div>
           </div>
           <div className="flex flex-col items-end">
-            <div className="border-2 border-black bg-black text-white px-3 py-1 font-black text-[10px] mb-4">
+            <div className="border border-black bg-black text-white px-2 py-0.5 font-black text-[9px] mb-2">
               {label}
             </div>
             <div className="text-right space-y-0.5">
-              <span className="text-xl font-black tracking-tighter">CN: {trip.cnNumber || 'DRAFT'}</span>
-              <p className="text-[9px] font-bold">DATE: {trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</p>
-              <p className="text-[9px] font-bold mt-2"><span className="text-slate-400">FROM:</span> {consignor.city || trip.from}</p>
-              {trip.mode === 'Road from Rail' && <p className="text-[9px] font-bold text-blue-600 italic"><span className="text-slate-400">VIA:</span> {trip.ratePoint}</p>}
-              <p className="text-[9px] font-bold"><span className="text-slate-400">TO:</span> {shipTo.city || trip.destination}</p>
+              <span className="text-lg font-black tracking-tighter">CN: {trip.cnNumber || 'DRAFT'}</span>
+              <p className="text-[8px] font-bold">DATE: {trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</p>
+              <p className="text-[8px] font-bold mt-1"><span className="text-slate-400">FROM:</span> {consignor.city || trip.from}</p>
+              {trip.mode === 'Road from Rail' && <p className="text-[8px] font-bold text-blue-600 italic"><span className="text-slate-400">VIA:</span> {trip.ratePoint}</p>}
+              <p className="text-[8px] font-bold"><span className="text-slate-400">TO:</span> {shipTo.city || trip.destination}</p>
             </div>
           </div>
         </div>
 
-        <div className="border-t-2 border-black mb-6" />
+        <div className="border-t border-black mb-3" />
 
-        <table className="w-full border-collapse border-2 border-black mb-6">
+        <table className="w-full border-collapse border border-black mb-3">
           <thead>
-            <tr className="bg-slate-50 border-b-2 border-black font-black text-[9px] text-center">
-              <th className="p-2 border-r-2 border-black w-1/4">VEHICLE NUMBER</th>
-              <th className="p-2 border-r-2 border-black w-1/4">DRIVER MOBILE</th>
-              <th className="p-2 border-r-2 border-black w-1/4">PAYMENT TERM</th>
-              <th className="p-2 w-1/4">TRIP ID</th>
+            <tr className="bg-slate-50 border-b border-black font-black text-[8px] text-center">
+              <th className="p-1.5 border-r border-black w-1/4">VEHICLE NUMBER</th>
+              <th className="p-1.5 border-r border-black w-1/4">DRIVER MOBILE</th>
+              <th className="p-1.5 border-r border-black w-1/4">PAYMENT TERM</th>
+              <th className="p-1.5 w-1/4">TRIP ID</th>
             </tr>
           </thead>
-          <tbody className="text-center font-black text-sm">
+          <tbody className="text-center font-black text-xs">
             <tr>
-              <td className="p-3 border-r-2 border-black">{trip.vehicleNo}</td>
-              <td className="p-3 border-r-2 border-black">{trip.driverMobile}</td>
-              <td className="p-3 border-r-2 border-black">{trip.paymentTerms || 'PAID'}</td>
-              <td className="p-3">{trip.tripNo}</td>
+              <td className="p-2 border-r border-black">{trip.vehicleNo}</td>
+              <td className="p-2 border-r border-black">{trip.driverMobile}</td>
+              <td className="p-2 border-r border-black">{trip.paymentTerms || 'PAID'}</td>
+              <td className="p-2">{trip.tripNo}</td>
             </tr>
           </tbody>
         </table>
 
-        <div className="grid grid-cols-3 border-2 border-black mb-6 min-h-[160px]">
-          <div className="p-3 border-r-2 border-black flex flex-col">
-            <h4 className="font-black border-b-2 border-blue-900 mb-2 pb-1 text-blue-900 text-[10px]">CONSIGNOR</h4>
-            <p className="font-black text-[11px] leading-tight mb-1">{consignor.customerName || trip.consignorName || '-'}</p>
-            <p className="text-[9px] leading-relaxed flex-1 text-slate-600 italic">{consignor.address || '-'}</p>
-            <div className="mt-2 space-y-0.5 text-[9px] font-bold">
+        <div className="grid grid-cols-3 border border-black mb-3">
+          <div className="p-2 border-r border-black flex flex-col">
+            <h4 className="font-black border-b border-blue-900 mb-1.5 pb-0.5 text-blue-900 text-[9px]">CONSIGNOR</h4>
+            <p className="font-black text-[10px] leading-tight mb-1">{consignor.customerName || trip.consignorName || '-'}</p>
+            <p className="text-[8px] leading-snug flex-1 text-slate-600 italic mb-2">{consignor.address || '-'}</p>
+            <div className="mt-auto space-y-0.5 text-[8px] font-bold">
               <div className="flex justify-between"><span>MOB:</span> <span>{consignor.mobile || '-'}</span></div>
-              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{consignor.gstNo || consignor.gstin || '-'}</span></div>
+              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{consignor.gstNo || '-'}</span></div>
             </div>
           </div>
-          <div className="p-3 border-r-2 border-black flex flex-col">
-            <h4 className="font-black border-b-2 border-blue-900 mb-2 pb-1 text-blue-900 text-[10px]">CONSIGNEE</h4>
-            <p className="font-black text-[11px] leading-tight mb-1">{consignee.customerName || trip.consigneeName || '-'}</p>
-            <p className="text-[9px] leading-relaxed flex-1 text-slate-600 italic">{consignee.address || '-'}</p>
-            <div className="mt-2 space-y-0.5 text-[9px] font-bold">
+          <div className="p-2 border-r border-black flex flex-col">
+            <h4 className="font-black border-b border-blue-900 mb-1.5 pb-0.5 text-blue-900 text-[9px]">CONSIGNEE</h4>
+            <p className="font-black text-[10px] leading-tight mb-1">{consignee.customerName || trip.consigneeName || '-'}</p>
+            <p className="text-[8px] leading-snug flex-1 text-slate-600 italic mb-2">{consignee.address || '-'}</p>
+            <div className="mt-auto space-y-0.5 text-[8px] font-bold">
               <div className="flex justify-between"><span>MOB:</span> <span>{consignee.mobile || '-'}</span></div>
-              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{consignee.gstNo || consignee.gstin || '-'}</span></div>
+              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{consignee.gstNo || '-'}</span></div>
             </div>
           </div>
-          <div className="p-3 flex flex-col">
-            <h4 className="font-black border-b-2 border-blue-900 mb-2 pb-1 text-blue-900 text-[10px]">SHIP TO PARTY</h4>
-            <p className="font-black text-[11px] leading-tight mb-1">{shipTo.customerName || trip.shipToParty || '-'}</p>
-            <p className="text-[9px] leading-relaxed flex-1 text-slate-600 italic">{shipTo.address || '-'}</p>
-            <div className="mt-2 space-y-0.5 text-[9px] font-bold">
+          <div className="p-2 flex flex-col">
+            <h4 className="font-black border-b border-blue-900 mb-1.5 pb-0.5 text-blue-900 text-[9px]">SHIP TO PARTY</h4>
+            <p className="font-black text-[10px] leading-tight mb-1">{shipTo.customerName || trip.shipToParty || '-'}</p>
+            <p className="text-[8px] leading-snug flex-1 text-slate-600 italic mb-2">{shipTo.address || '-'}</p>
+            <div className="mt-auto space-y-0.5 text-[8px] font-bold">
               <div className="flex justify-between"><span>MOB:</span> <span>{shipTo.mobile || '-'}</span></div>
-              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{shipTo.gstNo || shipTo.gstin || '-'}</span></div>
+              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{shipTo.gstNo || '-'}</span></div>
             </div>
           </div>
         </div>
 
-        <table className="w-full border-collapse border-2 border-black mb-6">
+        <table className="w-full border-collapse border border-black mb-3">
           <thead>
-            <tr className="bg-slate-50 border-b-2 border-black font-black text-[9px]">
-              <th className="p-2 border-r-2 border-black w-28 text-left">INVOICE NO</th>
-              <th className="p-2 border-r-2 border-black w-32 text-left">E-WAYBILL NO</th>
-              <th className="p-2 border-r-2 border-black text-left">DESCRIPTION OF GOODS</th>
-              <th className="p-2 border-r-2 border-black w-24 text-center">PACKAGE</th>
-              <th className="p-2 w-28 text-right">WEIGHT (MT)</th>
+            <tr className="bg-slate-50 border-b border-black font-black text-[8px]">
+              <th className="p-1.5 border-r border-black w-28 text-left">INVOICE NO</th>
+              <th className="p-1.5 border-r border-black w-32 text-left">E-WAYBILL NO</th>
+              <th className="p-1.5 border-r border-black text-left">DESCRIPTION OF GOODS</th>
+              <th className="p-1.5 border-r border-black w-20 text-center">PKG</th>
+              <th className="p-1.5 w-24 text-right">WEIGHT (MT)</th>
             </tr>
           </thead>
-          <tbody className="font-bold text-[10px]">
+          <tbody className="font-bold text-[9px]">
             {(trip.items?.length ? trip.items : [{invoiceNo: '-', ewaybillNo: '-', goodsDescription: trip.materialName || '-', package: '-', packageUom: '-', weight: trip.assignWeight || '0.000'}]).map((it: any, i: number) => (
               <tr key={i} className="border-b border-black last:border-b-0">
-                <td className="p-2 border-r-2 border-black">{it.invoiceNo}</td>
-                <td className="p-2 border-r-2 border-black">{it.ewaybillNo}</td>
-                <td className="p-2 border-r-2 border-black italic break-words">{it.goodsDescription}</td>
-                <td className="p-2 border-r-2 border-black text-center">{it.package} {it.packageUom || ''}</td>
-                <td className="p-2 text-right font-black">{parseFloat(it.weight || 0).toFixed(3)}</td>
+                <td className="p-1.5 border-r border-black">{it.invoiceNo}</td>
+                <td className="p-1.5 border-r border-black">{it.ewaybillNo}</td>
+                <td className="p-1.5 border-r border-black italic break-words">{it.goodsDescription}</td>
+                <td className="p-1.5 border-r border-black text-center">{it.package} {it.packageUom || ''}</td>
+                <td className="p-1.5 text-right font-black">{parseFloat(it.weight || 0).toFixed(3)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-slate-50 font-black text-[11px] border-t-2 border-black">
-              <td colSpan={3} className="p-2 border-r-2 border-black text-right">TOTAL CONSIGNMENT REGISTRY</td>
-              <td className="p-2 border-r-2 border-black text-center">{totalPkg} PKG</td>
-              <td className="p-2 text-right text-blue-700 underline font-black">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
+            <tr className="bg-slate-50 font-black text-[10px] border-t border-black">
+              <td colSpan={3} className="p-1.5 border-r border-black text-right">TOTAL CONSIGNMENT REGISTRY</td>
+              <td className="p-1.5 border-r border-black text-center">{totalPkg} PKG</td>
+              <td className="p-1.5 text-right text-blue-700 underline font-black">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
             </tr>
           </tfoot>
         </table>
 
-        <div className="flex justify-between items-end mt-10">
+        <div className="flex justify-between items-end mt-4">
           <div className="w-2/3">
-            <h6 className="font-black text-[9px] mb-1 underline">TERMS & CONDITIONS:</h6>
-            <p className="text-[7px] leading-snug text-slate-500 italic text-justify pr-16 font-bold">
-              1. The carrier is responsible for safe delivery of consignment in original condition.<br/>
-              2. Consignor must ensure correct material and count before sealing the vehicle.<br/>
+            <h6 className="font-black text-[8px] mb-1 underline">TERMS & CONDITIONS:</h6>
+            <p className="text-[7px] leading-snug text-slate-500 italic text-justify pr-8 font-bold">
+              1. The carrier is responsible for safe delivery in original condition.<br/>
+              2. Consignor must ensure correct material count before sealing.<br/>
               3. Rates are based on {trip.fleetType || 'Agreed Node'} strategy.<br/>
-              4. All disputes subject to carrier registered office jurisdiction only.
+              4. All disputes subject to carrier registered office jurisdiction.
             </p>
           </div>
-          <div className="flex flex-col items-center gap-2 w-56">
-            <div className="border-b-2 border-black w-full h-14" />
-            <span className="font-black text-[9px]">AUTHORIZED SIGNATORY</span>
+          <div className="flex flex-col items-center gap-1 w-48">
+            <div className="border-b border-black w-full h-10" />
+            <span className="font-black text-[8px]">AUTHORIZED SIGNATORY</span>
           </div>
         </div>
 
-        <div className="absolute bottom-6 left-8 right-8 text-center pt-2 border-t border-slate-200">
-          <p className="text-[9px] font-black text-slate-400">
-            Note: "This Consignment Note was generated digitally and is to be considered as original."
+        <div className="mt-4 text-center pt-2 border-t border-slate-100">
+          <p className="text-[8px] font-black text-slate-400">
+            "THIS CONSIGNMENT NOTE WAS GENERATED DIGITALLY AND IS TO BE CONSIDERED AS ORIGINAL."
           </p>
         </div>
       </div>
     );
 
     return (
-      <div id="printable-area" className="bg-slate-200 p-10 overflow-y-auto h-full green-scrollbar print:p-0">
-        <div className="max-w-[850px] mx-auto print:max-w-none">
+      <div id="printable-area" className="bg-slate-200 p-6 overflow-y-auto h-full green-scrollbar print:p-0">
+        <div className="max-w-[800px] mx-auto print:max-w-none">
           <CopyPage label="CONSIGNEE COPY" />
           <div className="print:page-break-after-always" />
           <CopyPage label="DRIVER COPY" />
@@ -577,7 +576,7 @@ export default function TR21Page() {
                          <span className="text-slate-400 italic">Inv:</span> {item.invoiceDisplay}
                       </td>
                       <td className="p-3 border-r">
-                         <button onClick={() => { setSelectedTrip(item); if(item.cnNumber) { setEditableDeliveryAddr(''); setShowPrintView(true); } else { setCnData({mode: 'Road', paymentTerms: item.paymentTerms || 'TO PAY'}); setCnItems([{invoiceNo: '', goodsDescription: item.materialName || '', weight: item.assignWeight, package: '', packageUom: 'Bag'}]); fetchPreviousCN(item.plantCode, item.vehicleNo); setShowCNPortal(true); } }} className="flex items-center gap-2 hover:text-[#0056d2] transition-colors group">
+                         <button onClick={() => { setSelectedTrip(item); if(item.cnNumber) { setShowPrintView(true); } else { setCnData({mode: 'Road', paymentTerms: item.paymentTerms || 'TO PAY'}); setCnItems([{invoiceNo: '', goodsDescription: item.materialName || '', weight: item.assignWeight, package: '', packageUom: 'Bag'}]); fetchPreviousCN(item.plantCode, item.vehicleNo); setShowCNPortal(true); } }} className="flex items-center gap-2 hover:text-[#0056d2] transition-colors group">
                             {item.cnNumber ? <><Printer className="h-3.5 w-3.5" /> {item.cnNumber}</> : <><Plus className="h-3 w-3" /> REGISTRY</>}
                             {item.cnNumber && <div onClick={(e) => { e.stopPropagation(); setCnData({cnNo: item.cnNumber, cnDate: item.cnDate, mode: item.mode, paymentTerms: item.paymentTerms, ratePoint: item.ratePoint}); setCnItems(item.items || []); setShowCNPortal(true); }} className="p-1 hover:bg-blue-100 rounded ml-auto opacity-0 group-hover:opacity-100 transition-opacity"><Edit3 className="h-3 w-3 text-blue-500" /></div>}
                          </button>
