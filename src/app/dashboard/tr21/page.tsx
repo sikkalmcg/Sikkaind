@@ -362,7 +362,7 @@ export default function TR21Page() {
       <div className="cn-print-page p-6 font-normal uppercase border border-black mb-8 bg-white relative text-black">
         <div className="flex justify-between items-start mb-3">
           <div className="flex gap-4 items-start">
-            <div className="relative w-16 h-16">
+            <div className="relative w-16 h-16 shrink-0">
               {carrier.logoUrl ? (
                 <img src={carrier.logoUrl} alt="Logo" className="object-contain w-full h-full" />
               ) : logoAsset && (
@@ -370,44 +370,42 @@ export default function TR21Page() {
               )}
             </div>
             <div className="flex flex-col">
-              <h1 className="text-[24px] leading-none mb-1 font-normal text-blue-900">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
-              <p className="text-[15px] max-w-[420px] leading-tight mb-2 font-normal">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
-              <div className="flex gap-20 text-[14px]">
-                <div className="flex flex-col gap-0.5">
-                   <div className="flex gap-1 font-normal uppercase"><span>GSTIN:</span>{carrier.gstNo || '-'}</div>
-                   <div className="flex gap-1 font-normal uppercase"><span>MOBILE:</span>{carrier.mobile || '-'}</div>
-                   <div className="flex gap-1 font-normal uppercase"><span>EMAIL:</span>{carrier.email || '-'}</div>
-                   <div className="flex gap-1 font-normal uppercase"><span>WEBSITE:</span>{carrier.website || '-'}</div>
+              <h1 className="text-[25px] leading-none mb-1 font-normal text-blue-900 uppercase tracking-tighter">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
+              <p className="text-[16px] max-w-[420px] leading-tight mb-3 font-normal uppercase">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
+              <div className="flex flex-col gap-0.5 text-[15px] font-normal uppercase">
+                <div className="flex items-center gap-10">
+                   <div className="flex gap-1"><span>GSTIN:</span><span>{carrier.gstNo || '-'}</span></div>
+                   <div className="flex gap-1"><span>PAN:</span><span>{carrier.panNo || '-'}</span></div>
                 </div>
-                <div className="flex flex-col gap-0.5">
-                   <div className="flex gap-1 font-normal uppercase"><span>PAN:</span>{carrier.panNo || '-'}</div>
-                </div>
+                <div className="flex gap-1"><span>MOBILE:</span><span>{carrier.mobile || '-'}</span></div>
+                <div className="flex gap-1"><span>EMAIL:</span><span>{carrier.email || '-'}</span></div>
+                <div className="flex gap-1"><span>WEBSITE:</span><span>{carrier.website || '-'}</span></div>
               </div>
             </div>
           </div>
           <div className="flex flex-col items-end">
-            <div className="border border-black bg-black text-white px-2 py-0.5 text-[14px] mb-3 font-normal">{label}</div>
-            <div className="text-right space-y-1 font-normal">
-              <div className="text-[21px] tracking-tighter font-normal uppercase">CN: {trip.cnNumber || 'DRAFT'}</div>
-              <div className="flex justify-end gap-2 text-[20px] font-normal uppercase"><span>DATE:</span><span>{trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</span></div>
-              <div className="flex justify-end gap-2 text-[20px] font-normal mt-1 text-emerald-800 uppercase"><span>FROM:</span><span>{consignor.city || trip.from}</span></div>
-              <div className="flex justify-end gap-2 text-[20px] font-normal text-blue-800 uppercase"><span>TO:</span><span>{shipTo.city || trip.destination}</span></div>
+            <div className="border border-black bg-black text-white px-3 py-0.5 text-[15px] mb-4 font-normal tracking-wider">{label}</div>
+            <div className="text-right space-y-1.5 font-normal uppercase">
+              <div className="text-[22px] tracking-tighter font-normal">CN: {trip.cnNumber || 'DRAFT'}</div>
+              <div className="flex justify-end gap-2 text-[20px] font-normal"><span>DATE:</span><span>{trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</span></div>
+              <div className="flex justify-end gap-2 text-[20px] font-normal mt-1 text-emerald-800"><span>FROM:</span><span>{consignor.city || trip.from}</span></div>
+              <div className="flex justify-end gap-2 text-[20px] font-normal text-blue-800"><span>TO:</span><span>{shipTo.city || trip.destination}</span></div>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-black mb-3" />
+        <div className="border-t border-black mb-4" />
 
-        <table className="w-full border-collapse border border-black mb-3 font-normal">
+        <table className="w-full border-collapse border border-black mb-4 font-normal">
           <thead>
-            <tr className="bg-slate-50 border-b border-black text-[15px] text-center">
-              <th className="p-1.5 border-r border-black font-normal uppercase">VEHICLE NUMBER</th>
-              <th className="p-1.5 border-r border-black font-normal uppercase">DRIVER MOBILE</th>
-              <th className="p-1.5 border-r border-black font-normal uppercase">PAYMENT TERM</th>
-              <th className="p-1.5 font-normal uppercase">TRIP ID</th>
+            <tr className="bg-slate-50 border-b border-black text-[16px] text-center">
+              <th className="p-2 border-r border-black font-normal uppercase">VEHICLE NUMBER</th>
+              <th className="p-2 border-r border-black font-normal uppercase">DRIVER MOBILE</th>
+              <th className="p-2 border-r border-black font-normal uppercase">PAYMENT TERM</th>
+              <th className="p-2 font-normal uppercase">TRIP ID</th>
             </tr>
           </thead>
-          <tbody className="text-center text-[16px]">
+          <tbody className="text-center text-[17px]">
             <tr className="font-normal">
               <td className="p-2 border-r border-black font-normal">{trip.vehicleNo}</td>
               <td className="p-2 border-r border-black font-normal">{trip.driverMobile}</td>
@@ -417,66 +415,66 @@ export default function TR21Page() {
           </tbody>
         </table>
 
-        <div className="grid grid-cols-3 border border-black mb-3 font-normal min-h-[140px]">
+        <div className="grid grid-cols-3 border border-black mb-4 font-normal min-h-[140px]">
           {[
             { title: 'CONSIGNOR', data: consignor, fallback: trip.consignorName },
             { title: 'CONSIGNEE', data: consignee, fallback: trip.consigneeName },
             { title: 'SHIP TO PARTY', data: shipTo, fallback: trip.shipToParty }
           ].map((node, i) => (
-            <div key={i} className={cn("p-2 flex flex-col font-normal", i < 2 && "border-r border-black")}>
-              <h4 className="border-b border-black mb-1.5 pb-1 text-[15px] font-normal uppercase">{node.title}</h4>
-              <p className="text-[17px] leading-tight mb-1 font-normal">{node.data.customerName || node.fallback || '-'}</p>
-              <p className="text-[15px] leading-snug flex-1 italic mb-2 font-normal">{node.data.address || '-'}</p>
-              <div className="mt-auto space-y-0.5 text-[14px] font-normal">
-                <div className="flex gap-1 font-normal uppercase"><span>MOBILE:</span>{node.data.mobile || '-'}</div>
-                <div className="flex gap-1 pt-1 border-t border-slate-100 font-normal uppercase"><span>GSTIN:</span>{node.data.gstNo || '-'}</div>
+            <div key={i} className={cn("p-2.5 flex flex-col font-normal uppercase", i < 2 && "border-r border-black")}>
+              <h4 className="border-b border-black mb-2 pb-1 text-[16px] font-normal tracking-tight">{node.title}</h4>
+              <p className="text-[18px] leading-tight mb-1.5 font-normal">{node.data.customerName || node.fallback || '-'}</p>
+              <p className="text-[16px] leading-snug flex-1 italic mb-2 font-normal">{node.data.address || '-'}</p>
+              <div className="mt-auto space-y-1 text-[15px] font-normal">
+                <div className="flex gap-1"><span>MOBILE:</span><span>{node.data.mobile || '-'}</span></div>
+                <div className="flex gap-1 pt-1 border-t border-slate-100"><span>GSTIN:</span><span>{node.data.gstNo || '-'}</span></div>
               </div>
             </div>
           ))}
         </div>
 
-        <table className="w-full border-collapse border border-black mb-3 font-normal">
+        <table className="w-full border-collapse border border-black mb-4 font-normal">
           <thead>
-            <tr className="bg-slate-50 border-b border-black text-[15px]">
-              <th className="p-1.5 border-r border-black text-left font-normal uppercase">INVOICE NO</th>
-              <th className="p-1.5 border-r border-black text-left font-normal uppercase">E-WAYBILL NO</th>
-              <th className="p-1.5 border-r border-black text-left font-normal uppercase">DESCRIPTION OF GOODS</th>
-              <th className="p-1.5 border-r border-black text-center w-24 font-normal uppercase">PKG</th>
-              <th className="p-1.5 text-right w-28 font-normal uppercase">WEIGHT (MT)</th>
+            <tr className="bg-slate-50 border-b border-black text-[16px]">
+              <th className="p-2 border-r border-black text-left font-normal uppercase">INVOICE NO</th>
+              <th className="p-2 border-r border-black text-left font-normal uppercase">E-WAYBILL NO</th>
+              <th className="p-2 border-r border-black text-left font-normal uppercase">DESCRIPTION OF GOODS</th>
+              <th className="p-2 border-r border-black text-center w-24 font-normal uppercase">PKG</th>
+              <th className="p-2 text-right w-28 font-normal uppercase">WEIGHT (MT)</th>
             </tr>
           </thead>
-          <tbody className="text-[16px] font-normal">
+          <tbody className="text-[17px] font-normal uppercase">
             {(trip.items?.length ? trip.items : [{invoiceNo: '-', ewaybillNo: '-', goodsDescription: trip.materialName || '-', package: '-', packageUom: '-', weight: trip.assignWeight || '0.000'}]).map((it: any, i: number) => (
               <tr key={i} className="border-b border-black last:border-b-0 font-normal">
-                <td className="p-1.5 border-r border-black font-normal">{it.invoiceNo}</td>
-                <td className="p-1.5 border-r border-black font-normal">{it.ewaybillNo}</td>
-                <td className="p-1.5 border-r border-black italic break-words font-normal">{it.goodsDescription}</td>
-                <td className="p-1.5 border-r border-black text-center font-normal">{it.package} {it.packageUom || ''}</td>
-                <td className="p-1.5 text-right font-normal">{parseFloat(it.weight || 0).toFixed(3)}</td>
+                <td className="p-2 border-r border-black font-normal">{it.invoiceNo}</td>
+                <td className="p-2 border-r border-black font-normal">{it.ewaybillNo}</td>
+                <td className="p-2 border-r border-black italic break-words font-normal">{it.goodsDescription}</td>
+                <td className="p-2 border-r border-black text-center font-normal">{it.package} {it.packageUom || ''}</td>
+                <td className="p-2 text-right font-normal">{parseFloat(it.weight || 0).toFixed(3)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-slate-50 text-[17px] border-t border-black font-normal">
-              <td colSpan={3} className="p-1.5 border-r border-black text-right font-normal uppercase">TOTAL CONSIGNMENT REGISTRY</td>
-              <td className="p-1.5 border-r border-black text-center font-normal uppercase">{totalPkg} PKG</td>
-              <td className="p-1.5 text-right font-normal">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
+            <tr className="bg-slate-50 text-[18px] border-t border-black font-normal uppercase">
+              <td colSpan={3} className="p-2 border-r border-black text-right font-normal">TOTAL CONSIGNMENT REGISTRY</td>
+              <td className="p-2 border-r border-black text-center font-normal">{totalPkg} PKG</td>
+              <td className="p-2 text-right font-normal">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
             </tr>
           </tfoot>
         </table>
 
-        <div className="flex justify-between items-end mt-5 font-normal">
+        <div className="flex justify-between items-end mt-6 font-normal uppercase">
           <div className="w-2/3 font-normal">
-            <h6 className="text-[15px] mb-1 underline font-normal uppercase">TERMS & CONDITIONS:</h6>
-            <p className="text-[14px] leading-relaxed italic text-justify pr-10 font-normal uppercase">
-              1. The carrier is responsible for safe delivery in original condition.<br/>
-              2. Consignor must ensure correct material count before sealing.<br/>
-              3. Rates are based on {trip.fleetType || 'Agreed Node'} strategy.
+            <h6 className="text-[16px] mb-1.5 underline font-normal">TERMS & CONDITIONS:</h6>
+            <p className="text-[15px] leading-relaxed italic text-justify pr-10 font-normal">
+              1. THE CARRIER IS RESPONSIBLE FOR SAFE DELIVERY IN ORIGINAL CONDITION.<br/>
+              2. CONSIGNOR MUST ENSURE CORRECT MATERIAL COUNT BEFORE SEALING.<br/>
+              3. RATES ARE BASED ON {trip.fleetType || 'AGREED NODE'} STRATEGY.
             </p>
           </div>
-          <div className="flex flex-col items-center gap-1.5 w-52 font-normal">
-            <div className="border-b border-black w-full h-10" />
-            <span className="text-[15px] font-normal uppercase">AUTHORIZED SIGNATORY</span>
+          <div className="flex flex-col items-center gap-2 w-56 font-normal">
+            <div className="border-b border-black w-full h-12" />
+            <span className="text-[16px] font-normal tracking-wide">AUTHORIZED SIGNATORY</span>
           </div>
         </div>
       </div>
@@ -1012,3 +1010,160 @@ export default function TR21Page() {
     </div>
   );
 }
+
+const CNPrintView = ({ trip }: { trip: any }) => {
+  const { data: customers } = useCollection(collection(useFirestore(), 'users', SHARED_HUB_ID, 'customers'));
+  const { data: companies } = useCollection(collection(useFirestore(), 'users', SHARED_HUB_ID, 'companies'));
+  
+  const getPartyData = (idOrCode: string) => {
+    if (!customers || !idOrCode) return {};
+    return customers.find(c => c.customerCode === idOrCode || c.id === idOrCode) || {};
+  };
+
+  const getCompanyData = (plantCode: string) => {
+    if (!companies || !plantCode) return {};
+    return companies.find(c => c.linkedPlantCode === plantCode || (Array.isArray(c.plantCodes) && c.plantCodes.includes(plantCode))) || {};
+  };
+
+  const consignor = getPartyData(trip.consignorCode);
+  const consignee = getPartyData(trip.consigneeCode);
+  const shipTo = getPartyData(trip.shipToPartyCode);
+  const carrier = getCompanyData(trip.plantCode);
+  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
+  const totalPkg = (trip.items || []).reduce((acc: number, it: any) => acc + (parseInt(it.package) || 0), 0);
+  const totalWgt = (trip.items || []).reduce((acc: number, it: any) => acc + (parseFloat(it.weight) || 0), 0);
+
+  const CopyPage = ({ label }: { label: string }) => (
+    <div className="cn-print-page p-6 font-normal uppercase border border-black mb-8 bg-white relative text-black">
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex gap-4 items-start">
+          <div className="relative w-16 h-16 shrink-0">
+            {carrier.logoUrl ? (
+              <img src={carrier.logoUrl} alt="Logo" className="object-contain w-full h-full" />
+            ) : logoAsset && (
+              <Image src={logoAsset.url} alt="Logo" fill className="object-contain" unoptimized />
+            )}
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-[25px] leading-none mb-1 font-normal text-blue-900 uppercase tracking-tighter">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
+            <p className="text-[16px] max-w-[420px] leading-tight mb-3 font-normal uppercase">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
+            <div className="flex flex-col gap-0.5 text-[15px] font-normal uppercase">
+              <div className="flex items-center gap-6">
+                 <div className="flex gap-1"><span>GSTIN:</span><span>{carrier.gstNo || '-'}</span></div>
+                 <div className="flex gap-1"><span>PAN:</span><span>{carrier.panNo || '-'}</span></div>
+              </div>
+              <div className="flex gap-1"><span>MOBILE:</span><span>{carrier.mobile || '-'}</span></div>
+              <div className="flex gap-1"><span>EMAIL:</span><span>{carrier.email || '-'}</span></div>
+              <div className="flex gap-1"><span>WEBSITE:</span><span>{carrier.website || '-'}</span></div>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-end">
+          <div className="border border-black bg-black text-white px-3 py-0.5 text-[15px] mb-4 font-normal tracking-wider">{label}</div>
+          <div className="text-right space-y-1.5 font-normal uppercase">
+            <div className="text-[22px] tracking-tighter font-normal">CN: {trip.cnNumber || 'DRAFT'}</div>
+            <div className="flex justify-end gap-2 text-[20px] font-normal"><span>DATE:</span><span>{trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</span></div>
+            <div className="flex justify-end gap-2 text-[20px] font-normal mt-1 text-emerald-800"><span>FROM:</span><span>{consignor.city || trip.from}</span></div>
+            <div className="flex justify-end gap-2 text-[20px] font-normal text-blue-800"><span>TO:</span><span>{shipTo.city || trip.destination}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-black mb-4" />
+
+      <table className="w-full border-collapse border border-black mb-4 font-normal">
+        <thead>
+          <tr className="bg-slate-50 border-b border-black text-[16px] text-center">
+            <th className="p-2 border-r border-black font-normal uppercase">VEHICLE NUMBER</th>
+            <th className="p-2 border-r border-black font-normal uppercase">DRIVER MOBILE</th>
+            <th className="p-2 border-r border-black font-normal uppercase">PAYMENT TERM</th>
+            <th className="p-2 font-normal uppercase">TRIP ID</th>
+          </tr>
+        </thead>
+        <tbody className="text-center text-[17px]">
+          <tr className="font-normal">
+            <td className="p-2 border-r border-black font-normal">{trip.vehicleNo}</td>
+            <td className="p-2 border-r border-black font-normal">{trip.driverMobile}</td>
+            <td className="p-2 border-r border-black font-normal">{trip.paymentTerms || 'PAID'}</td>
+            <td className="p-2 font-normal">{trip.tripNo}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div className="grid grid-cols-3 border border-black mb-4 font-normal min-h-[140px]">
+        {[
+          { title: 'CONSIGNOR', data: consignor, fallback: trip.consignorName },
+          { title: 'CONSIGNEE', data: consignee, fallback: trip.consigneeName },
+          { title: 'SHIP TO PARTY', data: shipTo, fallback: trip.shipToParty }
+        ].map((node, i) => (
+          <div key={i} className={cn("p-2.5 flex flex-col font-normal uppercase", i < 2 && "border-r border-black")}>
+            <h4 className="border-b border-black mb-2 pb-1 text-[16px] font-normal tracking-tight">{node.title}</h4>
+            <p className="text-[18px] leading-tight mb-1.5 font-normal">{node.data.customerName || node.fallback || '-'}</p>
+            <p className="text-[16px] leading-snug flex-1 italic mb-2 font-normal">{node.data.address || '-'}</p>
+            <div className="mt-auto space-y-1 text-[15px] font-normal">
+              <div className="flex gap-1"><span>MOBILE:</span><span>{node.data.mobile || '-'}</span></div>
+              <div className="flex gap-1 pt-1 border-t border-slate-100"><span>GSTIN:</span><span>{node.data.gstNo || '-'}</span></div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <table className="w-full border-collapse border border-black mb-4 font-normal">
+        <thead>
+          <tr className="bg-slate-50 border-b border-black text-[16px]">
+            <th className="p-2 border-r border-black text-left font-normal uppercase">INVOICE NO</th>
+            <th className="p-2 border-r border-black text-left font-normal uppercase">E-WAYBILL NO</th>
+            <th className="p-2 border-r border-black text-left font-normal uppercase">DESCRIPTION OF GOODS</th>
+            <th className="p-2 border-r border-black text-center w-24 font-normal uppercase">PKG</th>
+            <th className="p-2 text-right w-28 font-normal uppercase">WEIGHT (MT)</th>
+          </tr>
+        </thead>
+        <tbody className="text-[17px] font-normal uppercase">
+          {(trip.items?.length ? trip.items : [{invoiceNo: '-', ewaybillNo: '-', goodsDescription: trip.materialName || '-', package: '-', packageUom: '-', weight: trip.assignWeight || '0.000'}]).map((it: any, i: number) => (
+            <tr key={i} className="border-b border-black last:border-b-0 font-normal">
+              <td className="p-2 border-r border-black font-normal">{it.invoiceNo}</td>
+              <td className="p-2 border-r border-black font-normal">{it.ewaybillNo}</td>
+              <td className="p-2 border-r border-black italic break-words font-normal">{it.goodsDescription}</td>
+              <td className="p-2 border-r border-black text-center font-normal">{it.package} {it.packageUom || ''}</td>
+              <td className="p-2 text-right font-normal">{parseFloat(it.weight || 0).toFixed(3)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="bg-slate-50 text-[18px] border-t border-black font-normal uppercase">
+            <td colSpan={3} className="p-2 border-r border-black text-right font-normal">TOTAL CONSIGNMENT REGISTRY</td>
+            <td className="p-2 border-r border-black text-center font-normal">{totalPkg} PKG</td>
+            <td className="p-2 text-right font-normal">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div className="flex justify-between items-end mt-6 font-normal uppercase">
+        <div className="w-2/3 font-normal">
+          <h6 className="text-[16px] mb-1.5 underline font-normal">TERMS & CONDITIONS:</h6>
+          <p className="text-[15px] leading-relaxed italic text-justify pr-10 font-normal">
+            1. THE CARRIER IS RESPONSIBLE FOR SAFE DELIVERY IN ORIGINAL CONDITION.<br/>
+            2. CONSIGNOR MUST ENSURE CORRECT MATERIAL COUNT BEFORE SEALING.<br/>
+            3. RATES ARE BASED ON {trip.fleetType || 'AGREED NODE'} STRATEGY.
+          </p>
+        </div>
+        <div className="flex flex-col items-center gap-2 w-56 font-normal">
+          <div className="border-b border-black w-full h-12" />
+          <span className="text-[16px] font-normal tracking-wide">AUTHORIZED SIGNATORY</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div id="printable-area" className="bg-slate-200 p-6 overflow-y-auto h-full green-scrollbar print:p-0">
+      <div className="max-w-[800px] mx-auto print:max-w-none">
+        <CopyPage label="CONSIGNEE COPY" />
+        <div className="print:page-break-after-always" />
+        <CopyPage label="DRIVER COPY" />
+        <div className="print:page-break-after-always" />
+        <CopyPage label="CONSIGNOR COPY" />
+      </div>
+    </div>
+  );
+};
