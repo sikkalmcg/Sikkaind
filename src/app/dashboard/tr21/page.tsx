@@ -34,6 +34,10 @@ export default function TR21Page() {
   const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
 
+  // Live GPS State (Mirroring WGPS24)
+  const [gpsLive, setGpsLive] = React.useState<any[]>([]);
+  const [isGpsLoading, setIsGpsLoading] = React.useState(true);
+
   // Dialog States
   const [showAssign, setShowAssign] = React.useState(false);
   const [showCNPortal, setShowCNPortal] = React.useState(false);
@@ -55,13 +59,35 @@ export default function TR21Page() {
 
   React.useEffect(() => { setMounted(true); }, []);
 
+  // Fetch Live GPS data for integration
+  const fetchGps = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/gps');
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data?.list) {
+          setGpsLive(json.data.list);
+        }
+      }
+    } catch (e) {
+      console.error("GPS Sync Error:", e);
+    } finally {
+      setIsGpsLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchGps();
+    const interval = setInterval(fetchGps, 60000);
+    return () => clearInterval(interval);
+  }, [fetchGps]);
+
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
   const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const gpsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'gps_tracking'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
@@ -69,7 +95,6 @@ export default function TR21Page() {
   const { data: customers } = useCollection(customersQuery);
   const { data: companies } = useCollection(companiesQuery);
   const { data: plants } = useCollection(plantsQuery);
-  const { data: gpsNodes } = useCollection(gpsQuery);
 
   const getPartyData = React.useCallback((idOrCode: string) => {
     if (!customers || !idOrCode) return {};
@@ -345,9 +370,9 @@ export default function TR21Page() {
               )}
             </div>
             <div className="flex flex-col">
-              <h1 className="text-[20px] leading-none mb-1 font-normal text-blue-900">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
-              <p className="text-[11px] max-w-[380px] leading-tight mb-1 font-normal">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-[10px]">
+              <h1 className="text-[21px] leading-none mb-1 font-normal text-blue-900">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
+              <p className="text-[12px] max-w-[380px] leading-tight mb-1 font-normal">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-[11px]">
                 <div className="flex gap-1 font-normal"><span>GSTIN:</span> <span className="font-normal">{carrier.gstNo || '-'}</span></div>
                 <div className="flex gap-1 font-normal"><span>PAN:</span> <span className="font-normal">{carrier.panNo || '-'}</span></div>
                 <div className="flex gap-1 font-normal"><span>MOB:</span> <span className="font-normal">{carrier.mobile || '-'}</span></div>
@@ -356,12 +381,12 @@ export default function TR21Page() {
             </div>
           </div>
           <div className="flex flex-col items-end">
-            <div className="border border-black bg-black text-white px-2 py-0.5 text-[11px] mb-2 font-normal">{label}</div>
+            <div className="border border-black bg-black text-white px-2 py-0.5 text-[12px] mb-2 font-normal">{label}</div>
             <div className="text-right space-y-1 font-normal">
-              <span className="text-[19px] tracking-tighter">CN: {trip.cnNumber || 'DRAFT'}</span>
-              <p className="text-[12px]">DATE: {trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</p>
-              <p className="text-[12px] mt-1">FROM: {consignor.city || trip.from}</p>
-              <p className="text-[12px]">TO: {shipTo.city || trip.destination}</p>
+              <span className="text-[19px] tracking-tighter font-normal">CN: {trip.cnNumber || 'DRAFT'}</span>
+              <p className="text-[14px] font-normal">DATE: {trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</p>
+              <p className="text-[14px] font-normal mt-1">FROM: {consignor.city || trip.from}</p>
+              <p className="text-[14px] font-normal">TO: {shipTo.city || trip.destination}</p>
             </div>
           </div>
         </div>
@@ -370,14 +395,14 @@ export default function TR21Page() {
 
         <table className="w-full border-collapse border border-black mb-2 font-normal">
           <thead>
-            <tr className="bg-slate-50 border-b border-black text-[11px] text-center">
-              <th className="p-1 border-r border-black font-normal">VEHICLE NUMBER</th>
-              <th className="p-1 border-r border-black font-normal">DRIVER MOBILE</th>
-              <th className="p-1 border-r border-black font-normal">PAYMENT TERM</th>
-              <th className="p-1 font-normal">TRIP ID</th>
+            <tr className="bg-slate-50 border-b border-black text-[12px] text-center">
+              <th className="p-1 border-r border-black font-normal uppercase">VEHICLE NUMBER</th>
+              <th className="p-1 border-r border-black font-normal uppercase">DRIVER MOBILE</th>
+              <th className="p-1 border-r border-black font-normal uppercase">PAYMENT TERM</th>
+              <th className="p-1 font-normal uppercase">TRIP ID</th>
             </tr>
           </thead>
-          <tbody className="text-center text-[13px]">
+          <tbody className="text-center text-[14px]">
             <tr className="font-normal">
               <td className="p-1.5 border-r border-black font-normal">{trip.vehicleNo}</td>
               <td className="p-1.5 border-r border-black font-normal">{trip.driverMobile}</td>
@@ -394,12 +419,12 @@ export default function TR21Page() {
             { title: 'SHIP TO PARTY', data: shipTo, fallback: trip.shipToParty }
           ].map((node, i) => (
             <div key={i} className={cn("p-1.5 flex flex-col font-normal", i < 2 && "border-r border-black")}>
-              <h4 className="border-b border-black mb-1 pb-0.5 text-[11px] font-normal">{node.title}</h4>
-              <p className="text-[13px] leading-tight mb-0.5 font-normal">{node.data.customerName || node.fallback || '-'}</p>
-              <p className="text-[11px] leading-snug flex-1 italic mb-1.5 font-normal">{node.data.address || '-'}</p>
-              <div className="mt-auto space-y-0.5 text-[11px] font-normal">
-                <div className="flex justify-between font-normal"><span>MOB:</span> <span>{node.data.mobile || '-'}</span></div>
-                <div className="flex justify-between pt-0.5 border-t border-slate-100 font-normal"><span>GSTIN:</span> <span>{node.data.gstNo || '-'}</span></div>
+              <h4 className="border-b border-black mb-1 pb-0.5 text-[12px] font-normal uppercase">{node.title}</h4>
+              <p className="text-[14px] leading-tight mb-0.5 font-normal">{node.data.customerName || node.fallback || '-'}</p>
+              <p className="text-[12px] leading-snug flex-1 italic mb-1.5 font-normal">{node.data.address || '-'}</p>
+              <div className="mt-auto space-y-0.5 text-[12px] font-normal">
+                <div className="flex justify-between font-normal uppercase"><span>MOB:</span> <span>{node.data.mobile || '-'}</span></div>
+                <div className="flex justify-between pt-0.5 border-t border-slate-100 font-normal uppercase"><span>GSTIN:</span> <span>{node.data.gstNo || '-'}</span></div>
               </div>
             </div>
           ))}
@@ -407,15 +432,15 @@ export default function TR21Page() {
 
         <table className="w-full border-collapse border border-black mb-2 font-normal">
           <thead>
-            <tr className="bg-slate-50 border-b border-black text-[11px]">
-              <th className="p-1 border-r border-black text-left font-normal">INVOICE NO</th>
-              <th className="p-1 border-r border-black text-left font-normal">E-WAYBILL NO</th>
-              <th className="p-1 border-r border-black text-left font-normal">DESCRIPTION OF GOODS</th>
-              <th className="p-1 border-r border-black text-center w-20 font-normal">PKG</th>
-              <th className="p-1 text-right w-24 font-normal">WEIGHT (MT)</th>
+            <tr className="bg-slate-50 border-b border-black text-[12px]">
+              <th className="p-1 border-r border-black text-left font-normal uppercase">INVOICE NO</th>
+              <th className="p-1 border-r border-black text-left font-normal uppercase">E-WAYBILL NO</th>
+              <th className="p-1 border-r border-black text-left font-normal uppercase">DESCRIPTION OF GOODS</th>
+              <th className="p-1 border-r border-black text-center w-20 font-normal uppercase">PKG</th>
+              <th className="p-1 text-right w-24 font-normal uppercase">WEIGHT (MT)</th>
             </tr>
           </thead>
-          <tbody className="text-[12px] font-normal">
+          <tbody className="text-[13px] font-normal">
             {(trip.items?.length ? trip.items : [{invoiceNo: '-', ewaybillNo: '-', goodsDescription: trip.materialName || '-', package: '-', packageUom: '-', weight: trip.assignWeight || '0.000'}]).map((it: any, i: number) => (
               <tr key={i} className="border-b border-black last:border-b-0 font-normal">
                 <td className="p-1 border-r border-black font-normal">{it.invoiceNo}</td>
@@ -427,9 +452,9 @@ export default function TR21Page() {
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-slate-50 text-[13px] border-t border-black font-normal">
-              <td colSpan={3} className="p-1 border-r border-black text-right font-normal">TOTAL CONSIGNMENT REGISTRY</td>
-              <td className="p-1 border-r border-black text-center font-normal">{totalPkg} PKG</td>
+            <tr className="bg-slate-50 text-[14px] border-t border-black font-normal">
+              <td colSpan={3} className="p-1 border-r border-black text-right font-normal uppercase">TOTAL CONSIGNMENT REGISTRY</td>
+              <td className="p-1 border-r border-black text-center font-normal uppercase">{totalPkg} PKG</td>
               <td className="p-1 text-right font-normal">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
             </tr>
           </tfoot>
@@ -437,8 +462,8 @@ export default function TR21Page() {
 
         <div className="flex justify-between items-end mt-4 font-normal">
           <div className="w-2/3 font-normal">
-            <h6 className="text-[11px] mb-0.5 underline font-normal">TERMS & CONDITIONS:</h6>
-            <p className="text-[10px] leading-snug italic text-justify pr-8 font-normal">
+            <h6 className="text-[12px] mb-0.5 underline font-normal uppercase">TERMS & CONDITIONS:</h6>
+            <p className="text-[11px] leading-snug italic text-justify pr-8 font-normal uppercase">
               1. The carrier is responsible for safe delivery in original condition.<br/>
               2. Consignor must ensure correct material count before sealing.<br/>
               3. Rates are based on {trip.fleetType || 'Agreed Node'} strategy.
@@ -446,7 +471,7 @@ export default function TR21Page() {
           </div>
           <div className="flex flex-col items-center gap-1 w-48 font-normal">
             <div className="border-b border-black w-full h-8" />
-            <span className="text-[11px] font-normal">AUTHORIZED SIGNATORY</span>
+            <span className="text-[12px] font-normal uppercase">AUTHORIZED SIGNATORY</span>
           </div>
         </div>
       </div>
@@ -469,6 +494,7 @@ export default function TR21Page() {
 
   return (
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden">
+      {/* Page Header */}
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
         <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD CONTROL HUB</h2>
         <div className="flex gap-4 items-center">
@@ -499,17 +525,26 @@ export default function TR21Page() {
       </div>
 
       <div className={cn("flex-1 flex flex-col p-8 transition-opacity duration-300", showPrintView ? "opacity-0 pointer-events-none" : "opacity-100")}>
+        {/* Dynamic Tab Navigation */}
         <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 mb-4 overflow-x-auto no-scrollbar">
           {TABS.map(t => (
-            <button key={t.label} onClick={() => { setActiveTab(t.label); setCurrentPage(1); }} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest border-r border-slate-300 shrink-0 flex items-center gap-2", activeTab === t.label ? "bg-white text-[#0056d2] border-t-2 border-t-[#0056d2]" : "text-slate-500 hover:bg-white/50")}>
+            <button 
+              key={t.label} 
+              onClick={() => { setActiveTab(t.label); setCurrentPage(1); }} 
+              className={cn(
+                "px-6 py-2.5 text-[10px] font-black uppercase tracking-widest border-r border-slate-300 shrink-0 flex items-center gap-2", 
+                activeTab === t.label ? "bg-white text-[#0056d2] border-t-2 border-t-[#0056d2]" : "text-slate-500 hover:bg-white/50"
+              )}
+            >
               {t.label} <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-bold", activeTab === t.label ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-500")}>({t.count})</span>
             </button>
           ))}
         </div>
 
+        {/* Horizontal List Registry */}
         <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner green-scrollbar p-1">
           <div className="flex flex-col gap-0.5">
-            {/* Header Row */}
+            {/* Legend Header */}
             <div className="flex bg-[#f8fafc] border-b border-slate-200 text-[9px] font-black uppercase text-slate-500 sticky top-0 z-20">
                <div className="p-3 w-[20%] border-r">Ship to Party</div>
                <div className="p-3 w-[12%] border-r">Route</div>
@@ -520,17 +555,18 @@ export default function TR21Page() {
                <div className="p-3 flex-1 text-center">Action Hub</div>
             </div>
 
-            {/* Dynamic Rows */}
+            {/* List Rows */}
             {filteredData.map((item: any) => {
-              const gpsNode = gpsNodes?.find(n => n.vehicleNumber === item.vehicleNo);
+              const liveNode = gpsLive.find(n => n.vehicleNumber === item.vehicleNo);
+              
               return (
-                <div key={item.id} className="flex border-b border-slate-100 hover:bg-blue-50/30 transition-colors text-[10px] font-bold uppercase items-center min-h-[80px]">
+                <div key={item.id} className="flex border-b border-slate-100 hover:bg-blue-50/30 transition-colors text-[10px] font-bold uppercase items-center min-h-[85px]">
                   <div className="p-3 w-[20%] border-r font-black text-slate-700 leading-tight">
                     {item.shipToParty || '-'}
                   </div>
                   <div className="p-3 w-[12%] border-r text-[9px] italic text-slate-500 space-y-0.5">
                     <div className="truncate">{item.from}</div>
-                    <div className="truncate">&bull; {item.destination}</div>
+                    <div className="truncate text-blue-400">&bull; {item.destination}</div>
                   </div>
                   <div className="p-3 w-[15%] border-r font-black text-slate-800 hover:bg-slate-50 cursor-pointer group" onClick={() => { setSelectedTrip(item); setVehicleEdit({vehicleNo: item.vehicleNo, mobile: item.driverMobile}); setShowVehiclePortal(true); }}>
                     <div className="flex items-center justify-between gap-2">
@@ -549,10 +585,11 @@ export default function TR21Page() {
                   </div>
                   <div className="p-3 w-[13%] border-r">
                      <button onClick={() => { setSelectedTrip(item); if(item.cnNumber) { setShowPrintView(true); } else { setCnData({mode: 'Road', paymentTerms: item.paymentTerms || 'TO PAY'}); setCnItems([{invoiceNo: '', goodsDescription: item.materialName || '', weight: item.assignWeight, package: '', packageUom: 'Bag'}]); fetchPreviousCN(item.plantCode, item.vehicleNo); setShowCNPortal(true); } }} className="flex items-center gap-2 hover:text-[#0056d2] transition-colors group w-full font-black">
-                        {item.cnNumber ? <><Printer className="h-3.5 w-3.5 shrink-0 text-slate-400 group-hover:text-[#0056d2]" /> <span className="truncate">{item.cnNumber}</span></> : <><Plus className="h-3 w-3 shrink-0 text-slate-300" /> <span className="text-[9px] text-slate-400">REGISTRY</span></>}
+                        {item.cnNumber ? <><Printer className="h-3.5 w-3.5 shrink-0 text-slate-400 group-hover:text-[#0056d2]" /> <span className="truncate text-[#0056d2]">{item.cnNumber}</span></> : <><Plus className="h-3 w-3 shrink-0 text-slate-300" /> <span className="text-[9px] text-slate-400">REGISTRY</span></>}
                      </button>
                   </div>
                   <div className="p-3 flex-1 flex flex-col gap-2 items-end">
+                     {/* Row 1: Registry Lifecycle Actions */}
                      <div className="flex gap-4 items-center">
                         {activeTab === 'Open Orders' ? (
                           <Button onClick={() => { setSelectedOrder(item); setAssignData({assignWeight: item.balance.toFixed(3), paymentTerms: 'TO PAY'}); setShowAssign(true); }} className="h-8 text-[10px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-8 shadow-sm">Assign</Button>
@@ -585,16 +622,18 @@ export default function TR21Page() {
                           </>
                         )}
                      </div>
+                     
+                     {/* Row 2: Live Location Footer (Street + City) */}
                      {['Loading', 'In-Transit', 'Arrived'].includes(activeTab) && (
                        <div className="flex items-center gap-3">
-                         {gpsNode && (
+                         {liveNode && (
                            <button 
                              onClick={() => {
-                               if (gpsNode?.latitude && gpsNode?.longitude) window.open(`https://www.google.com/maps/search/?api=1&query=${gpsNode.latitude},${gpsNode.longitude}`, '_blank');
+                               if (liveNode?.latitude && liveNode?.longitude) window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode.latitude},${liveNode.longitude}`, '_blank');
                              }}
-                             className="text-[8px] font-black text-[#0056d2] uppercase truncate max-w-[150px] hover:underline leading-tight text-right italic"
+                             className="text-[8px] font-black text-[#0056d2] uppercase truncate max-w-[200px] hover:underline leading-tight text-right italic"
                            >
-                             {gpsNode.lastLocation || 'RESOLVING...'}
+                             {liveNode.lastLocation || 'SYNCHRONIZING...'}
                            </button>
                          )}
                          <button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} className="flex items-center gap-2 h-7 bg-slate-50 border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all text-[8px] font-black uppercase tracking-[0.2em] rounded-full px-4 group">
@@ -611,6 +650,7 @@ export default function TR21Page() {
         </div>
       </div>
 
+      {/* CN Copy / LR Preview Overlay */}
       {showPrintView && selectedTrip && (
         <div className="fixed inset-0 z-[100] bg-slate-100 flex flex-col overflow-hidden animate-fade-in">
            <div className="bg-white border-b border-slate-300 px-8 py-2 flex items-center justify-between shadow-sm shrink-0 z-10">
@@ -893,7 +933,7 @@ export default function TR21Page() {
                     <div className="space-y-1">
                        <span className="text-[10px] font-black uppercase text-slate-400">Street + City Live Handshake</span>
                        <p className="text-xs font-bold text-slate-800 leading-relaxed uppercase">
-                          {gpsNodes?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'SYNCHRONIZING SATELLITE GATEWAY...'}
+                          {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'SYNCHRONIZING SATELLITE GATEWAY...'}
                        </p>
                     </div>
                  </div>
