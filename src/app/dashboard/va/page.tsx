@@ -180,8 +180,18 @@ export default function VAPage() {
   }, [filteredCustomers]);
 
   const handleLookupPartyId = (name: string, type: 'consignor' | 'consignee' | 'shipTo') => {
-    const party = customers?.find(c => c.customerName === name);
-    if (!party) return;
+    // ENFORCE STRICT PLANT MATCH: Search only within customers belonging to the selected plant
+    const party = filteredCustomers.find(c => c.customerName === name);
+    
+    if (!party) {
+      // Clear codes if no match found in the current plant registry
+      const clearUpdates: any = {};
+      if (type === 'consignor') { clearUpdates.consignorCode = ''; clearUpdates.from = ''; }
+      if (type === 'consignee') { clearUpdates.consigneeCode = ''; }
+      if (type === 'shipTo') { clearUpdates.shipToPartyCode = ''; clearUpdates.destination = ''; }
+      setFormData(prev => ({ ...prev, ...clearUpdates }));
+      return;
+    }
 
     const updates: any = {};
     if (type === 'consignor') {
@@ -344,7 +354,22 @@ export default function VAPage() {
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">PLANT CODE:</label>
                  <select 
                    value={formData.plantCode || ''} 
-                   onChange={e => setFormData({...formData, plantCode: e.target.value})} 
+                   onChange={e => {
+                     const val = e.target.value;
+                     setFormData({
+                       ...formData, 
+                       plantCode: val,
+                       // CLEAR DATA ON PLANT CHANGE TO PREVENT MISMATCH
+                       consignorName: '',
+                       consignorCode: '',
+                       consigneeName: '',
+                       consigneeCode: '',
+                       shipToParty: '',
+                       shipToPartyCode: '',
+                       from: '',
+                       destination: ''
+                     });
+                   }} 
                    disabled={isReadOnly} 
                    className={cn("h-8 w-80 border bg-white px-2 text-[12px] font-black outline-none", errors.includes('plantCode') ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
