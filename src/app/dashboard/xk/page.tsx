@@ -33,6 +33,7 @@ export default function XKPage() {
     const docId = formData.id || crypto.randomUUID();
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'vendors', docId), { ...formData, id: docId, updatedAt: new Date().toISOString() }, { merge: true });
     setFormData({});
+    alert('Synchronized');
   };
 
   const filteredVendors = (vendors || []).filter(v => {
@@ -58,7 +59,7 @@ export default function XKPage() {
         {!formData.id && activeTCode !== 'XK01' ? (
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
-              <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Registry:</label>
+              <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search:</label>
               <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:bg-yellow-50" value={searchId} onChange={e => { setSearchId(e.target.value); setCurrentPage(1); }} placeholder="ENTER VENDOR CODE OR NAME..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">

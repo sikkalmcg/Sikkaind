@@ -51,8 +51,8 @@ const MASTER_TCODES = [
 const INITIAL_FAVORITES = [
   { code: 'OX03', description: 'PLANT MASTER' },
   { code: 'FM03', description: 'COMPANY' },
-  { code: 'XK03', description: 'VENDOR REGISTRY' },
-  { code: 'XD03', description: 'CUSTOMER REGISTRY' },
+  { code: 'XK03', description: 'VENDOR' },
+  { code: 'XD03', description: 'CUSTOMER' },
   { code: 'VA01', description: 'CREATE SALE ORDER' },
   { code: 'TR21', description: 'TRIP BOARD CONTROL' },
   { code: 'WGPS24', description: 'GPS MONITORING' },
@@ -182,7 +182,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     
     const master = MASTER_TCODES.find(m => m.code === code);
     if (!master) {
-      alert(`Transaction ${code} does not exist in master registry`);
+      alert(`Transaction ${code} does not exist`);
       return;
     }
     if (userFavorites.some(f => f.code === code)) {
@@ -215,7 +215,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
+    <div className="flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden flex">
       {/* SAP Top Menu Bar */}
       <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden">
         <div className="flex items-center gap-6">
@@ -270,7 +270,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Persistent Sidebar (Page Bar) */}
-        <aside className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden shadow-sm shrink-0">
+        <aside className="w-72 bg-white border-r border-slate-300 lg:flex flex-col overflow-hidden shadow-sm shrink-0 flex hidden">
           <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50 flex items-center justify-between">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2">
               <Grid2X2 className="h-3.5 w-3.5" /> Quick Access

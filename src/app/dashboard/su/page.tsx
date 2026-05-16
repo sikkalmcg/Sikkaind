@@ -34,12 +34,12 @@ export default function SUPage() {
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
       setErrors(missing);
-      alert('Registry Error: Mandatory columns cannot be blank.');
+      alert('Error: Mandatory columns cannot be blank.');
       return;
     }
 
     if (activeTCode === 'SU01' && users?.some(u => u.username === formData.username)) {
-      alert(`System Error: Username ${formData.username} already exists in registry.`);
+      alert(`System Error: Username ${formData.username} already exists.`);
       return;
     }
 
@@ -53,7 +53,7 @@ export default function SUPage() {
     }, { merge: true });
     setFormData({});
     setErrors([]);
-    alert('User Registry Synchronized');
+    alert('User Synchronized');
   };
 
   const handleDelete = (id: string) => {
@@ -115,7 +115,7 @@ export default function SUPage() {
                  <input value={formData.username || ''} onChange={e => setFormData({...formData, username: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('username') ? "border-red-500 bg-red-50" : "border-slate-400")} />
                </div>
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Password Registry:</label>
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Password:</label>
                  <input type="password" value={formData.passwordEncrypted || ''} onChange={e => setFormData({...formData, passwordEncrypted: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
                </div>
                <div className="flex items-center gap-8">
@@ -140,9 +140,9 @@ export default function SUPage() {
                  </select>
                </div>
                <div className="flex items-center gap-8">
-                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Post Registry:</label>
+                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Post:</label>
                   <div className="w-80 flex items-center gap-2">
-                     <span className="text-[10px] font-bold text-slate-400 italic">User Profile Node Sync</span>
+                     <span className="text-[10px] font-bold text-slate-400 italic">User Profile Sync</span>
                   </div>
                </div>
              </div>

@@ -30,7 +30,7 @@ export default function RootLayoutClient({ children }: { children: ReactNode }) 
     <FirebaseClientProvider>
       {showHeaderFooter && <Header />}
       <main className={showHeaderFooter ? 'block' : 'contents'}>
-        <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400">Loading Registry...</div>}>
+        <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400">Loading...</div>}>
           {children}
         </Suspense>
       </main>

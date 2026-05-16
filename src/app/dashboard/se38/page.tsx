@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -37,7 +36,7 @@ export default function SE38Page() {
     return (
       <div className="flex-1 flex flex-col h-full bg-[#f2f2f2] font-mono">
         <div className="bg-white border-b border-slate-300 px-8 py-2 flex items-center justify-between shrink-0">
-          <h2 className="text-[14px] font-black uppercase italic text-[#1e3a8a]">SE38 - Analysis Result Node</h2>
+          <h2 className="text-[14px] font-black uppercase italic text-[#1e3a8a]">SE38 - Analysis Result</h2>
           <Button onClick={() => setView('filter')} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none">New Selection</Button>
         </div>
         <div className="flex-1 overflow-auto bg-white m-4 border border-slate-300 green-scrollbar shadow-inner">
@@ -72,7 +71,7 @@ export default function SE38Page() {
         <div className="flex items-center justify-between border-b border-slate-200 pb-6 mb-10">
           <div className="flex items-center gap-4">
              <FileText className="h-6 w-6 text-[#1e3a8a]" />
-             <h2 className="text-xl font-black uppercase italic text-[#1e3a8a]">SE38: Transactional Analytics Hub</h2>
+             <h2 className="text-xl font-black uppercase italic text-[#1e3a8a]">SE38: Transactional Analytics</h2>
           </div>
           <Button onClick={handleExecute} className="h-9 bg-[#1e3a8a] text-white text-[11px] font-black uppercase px-10 shadow-lg">Execute Analysis (F8)</Button>
         </div>

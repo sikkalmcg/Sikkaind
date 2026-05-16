@@ -37,7 +37,7 @@ export default function FMPage() {
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
       setErrors(missing);
-      alert('Registry Error: Mandatory columns cannot be blank.');
+      alert('Error: Mandatory columns cannot be blank.');
       return;
     }
 
@@ -56,7 +56,7 @@ export default function FMPage() {
     }, { merge: true });
     setFormData({});
     setErrors([]);
-    alert('Registry Synchronized');
+    alert('Synchronized');
   };
 
   React.useEffect(() => {

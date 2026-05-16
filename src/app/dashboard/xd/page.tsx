@@ -41,7 +41,7 @@ export default function XDPage() {
 
     if (missing.length > 0) {
       setErrors(missing);
-      alert('Registry Error: Mandatory columns cannot be blank.');
+      alert('Error: Mandatory columns cannot be blank.');
       return;
     }
 
@@ -59,7 +59,7 @@ export default function XDPage() {
     
     setFormData({});
     setErrors([]);
-    alert('Registry Synchronized');
+    alert('Synchronized');
   };
 
   React.useEffect(() => {
@@ -93,7 +93,7 @@ export default function XDPage() {
         {!formData.id && activeTCode !== 'XD01' ? (
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
-              <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Registry:</label>
+              <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search:</label>
               <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:bg-yellow-50" value={searchId} onChange={e => { setSearchId(e.target.value); setCurrentPage(1); }} placeholder="ENTER CODE OR NAME..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
@@ -191,7 +191,7 @@ export default function XDPage() {
                    value={formData.city || ''} 
                    onChange={e => setFormData({...formData, city: e.target.value.toUpperCase()})} 
                    disabled={isReadOnly} 
-                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('city') && !formData.city ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('city') ? "border-red-500 bg-red-50" : "border-slate-400")} 
                  />
                </div>
                <div className="flex items-center gap-8">

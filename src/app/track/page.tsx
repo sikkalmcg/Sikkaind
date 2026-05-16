@@ -44,7 +44,7 @@ export default function TrackPage() {
         setLinkedTrips(tList);
         setView('order_details');
       } else {
-        alert("Registry Failure: Sale Order Not Found");
+        alert("System Failure: Sale Order Not Found");
       }
       setLoading(false);
     }, 800);

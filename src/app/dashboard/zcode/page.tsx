@@ -14,7 +14,7 @@ const MASTER_TCODES = [
     code: 'OX01', 
     description: 'PLANT MASTER: CREATE', 
     module: 'Master Data', 
-    tabs: ['Registry Entry'] 
+    tabs: ['Entry'] 
   },
   { 
     code: 'OX02', 
@@ -26,7 +26,7 @@ const MASTER_TCODES = [
     code: 'OX03', 
     description: 'PLANT MASTER: DISPLAY', 
     module: 'Master Data', 
-    tabs: ['View Registry'] 
+    tabs: ['View'] 
   },
   { 
     code: 'FM01', 
@@ -50,7 +50,7 @@ const MASTER_TCODES = [
     code: 'XK01', 
     description: 'VENDOR MASTER: CREATE', 
     module: 'Master Data', 
-    tabs: ['Registry Entry'] 
+    tabs: ['Entry'] 
   },
   { 
     code: 'XK02', 
@@ -62,7 +62,7 @@ const MASTER_TCODES = [
     code: 'XK03', 
     description: 'VENDOR MASTER: DISPLAY', 
     module: 'Master Data', 
-    tabs: ['View Registry'] 
+    tabs: ['View'] 
   },
   { 
     code: 'XD01', 
@@ -80,13 +80,13 @@ const MASTER_TCODES = [
     code: 'XD03', 
     description: 'CUSTOMER MASTER: DISPLAY', 
     module: 'Master Data', 
-    tabs: ['View Registry'] 
+    tabs: ['View'] 
   },
   { 
     code: 'VA01', 
     description: 'SALES ORDER: CREATE', 
     module: 'Logistics', 
-    tabs: ['Order Registry', 'Auto-fill Lookup'] 
+    tabs: ['Order Entry', 'Auto-fill Lookup'] 
   },
   { 
     code: 'VA02', 
@@ -146,13 +146,13 @@ const MASTER_TCODES = [
     code: 'SU03', 
     description: 'USER MANAGEMENT: DISPLAY', 
     module: 'System', 
-    tabs: ['View Registry'] 
+    tabs: ['View'] 
   },
   { 
     code: 'ZCODE', 
     description: 'SYSTEM: ALL ACTIVE T-CODES', 
     module: 'System', 
-    tabs: ['Registry Map'] 
+    tabs: ['Map'] 
   },
 ];
 
@@ -185,7 +185,7 @@ export default function ZCodePage() {
         <div className="flex items-center gap-6 border-b border-slate-200 pb-6 mb-8 shrink-0">
           <Grid2X2 className="h-6 w-6 text-[#1e3a8a]" />
           <div className="flex flex-col">
-            <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] tracking-tighter">ZCODE Registry</h2>
+            <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] tracking-tighter">ZCODE</h2>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global System Component Inventory</span>
           </div>
           <div className="flex-1" />
@@ -206,7 +206,7 @@ export default function ZCodePage() {
               <tr className="text-[10px] font-black uppercase text-slate-500">
                 <th className="p-4 border-r border-slate-200 w-[120px]">T-Code</th>
                 <th className="p-4 border-r border-slate-200 w-[300px]">Description</th>
-                <th className="p-4 border-r border-slate-200">Active Registry / Functionality</th>
+                <th className="p-4 border-r border-slate-200">Active / Functionality</th>
                 <th className="p-4 w-[150px]">Module</th>
               </tr>
             </thead>
@@ -251,7 +251,7 @@ export default function ZCodePage() {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={4} className="p-20 text-center text-[10px] font-black uppercase text-slate-300 italic tracking-[0.2em]">
-                    Registry Query Returned Zero
+                    Query Returned Zero
                   </td>
                 </tr>
               )}

@@ -224,7 +224,7 @@ export default function VAPage() {
     if (activeTCode === 'VA03') return;
 
     if (activeTCode === 'VA04') {
-      if (!matchedOrder) return alert('Registry Error: Sale Order not found');
+      if (!matchedOrder) return alert('Error: Sale Order not found');
       if (matchedOrder.balance <= 0.001) return alert('VALIDATION ERROR: Sale Order fully assigned. Short close protocol blocked.');
 
       setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', matchedOrder.id), { 
@@ -245,7 +245,7 @@ export default function VAPage() {
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
       setErrors(missing);
-      alert('Registry Error: Mandatory columns cannot be blank.');
+      alert('Error: Mandatory columns cannot be blank.');
       return;
     }
 
@@ -269,7 +269,7 @@ export default function VAPage() {
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), savePayload, { merge: true });
     setFormData({});
     setErrors([]);
-    alert('Registry Synchronized');
+    alert('Synchronized');
   };
 
   // Bulk Upload Implementation
@@ -349,7 +349,7 @@ export default function VAPage() {
         }
       });
 
-      // 3. Registry Creation
+      // 3. Document Creation
       let successCount = 0;
       Object.values(aggregated).forEach(order => {
         const docId = crypto.randomUUID();
@@ -390,7 +390,7 @@ export default function VAPage() {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
-        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - SALE ORDER REGISTRY</h2>
+        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - SALE ORDER</h2>
         <div className="flex items-center gap-3">
           {activeTCode === 'VA01' && !formData.id && (
             <>
@@ -417,14 +417,14 @@ export default function VAPage() {
       </div>
 
       <div className="px-2">
-        {/* Upload Results Display */}
+        {/* Upload Summary Display */}
         {activeTCode === 'VA01' && uploadResults && (
           <div className={cn("mb-8 p-6 border-l-4 shadow-sm animate-fade-in", uploadResults.failed.length > 0 ? "bg-red-50 border-red-500" : "bg-emerald-50 border-emerald-500")}>
              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                    {uploadResults.failed.length > 0 ? <AlertCircle className="text-red-500" /> : <CheckCircle2 className="text-emerald-500" />}
                    <span className="text-[12px] font-black uppercase tracking-tight">
-                     Upload Summary: {uploadResults.success} Successfully Created | {uploadResults.failed.length} Failed Registry
+                     Summary: {uploadResults.success} Successfully Created | {uploadResults.failed.length} Failed
                    </span>
                 </div>
                 <button onClick={() => setUploadResults(null)} className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase">Clear Message &times;</button>
@@ -442,7 +442,7 @@ export default function VAPage() {
         {!formData.id && activeTCode !== 'VA01' && activeTCode !== 'VA04' ? (
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
-              <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Registry:</label>
+              <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search:</label>
               <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:bg-yellow-50 shadow-inner" value={searchId} onChange={e => { setSearchId(e.target.value); setCurrentPage(1); }} placeholder="ENTER SALE ORDER NO..." />
             </div>
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
