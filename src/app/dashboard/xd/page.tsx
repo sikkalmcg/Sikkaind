@@ -135,7 +135,7 @@ export default function XDPage() {
           <div className="animate-slide-up space-y-12 bg-white p-12 border border-slate-300 shadow-inner">
              <div className="grid grid-cols-2 gap-y-6 gap-x-12">
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Plant Node Selection:</label>
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Plant Selection:</label>
                  <div className="w-80 flex flex-wrap gap-2">
                    {plants?.map(p => (
                      <button

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -23,7 +22,7 @@ export default function TR24Page() {
   const handleTrack = () => {
     const o = orders?.find(ord => (ord.orderNo === q.toUpperCase() || ord.saleOrder === q.toUpperCase()));
     if (o) { setOrder(o); setView('details'); }
-    else alert("Order Node Not Found");
+    else alert("Order Not Found");
   };
 
   if (view === 'details') {
@@ -55,7 +54,7 @@ export default function TR24Page() {
             </div>
             <div className="pl-[212px] flex gap-4">
               <Button onClick={() => setQ('')} className="h-9 px-8 bg-red-600 text-white rounded-none text-[10px] font-black uppercase">Clear</Button>
-              <Button onClick={handleTrack} className="h-9 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Track Node</Button>
+              <Button onClick={handleTrack} className="h-9 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Track</Button>
             </div>
          </div>
        </div>

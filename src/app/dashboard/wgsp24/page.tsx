@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 
 /**
- * @fileOverview WGPS24 – Global Fleet Monitoring Node.
+ * @fileOverview WGPS24 – Global Fleet Monitoring.
  * Integrates live Wheelseye API data with Google Maps for real-time tracking.
  */
 export default function WGPS24Page() {
@@ -16,7 +16,7 @@ export default function WGPS24Page() {
   const [gpsData, setGpsData] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedVehicle, setSelectedVehicle] = React.useState<any>(null);
-  const [resolvedAddress, setResolvedAddress] = React.useState<string>('RESOLVING GATEWAY...');
+  const [resolvedAddress, setResolvedAddress] = React.useState<string>('RESOLVING...');
   
   // Icon State
   const [activeIcon, setActiveIcon] = React.useState<string>('https://maps.google.com/mapfiles/ms/icons/green-dot.png');
@@ -60,7 +60,7 @@ export default function WGPS24Page() {
         }
       }
     } catch (e) {
-      console.error("GPS Node Sync Failure:", e);
+      console.error("GPS Sync Failure:", e);
     }
   }, []);
 
@@ -144,7 +144,7 @@ export default function WGPS24Page() {
         <div className="flex items-center gap-4">
            <Radar className="h-5 w-5 text-[#1e3a8a]" />
            <h2 className="text-[14px] font-black uppercase italic tracking-tighter text-[#1e3a8a]">
-             WGPS24 – GLOBAL FLEET MONITORING HUB
+             WGPS24 – GLOBAL FLEET MONITORING
            </h2>
         </div>
         <div className="flex gap-2">
@@ -176,7 +176,7 @@ export default function WGPS24Page() {
             <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-lg z-10">
               <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
                  <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
-                   {gpsData.length} Registered Nodes
+                   {gpsData.length} Registered
                  </span>
                  <button onClick={fetchGps} className="p-1 hover:bg-slate-200 transition-colors">
                     <RefreshCw className={cn("h-3 w-3 text-slate-400", loading && "animate-spin")} />
@@ -202,7 +202,7 @@ export default function WGPS24Page() {
                       </div>
                     </div>
                     <div className="text-[9px] font-bold text-slate-400 uppercase truncate mb-1">
-                      {v.lastLocation || 'SYNCING NODE...'}
+                      {v.lastLocation || 'SYNCING...'}
                     </div>
                     <div className="text-[8px] font-black text-slate-300 flex justify-between">
                       <span>SPEED: {v.speed || 0} KM/H</span>
@@ -224,7 +224,7 @@ export default function WGPS24Page() {
                        <div className="space-y-2">
                           <div className="flex items-center gap-3">
                              <h4 className="text-[12px] font-black text-[#1e3a8a] uppercase">
-                               {selectedVehicle.vehicleNumber} Live Monitoring Node
+                               {selectedVehicle.vehicleNumber} Live Monitoring
                              </h4>
                              <Badge className={cn(
                                "rounded-none h-4 px-2 text-[8px] border-none",
@@ -278,7 +278,7 @@ export default function WGPS24Page() {
                    <div className="grid grid-cols-2 gap-12">
                       <div className="space-y-4">
                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Active (Running) Node Icon</label>
+                            <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Active (Running) Icon</label>
                             <span className="text-[9px] text-slate-400 italic">Recommended: 64x64 PNG/SVG</span>
                          </div>
                          <input 
@@ -304,7 +304,7 @@ export default function WGPS24Page() {
                       </div>
                       <div className="space-y-4">
                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Stopped (Idle) Node Icon</label>
+                            <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Stopped (Idle) Icon</label>
                             <span className="text-[9px] text-slate-400 italic">Recommended: 64x64 PNG/SVG</span>
                          </div>
                          <input 

@@ -39,7 +39,7 @@ export default function OXPage() {
     }
 
     if (activeTCode === 'OX01' && plants?.some(p => p.plantCode === formData.plantCode)) {
-      alert(`System Error: Duplicate Plant Code ${formData.plantCode} Node found.`);
+      alert(`System Error: Duplicate Plant Code ${formData.plantCode} found.`);
       return;
     }
 
@@ -57,7 +57,7 @@ export default function OXPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('SATELLITE WARNING: Permanently delete this plant node?')) {
+    if (confirm('SATELLITE WARNING: Permanently delete this plant?')) {
       deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'plants', id));
     }
   };
@@ -169,6 +169,12 @@ export default function OXPage() {
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Contact Number:</label>
                  <input value={formData.contactNumber || ''} onChange={e => setFormData({...formData, contactNumber: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Plant Selection:</label>
+                 <div className="w-80 flex flex-wrap gap-2">
+                    <span className="text-[10px] font-bold text-slate-400 italic">Master Node Registry Selection</span>
+                 </div>
                </div>
              </div>
           </div>

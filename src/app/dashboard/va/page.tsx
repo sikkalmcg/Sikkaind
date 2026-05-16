@@ -224,7 +224,7 @@ export default function VAPage() {
     if (activeTCode === 'VA03') return;
 
     if (activeTCode === 'VA04') {
-      if (!matchedOrder) return alert('Registry Error: Sale Order Node not found');
+      if (!matchedOrder) return alert('Registry Error: Sale Order not found');
       if (matchedOrder.balance <= 0.001) return alert('VALIDATION ERROR: Sale Order fully assigned. Short close protocol blocked.');
 
       setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', matchedOrder.id), { 
@@ -377,7 +377,7 @@ export default function VAPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('SATELLITE WARNING: Permanently delete this order node?')) {
+    if (confirm('SATELLITE WARNING: Permanently delete this order?')) {
       deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', id));
     }
   };
@@ -424,7 +424,7 @@ export default function VAPage() {
                 <div className="flex items-center gap-3">
                    {uploadResults.failed.length > 0 ? <AlertCircle className="text-red-500" /> : <CheckCircle2 className="text-emerald-500" />}
                    <span className="text-[12px] font-black uppercase tracking-tight">
-                     Upload Summary: {uploadResults.success} Successfully Created | {uploadResults.failed.length} Failed Registry Nodes
+                     Upload Summary: {uploadResults.success} Successfully Created | {uploadResults.failed.length} Failed Registry
                    </span>
                 </div>
                 <button onClick={() => setUploadResults(null)} className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase">Clear Message &times;</button>

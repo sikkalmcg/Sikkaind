@@ -42,7 +42,7 @@ export default function FMPage() {
     }
 
     if (activeTCode === 'FM01' && companies?.some(c => c.companyCode === formData.companyCode)) {
-      alert(`System Error: Duplicate Company Code ${formData.companyCode} Node found.`);
+      alert(`System Error: Duplicate Company Code ${formData.companyCode} found.`);
       return;
     }
 
@@ -82,7 +82,7 @@ export default function FMPage() {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
-        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">FM01/02/03 - Company Master Hub</h2>
+        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">FM01/02/03 - Company Master</h2>
         <div className="flex items-center gap-3">
           <Button onClick={handleSave} disabled={isReadOnly} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"><Save className="h-3.5 w-3.5 mr-2" /> Save (F8)</Button>
           <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>

@@ -57,14 +57,14 @@ export default function DashboardPage() {
             SIKKA INDUSTRIES
           </h1>
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2">
-            & LOGISTICS • NODE CONTROL CENTER
+            & LOGISTICS • CONTROL CENTER
           </span>
         </div>
         <div className="flex gap-4">
            <div className="flex flex-col gap-1">
              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Global Plant Filter</label>
              <select className="h-8 border border-slate-300 bg-white px-2 text-[10px] font-black uppercase outline-none focus:ring-1 focus:bg-yellow-50" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}>
-               <option value="ALL">ALL NODES</option>
+               <option value="ALL">ALL</option>
                {plants?.map(p => (
                  <option key={p.id} value={p.plantCode}>PLANT {p.plantCode}</option>
                ))}

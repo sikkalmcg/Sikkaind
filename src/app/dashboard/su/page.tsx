@@ -70,7 +70,7 @@ export default function SUPage() {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
-        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">SU01/02/03 - User Management Hub</h2>
+        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">SU01/02/03 - User Management</h2>
         <div className="flex items-center gap-3">
           <Button onClick={handleSave} disabled={isReadOnly} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"><Save className="h-3.5 w-3.5 mr-2" /> Save (F8)</Button>
           <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
@@ -99,7 +99,7 @@ export default function SUPage() {
                            <span className={cn("px-3 py-0.5 text-[8px] font-black rounded-none", u.activeStatus === 'Active' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{u.activeStatus}</span>
                         </td>
                         <td className="p-4">
-                           {activeTCode === 'SU02' && <button onClick={(e) => { e.stopPropagation(); handleDelete(u.id); }} className="p-1 hover:bg-red-50 text-red-400"><Trash2 className="h-4 w-4" /></button>}
+                           {activeTCode === 'SU02' && <button onClick={(e) => { e.stopPropagation(); handleDelete(u.id); }} className="p-1 hover:bg-red-50 text-red-400 transition-colors"><Trash2 className="h-4 w-4" /></button>}
                         </td>
                       </tr>
                     ))}
@@ -138,6 +138,12 @@ export default function SUPage() {
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                  </select>
+               </div>
+               <div className="flex items-center gap-8">
+                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Post Registry:</label>
+                  <div className="w-80 flex items-center gap-2">
+                     <span className="text-[10px] font-bold text-slate-400 italic">User Profile Node Sync</span>
+                  </div>
                </div>
              </div>
           </div>

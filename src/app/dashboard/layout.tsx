@@ -40,7 +40,7 @@ const MASTER_TCODES = [
   { code: 'VA04', description: 'SHORT CLOSE', icon: XCircle, module: 'Logistics' },
   { code: 'TR21', description: 'TRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
   { code: 'TR24', description: 'TRACK SHIPMENT', icon: Radar, module: 'Logistics' },
-  { code: 'WGPS24', description: 'GPS TRACKING HUB', icon: Radar, module: 'Logistics' },
+  { code: 'WGPS24', description: 'GPS TRACKING', icon: Radar, module: 'Logistics' },
   { code: 'SE38', description: 'CUSTOM REPORT EXECUTION', icon: FileText, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
   { code: 'SU02', description: 'USER MANAGEMENT: CHANGE', icon: Edit3, module: 'System' },
@@ -49,8 +49,8 @@ const MASTER_TCODES = [
 ];
 
 const INITIAL_FAVORITES = [
-  { code: 'OX03', description: 'PLANT MASTER HUB' },
-  { code: 'FM03', description: 'COMPANY HUB' },
+  { code: 'OX03', description: 'PLANT MASTER' },
+  { code: 'FM03', description: 'COMPANY' },
   { code: 'XK03', description: 'VENDOR REGISTRY' },
   { code: 'XD03', description: 'CUSTOMER REGISTRY' },
   { code: 'VA01', description: 'CREATE SALE ORDER' },
@@ -273,7 +273,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <aside className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden shadow-sm shrink-0">
           <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50 flex items-center justify-between">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2">
-              <Grid2X2 className="h-3.5 w-3.5" /> Quick Access Hub
+              <Grid2X2 className="h-3.5 w-3.5" /> Quick Access
             </h2>
             <div className="flex items-center gap-1">
               <button 

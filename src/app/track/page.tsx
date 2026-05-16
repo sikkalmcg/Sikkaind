@@ -1,4 +1,3 @@
-
 'use client';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +25,6 @@ export default function TrackPage() {
   const [linkedTrips, setLinkedTrips] = React.useState<any[]>([]);
   const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
   const [activeStep, setActiveStep] = React.useState(0);
-  const [gpsData, setGpsData] = React.useState<any[]>([]);
 
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
@@ -92,7 +90,7 @@ export default function TrackPage() {
                 <input value={searchSo} onChange={(e) => setSearchSo(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleTrack()} className="h-9 w-[320px] border border-slate-400 bg-white px-3 text-[12px] font-black outline-none focus:bg-yellow-50 uppercase" placeholder="ENTER 10-DIGIT ORDER NO..." />
              </div>
              <div className="pl-[212px] flex gap-4">
-                <Button onClick={handleTrack} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-xl hover:scale-105 transition-all">Track Node</Button>
+                <Button onClick={handleTrack} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-xl hover:scale-105 transition-all">Track</Button>
              </div>
           </div>
         )}
@@ -106,7 +104,7 @@ export default function TrackPage() {
             {linkedTrips.length > 0 ? (
               <div className="space-y-6">
                 <p className="text-[12px] font-black text-[#1e3a8a] italic uppercase leading-relaxed">
-                  Sale order {selectedOrder.orderNo || selectedOrder.saleOrder} synchronized with {linkedTrips.length} execution trip(s). Select a Trip ID node for live mapping.
+                  Sale order {selectedOrder.orderNo || selectedOrder.saleOrder} synchronized with {linkedTrips.length} execution trip(s). Select a Trip ID for live mapping.
                 </p>
                 <div className="flex flex-wrap gap-4">
                   {linkedTrips.map(t => (
@@ -115,7 +113,7 @@ export default function TrackPage() {
                 </div>
               </div>
             ) : (
-              <p className="text-[12px] font-black text-orange-600 italic uppercase">Logistics Alert: Execution nodes not yet generated for order {selectedOrder.saleOrder}. Please check back shortly.</p>
+              <p className="text-[12px] font-black text-orange-600 italic uppercase">Logistics Alert: Execution not yet generated for order {selectedOrder.saleOrder}. Please check back shortly.</p>
             )}
           </div>
         )}
@@ -125,7 +123,7 @@ export default function TrackPage() {
             <div className="bg-white border border-slate-300 p-10 shadow-lg relative overflow-hidden">
                <div className="flex justify-between items-start mb-20">
                   <div className="space-y-1">
-                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">Live Node Tracking: {selectedTrip.tripNo || selectedTrip.tripId}</h3>
+                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">Live Tracking: {selectedTrip.tripNo || selectedTrip.tripId}</h3>
                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedTrip.vehicleNo || selectedTrip.vehicleNumber} • {selectedTrip.mode}</p>
                   </div>
                   <Badge className="bg-blue-600 rounded-none font-black text-[9px] px-6 uppercase">{selectedTrip.status}</Badge>

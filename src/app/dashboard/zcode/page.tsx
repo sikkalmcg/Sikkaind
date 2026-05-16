@@ -20,7 +20,7 @@ const MASTER_TCODES = [
     code: 'OX02', 
     description: 'PLANT MASTER: CHANGE', 
     module: 'Master Data', 
-    tabs: ['Modify Node'] 
+    tabs: ['Modify'] 
   },
   { 
     code: 'OX03', 
@@ -32,19 +32,19 @@ const MASTER_TCODES = [
     code: 'FM01', 
     description: 'COMPANY MASTER: CREATE', 
     module: 'Master Data', 
-    tabs: ['Node Entry', 'Plant Mapping'] 
+    tabs: ['Entry', 'Plant Mapping'] 
   },
   { 
     code: 'FM02', 
     description: 'COMPANY MASTER: CHANGE', 
     module: 'Master Data', 
-    tabs: ['Modify Node', 'Update Logo'] 
+    tabs: ['Modify', 'Update Logo'] 
   },
   { 
     code: 'FM03', 
     description: 'COMPANY MASTER: DISPLAY', 
     module: 'Master Data', 
-    tabs: ['View Hub'] 
+    tabs: ['View'] 
   },
   { 
     code: 'XK01', 
@@ -116,11 +116,11 @@ const MASTER_TCODES = [
     code: 'TR24', 
     description: 'TRACK SHIPMENT', 
     module: 'Logistics', 
-    tabs: ['Trace Node'] 
+    tabs: ['Trace'] 
   },
   { 
     code: 'WGPS24', 
-    description: 'GPS TRACKING HUB', 
+    description: 'GPS TRACKING', 
     module: 'Logistics', 
     tabs: ['Satellite Map', 'Gateway Settings'] 
   },
@@ -173,7 +173,7 @@ export default function ZCodePage() {
     const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(c) ? c : c.substring(0, 2);
     let target = baseCode.toLowerCase();
     
-    // Special handling for GPS route node
+    // Special handling for GPS route
     if (target === 'wgps24') target = 'wgsp24';
 
     router.push(`/dashboard/${target}?tcode=${c}`);
@@ -185,7 +185,7 @@ export default function ZCodePage() {
         <div className="flex items-center gap-6 border-b border-slate-200 pb-6 mb-8 shrink-0">
           <Grid2X2 className="h-6 w-6 text-[#1e3a8a]" />
           <div className="flex flex-col">
-            <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] tracking-tighter">ZCODE Registry: All Transaction Nodes</h2>
+            <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] tracking-tighter">ZCODE Registry</h2>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global System Component Inventory</span>
           </div>
           <div className="flex-1" />
@@ -206,8 +206,8 @@ export default function ZCodePage() {
               <tr className="text-[10px] font-black uppercase text-slate-500">
                 <th className="p-4 border-r border-slate-200 w-[120px]">T-Code</th>
                 <th className="p-4 border-r border-slate-200 w-[300px]">Description</th>
-                <th className="p-4 border-r border-slate-200">Active Registry Tabs / Functionality</th>
-                <th className="p-4 w-[150px]">Module Hub</th>
+                <th className="p-4 border-r border-slate-200">Active Registry / Functionality</th>
+                <th className="p-4 w-[150px]">Module</th>
               </tr>
             </thead>
             <tbody>
@@ -251,7 +251,7 @@ export default function ZCodePage() {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={4} className="p-20 text-center text-[10px] font-black uppercase text-slate-300 italic tracking-[0.2em]">
-                    Registry Query Returned Zero Nodes
+                    Registry Query Returned Zero
                   </td>
                 </tr>
               )}

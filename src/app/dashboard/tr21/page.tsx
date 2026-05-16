@@ -325,7 +325,7 @@ export default function TR21Page() {
     if (file.size > 2 * 1024 * 1024) return alert('FILE SIZE ERROR: Maximum limit is 2MB');
     
     const reader = new FileReader();
-    reader.onloadend = async () => {
+    reader.onload = async () => {
       let dataUrl = reader.result as string;
       
       if (file.type.startsWith('image/')) {
@@ -382,7 +382,7 @@ export default function TR21Page() {
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden text-[#333]">
       {/* Page Header */}
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
-        <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD CONTROL HUB</h2>
+        <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD CONTROL</h2>
         <div className="flex gap-4 items-center">
            <div className="flex items-center gap-6 bg-[#f8fafc] border border-slate-200 p-1 px-4 shadow-inner">
              <div className="flex items-center gap-2">
@@ -573,7 +573,7 @@ export default function TR21Page() {
                           <div className="flex items-center gap-2 group cursor-pointer overflow-hidden max-w-[70%]" onClick={() => window.open(mapsUrl, '_blank')}>
                              <MapPin className="h-3 w-3 text-red-500 shrink-0" />
                              <span className="text-[9px] font-black text-[#0056d2] uppercase truncate group-hover:underline italic">
-                                {liveNode?.lastLocation || 'SYNCHRONIZING SATELLITE...'}
+                                {liveNode?.lastLocation || 'SYNCHRONIZING...'}
                              </span>
                           </div>
                           <button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} className="flex items-center gap-1.5 h-6 bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all text-[8px] font-black uppercase rounded-full px-3 shrink-0 shadow-sm">
@@ -663,7 +663,7 @@ export default function TR21Page() {
                                  id="fix-rate" 
                                  checked={assignData.isFixRate} 
                                  onCheckedChange={(checked) => setAssignData({ ...assignData, isFixRate: !!checked })} 
-                                 className="h-3 w-3 rounded-none border-slate-400" 
+                                 className="h-4 w-4 rounded-none border-slate-400" 
                                />
                                <label htmlFor="fix-rate" className="text-[8px] font-black text-slate-600 uppercase cursor-pointer">Fix Rate</label>
                             </div>
@@ -678,7 +678,7 @@ export default function TR21Page() {
           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 shrink-0">
              <div className="flex gap-4">
                 <Button onClick={() => setShowAssign(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-black border-slate-300 px-10">Exit &times;</Button>
-                <Button onClick={handlePostAssignment} className="bg-[#0056d2] text-white rounded-none h-10 uppercase text-[10px] font-black px-20 shadow-lg">Post Registry Node</Button>
+                <Button onClick={handlePostAssignment} className="bg-[#0056d2] text-white rounded-none h-10 uppercase text-[10px] font-black px-20 shadow-lg">Post Registry</Button>
              </div>
           </DialogFooter>
         </DialogContent>
@@ -687,7 +687,7 @@ export default function TR21Page() {
       <Dialog open={showPODPortal} onOpenChange={setShowPODPortal}>
         <DialogContent className="max-w-md rounded-none border-[3px] border-purple-600 font-mono text-slate-900">
            <DialogHeader>
-             <DialogTitle className="text-sm font-black uppercase italic text-purple-600">POD Registry Center: {selectedTrip?.tripNo}</DialogTitle>
+             <DialogTitle className="text-sm font-black uppercase italic text-purple-600">POD Registry: {selectedTrip?.tripNo}</DialogTitle>
            </DialogHeader>
            <div className="py-6 space-y-6">
               <div className="space-y-1.5">
@@ -718,7 +718,7 @@ export default function TR21Page() {
            </div>
            <DialogFooter className="gap-2">
               <Button onClick={() => setShowPODPortal(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-6">Exit</Button>
-              <Button onClick={handlePostPOD} className="h-9 bg-purple-600 text-white rounded-none text-[10px] font-black uppercase px-10 shadow-lg">Post POD Hub</Button>
+              <Button onClick={handlePostPOD} className="h-9 bg-purple-600 text-white rounded-none text-[10px] font-black uppercase px-10 shadow-lg">Post POD</Button>
            </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -747,7 +747,7 @@ export default function TR21Page() {
       </Dialog>
 
       <Dialog open={showVehiclePortal} onOpenChange={setShowVehiclePortal}>
-        <DialogContent className="max-w-md rounded-none border-[3px] border-[#1e3a8a] font-mono text-slate-900"><DialogHeader><DialogTitle className="text-sm font-black uppercase italic text-[#1e3a8a]">Vehicle Update Registry</DialogTitle></DialogHeader><div className="py-6 space-y-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Vehicle Number</label><input value={vehicleEdit.vehicleNo} onChange={e => setVehicleEdit({...vehicleEdit, vehicleNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-yellow-50" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Driver Mobile</label><input value={vehicleEdit.mobile} onChange={e => setVehicleEdit({...vehicleEdit, mobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs outline-none" /></div></div><DialogFooter className="gap-2"><Button onClick={() => setShowVehiclePortal(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-6">Cancel</Button><Button onClick={handleUpdateVehicle} className="h-9 bg-[#1e3a8a] text-white rounded-none text-[10px] font-black uppercase px-10">Update Node</Button></DialogFooter></DialogContent>
+        <DialogContent className="max-w-md rounded-none border-[3px] border-[#1e3a8a] font-mono text-slate-900"><DialogHeader><DialogTitle className="text-sm font-black uppercase italic text-[#1e3a8a]">Vehicle Update Registry</DialogTitle></DialogHeader><div className="py-6 space-y-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Vehicle Number</label><input value={vehicleEdit.vehicleNo} onChange={e => setVehicleEdit({...vehicleEdit, vehicleNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-yellow-50" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Driver Mobile</label><input value={vehicleEdit.mobile} onChange={e => setVehicleEdit({...vehicleEdit, mobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs outline-none" /></div></div><DialogFooter className="gap-2"><Button onClick={() => setShowVehiclePortal(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-6">Cancel</Button><Button onClick={handleUpdateVehicle} className="h-9 bg-[#1e3a8a] text-white rounded-none text-[10px] font-black uppercase px-10">Update</Button></DialogFooter></DialogContent>
       </Dialog>
 
       <Dialog open={showCNPortal} onOpenChange={setShowCNPortal}>
@@ -766,7 +766,7 @@ export default function TR21Page() {
                  <div className="border border-slate-200 overflow-hidden shadow-sm"><table className="w-full text-[10px]"><thead className="bg-[#f8fafc] border-b border-slate-200 font-black uppercase text-slate-400"><tr><th className="p-3 border-r text-left w-36">Invoice No</th><th className="p-3 border-r text-left">Description</th><th className="p-3 border-r text-center w-20">PKG</th><th className="p-3 border-r text-center w-24">UOM</th><th className="p-3 text-right w-24">Weight</th></tr></thead><tbody className="divide-y divide-slate-100">{cnItems.map((it, idx) => (<tr key={idx} className="bg-white hover:bg-blue-50/50 transition-colors"><td className="border-r"><input value={it.invoiceNo} onChange={e => { const n = [...cnItems]; n[idx].invoiceNo = e.target.value.toUpperCase(); setCnItems(n); }} className="w-full h-9 px-3 outline-none text-[11px] font-bold" /></td><td className="border-r"><input value={it.goodsDescription} onChange={e => { const n = [...cnItems]; n[idx].goodsDescription = e.target.value.toUpperCase(); setCnItems(n); }} className="w-full h-9 px-3 outline-none text-[11px]" /></td><td className="border-r text-center"><input type="number" value={it.package} onChange={e => { const n = [...cnItems]; n[idx].package = e.target.value; setCnItems(n); }} className="w-full h-9 text-center outline-none" /></td><td className="border-r"><select value={it.packageUom} onChange={e => { const n = [...cnItems]; n[idx].packageUom = e.target.value; setCnItems(n); }} className="w-full h-9 bg-transparent px-2 font-black uppercase text-[9px] outline-none"><option value="Bag">Bag</option><option value="Box">Box</option></select></td><td className="text-right"><input type="number" step="0.001" value={it.weight} onChange={e => { const n = [...cnItems]; n[idx].weight = e.target.value; setCnItems(n); }} className="w-full h-9 text-right px-3 outline-none font-black text-blue-600" /></td></tr>))}</tbody></table></div>
               </div>
            </div>
-           <DialogFooter className="bg-slate-50 p-6 border-t-2 border-slate-200 flex justify-between items-center shrink-0"><div className="text-[10px] font-black uppercase text-[#1e3a8a]">Total: {cnItems.reduce((acc, it) => acc + (parseFloat(it.weight) || 0), 0).toFixed(3)} MT</div><div className="flex gap-4"><Button onClick={() => setShowCNPortal(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-black border-slate-300 px-8">Cancel</Button><Button onClick={handlePostCN} className="bg-[#0056d2] text-white rounded-none h-10 uppercase text-[10px] font-black px-16 shadow-lg">Post Registry Node</Button></div></DialogFooter>
+           <DialogFooter className="bg-slate-50 p-6 border-t-2 border-slate-200 flex justify-between items-center shrink-0"><div className="text-[10px] font-black uppercase text-[#1e3a8a]">Total: {cnItems.reduce((acc, it) => acc + (parseFloat(it.weight) || 0), 0).toFixed(3)} MT</div><div className="flex gap-4"><Button onClick={() => setShowCNPortal(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-black border-slate-300 px-8">Cancel</Button><Button onClick={handlePostCN} className="bg-[#0056d2] text-white rounded-none h-10 uppercase text-[10px] font-black px-16 shadow-lg">Post Registry</Button></div></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -774,7 +774,7 @@ export default function TR21Page() {
         <DialogContent className="max-w-[700px] rounded-none border-[3px] border-[#0056d2] font-mono text-slate-900 p-0 overflow-hidden">
            <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
              <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2] flex justify-between items-center">
-               <span>Tracking Node: {selectedTrip?.vehicleNo}</span>
+               <span>Tracking: {selectedTrip?.vehicleNo}</span>
                <Badge className="bg-emerald-600 rounded-none font-black text-[9px] px-3 uppercase">{selectedTrip?.status}</Badge>
              </DialogTitle>
            </DialogHeader>
@@ -791,7 +791,7 @@ export default function TR21Page() {
                     <div className="space-y-1">
                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Handshake</span>
                        <p className="text-sm font-black text-slate-800 leading-relaxed uppercase italic">
-                          {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING NODE...'}
+                          {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING...'}
                        </p>
                     </div>
                  </div>
@@ -861,10 +861,10 @@ const CNPrintView = ({ trip }: { trip: any }) => {
             )}
           </div>
           <div className="flex flex-col">
-            <h1 className="text-[26px] leading-none mb-1 font-normal text-blue-900 uppercase tracking-tighter">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
-            <p className="text-[15.5px] max-w-[420px] leading-tight mb-3 font-normal uppercase">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
+            <h1 className="text-[27px] leading-none mb-1 font-normal text-blue-900 uppercase tracking-tighter">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
+            <p className="text-[14.5px] max-w-[420px] leading-tight mb-3 font-normal uppercase">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
             <div className="flex flex-col gap-0.5 text-[14.5px] font-normal uppercase">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
                  <div className="flex gap-1"><span>GSTIN:</span><span>{carrier.gstNo || '-'}</span></div>
                  <div className="flex gap-1 ml-1"><span>PAN:</span><span>{carrier.panNo || '-'}</span></div>
               </div>
@@ -887,16 +887,16 @@ const CNPrintView = ({ trip }: { trip: any }) => {
 
       <div className="border-t border-black mb-4" />
 
-      <table className="w-full border-collapse border border-black mb-4 font-normal">
+      <table className="w-full border-collapse border border-black mb-4 font-normal text-[15px]">
         <thead>
-          <tr className="bg-slate-50 border-b border-black text-[16px] text-center">
+          <tr className="bg-slate-50 border-b border-black text-center font-normal">
             <th className="p-2 border-r border-black font-normal uppercase">VEHICLE NUMBER</th>
             <th className="p-2 border-r border-black font-normal uppercase">DRIVER MOBILE</th>
             <th className="p-2 border-r border-black font-normal uppercase">PAYMENT TERM</th>
             <th className="p-2 font-normal uppercase">TRIP ID</th>
           </tr>
         </thead>
-        <tbody className="text-center text-[17px]">
+        <tbody className="text-center text-[16px]">
           <tr className="font-normal">
             <td className="p-2 border-r border-black font-normal">{trip.vehicleNo}</td>
             <td className="p-2 border-r border-black font-normal">{trip.driverMobile}</td>
@@ -924,16 +924,16 @@ const CNPrintView = ({ trip }: { trip: any }) => {
         ))}
       </div>
 
-      <table className="w-full border-collapse border border-black mb-4 font-normal">
+      <table className="w-full border-collapse border border-black mb-4 font-normal text-[15px]">
         <thead>
-          <tr className="bg-slate-50 border-b border-black text-[16px]">
+          <tr className="bg-slate-50 border-b border-black font-normal">
             <th className="p-2 border-r border-black text-left font-normal uppercase">INVOICE NO</th>
             <th className="p-2 border-r border-black text-left font-normal uppercase">DESCRIPTION OF GOODS</th>
             <th className="p-2 border-r border-black text-center w-24 font-normal uppercase">PKG</th>
             <th className="p-2 text-right w-28 font-normal uppercase">WEIGHT (MT)</th>
           </tr>
         </thead>
-        <tbody className="text-[17px] font-normal uppercase">
+        <tbody className="text-[16px] font-normal uppercase">
           {(trip.items?.length ? trip.items : [{invoiceNo: '-', goodsDescription: trip.materialName || '-', package: '-', packageUom: '-', weight: trip.assignWeight || '0.000'}]).map((it: any, i: number) => (
             <tr key={i} className="border-b border-black last:border-b-0 font-normal">
               <td className="p-2 border-r border-black font-normal">{it.invoiceNo}</td>
@@ -944,7 +944,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
           ))}
         </tbody>
         <tfoot>
-          <tr className="bg-slate-50 text-[18px] border-t border-black font-normal uppercase">
+          <tr className="bg-slate-50 text-[17px] border-t border-black font-normal uppercase">
             <td colSpan={2} className="p-2 border-r border-black text-right font-normal">TOTAL CONSIGNMENT REGISTRY</td>
             <td className="p-2 border-r border-black text-center font-normal">{totalPkg} PKG</td>
             <td className="p-2 text-right font-normal">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
@@ -954,11 +954,11 @@ const CNPrintView = ({ trip }: { trip: any }) => {
 
       <div className="flex justify-between items-end mt-6 font-normal uppercase">
         <div className="w-2/3 font-normal">
-          <h6 className="text-[15px] mb-1.5 underline font-normal">TERMS & CONDITIONS:</h6>
+          <h6 className="text-[14px] mb-1.5 underline font-normal">TERMS & CONDITIONS:</h6>
           <p className="text-[11px] leading-relaxed italic text-justify pr-10 font-normal">
             1. THE CARRIER IS RESPONSIBLE FOR SAFE DELIVERY IN ORIGINAL CONDITION.<br/>
             2. CONSIGNOR MUST ENSURE CORRECT MATERIAL COUNT BEFORE SEALING.<br/>
-            3. RATES ARE BASED ON {trip.fleetType || 'AGREED NODE'} STRATEGY.
+            3. RATES ARE BASED ON {trip.fleetType || 'AGREED'} STRATEGY.
           </p>
         </div>
         <div className="flex flex-col items-center gap-2 w-56 font-normal">
