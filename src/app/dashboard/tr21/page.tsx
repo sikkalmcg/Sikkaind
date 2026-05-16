@@ -64,14 +64,17 @@ export default function TR21Page() {
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
 
+  const getPartyData = React.useCallback((idOrCode: string) => {
+    if (!customers || !idOrCode) return {};
+    return customers.find(c => c.customerCode === idOrCode || c.id === idOrCode) || {};
+  }, [customers]);
+
   const filteredData = React.useMemo(() => {
     if (!orders || !trips || !mounted) return [];
     
-    // Helper to resolve party name from code if missing
     const resolveParty = (code: string, fallbackName: string) => {
-      if (fallbackName && fallbackName !== '-') return fallbackName;
       if (!code || !customers) return fallbackName || '-';
-      const found = customers.find(c => c.customerCode === code);
+      const found = customers.find(c => c.customerCode === code || c.id === code);
       return found?.customerName || fallbackName || '-';
     };
 
@@ -232,8 +235,6 @@ export default function TR21Page() {
     setShowVehiclePortal(false);
   };
 
-  const getPartyData = (id: string) => customers?.find(c => c.customerCode === id || c.id === id) || {};
-
   const CNPrintView = ({ trip }: { trip: any }) => {
     const consignor = getPartyData(trip.consignorCode);
     const consignee = getPartyData(trip.consigneeCode);
@@ -248,14 +249,14 @@ export default function TR21Page() {
            </div>
            <div className="flex flex-col items-end">
               <div className="bg-black text-white px-6 py-1.5 font-black text-[10px] mb-2">{title}</div>
-              <span className="font-black text-sm tracking-widest">CN: {trip.cnNumber}</span>
+              <span className="font-black text-sm tracking-widest">CN: {trip.cnNumber || 'NOT REGISTERED'}</span>
            </div>
         </div>
 
         <div className="grid grid-cols-2 border-2 border-black mb-4">
            <div className="p-4 border-r-2 border-black min-h-[120px] flex flex-col">
-              <span className="text-[8px] font-black text-slate-400 mb-2">CONSIGNOR (FROM: {trip.from})</span>
-              <p className="font-black text-sm mb-1">{trip.consignorName || resolveParty(trip.consignorCode, '')}</p>
+              <span className="text-[8px] font-black text-slate-400 mb-2">CONSIGNOR (FROM: {trip.from || consignor.city || '-'})</span>
+              <p className="font-black text-sm mb-1">{consignor.customerName || trip.consignorName || '-'}</p>
               <p className="text-[10px] leading-tight flex-1">{consignor.address || consignor.billingAddress || '-'}</p>
               <div className="mt-3 flex gap-4 text-[9px] font-bold">
                  <span>GSTIN: <span className="font-black">{consignor.gstNo || '-'}</span></span>
@@ -263,8 +264,8 @@ export default function TR21Page() {
               </div>
            </div>
            <div className="p-4 min-h-[120px] flex flex-col">
-              <span className="text-[8px] font-black text-slate-400 mb-2">CONSIGNEE (TO: {trip.destination})</span>
-              <p className="font-black text-sm mb-1">{trip.consigneeName || resolveParty(trip.consigneeCode, '')}</p>
+              <span className="text-[8px] font-black text-slate-400 mb-2">CONSIGNEE (TO: {trip.destination || consignee.city || '-'})</span>
+              <p className="font-black text-sm mb-1">{consignee.customerName || trip.consigneeName || '-'}</p>
               <p className="text-[10px] leading-tight flex-1">{consignee.address || consignee.billingAddress || '-'}</p>
               <div className="mt-3 flex gap-4 text-[9px] font-bold">
                  <span>GSTIN: <span className="font-black">{consignee.gstNo || '-'}</span></span>
@@ -284,7 +285,7 @@ export default function TR21Page() {
            </div>
            <div className="p-3 flex flex-col">
               <span className="text-[8px] font-black text-slate-400 mb-2 uppercase tracking-tighter">CN Date</span>
-              <span className="font-black text-base mt-auto">{trip.cnDate}</span>
+              <span className="font-black text-base mt-auto">{trip.cnDate || format(new Date(), 'dd-MM-yyyy')}</span>
            </div>
         </div>
 
@@ -298,7 +299,7 @@ export default function TR21Page() {
               </tr>
            </thead>
            <tbody>
-              {trip.items?.map((it: any, i: number) => (
+              {(trip.items || [{ invoiceNo: '-', goodsDescription: trip.materialName || '-', package: '-', packageUom: '-', weight: trip.assignWeight }]).map((it: any, i: number) => (
                 <tr key={i} className="border-b border-black">
                   <td className="p-3 border-r-2 border-black font-bold text-xs">{it.invoiceNo}</td>
                   <td className="p-3 border-r-2 border-black font-bold text-xs">{it.goodsDescription}</td>
@@ -321,7 +322,7 @@ export default function TR21Page() {
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic">Delivery Address Hub (Source: XD03 Master)</span>
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Ship to: {trip.shipToParty}</span>
            </div>
-           <p className="font-bold text-[11px] leading-relaxed italic">{shipTo.address || shipTo.shippingAddress || 'SEE CONSIGNEE NODE'}</p>
+           <p className="font-bold text-[11px] leading-relaxed italic">{shipTo.address || shipTo.shippingAddress || consignee.address || 'SEE CONSIGNEE NODE'}</p>
         </div>
 
         <div className="flex justify-between items-end mt-auto pt-16">
@@ -350,24 +351,18 @@ export default function TR21Page() {
     );
   };
 
-  const resolveParty = (code: string, fallbackName: string) => {
-    if (!code || !customers) return fallbackName || '-';
-    const found = customers.find(c => c.customerCode === code || c.id === code);
-    return found?.customerName || fallbackName || '-';
-  };
-
   if (!mounted) return null;
 
   return (
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden">
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
         <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD CONTROL HUB</h2>
-        {showPrintView && (
+        {showPrintView ? (
           <div className="flex gap-4">
              <Button onClick={() => window.print()} className="h-8 bg-emerald-600 rounded-none text-[10px] font-black uppercase px-6"><Printer className="h-3.5 w-3.5 mr-2" /> Print All (F8)</Button>
-             <Button onClick={() => setShowPrintView(false)} variant="outline" className="h-8 border-red-500 text-red-500 rounded-none text-[10px] font-black uppercase px-6">Exit Preview</Button>
+             <Button onClick={() => setShowPrintView(false)} variant="outline" className="h-8 border-red-500 text-red-500 rounded-none text-[10px] font-black uppercase px-6 hover:bg-red-50 transition-all"><X className="h-3.5 w-3.5 mr-2" /> Exit Preview</Button>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className={cn("flex-1 flex flex-col p-8 transition-opacity duration-300", showPrintView ? "opacity-0 pointer-events-none" : "opacity-100")}>
@@ -647,6 +642,30 @@ export default function TR21Page() {
                 <Button onClick={handlePostAssignment} className="bg-[#0056d2] text-white rounded-none h-10 uppercase text-[10px] font-black px-20 shadow-lg active:scale-95 transition-all">Post Registry and Exit Hub</Button>
              </div>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vehicle Registry Portal */}
+      <Dialog open={showVehiclePortal} onOpenChange={setShowVehiclePortal}>
+        <DialogContent className="max-w-md rounded-none border-[3px] border-[#1e3a8a] font-mono">
+           <DialogHeader>
+             <DialogTitle className="text-sm font-black uppercase italic text-[#1e3a8a]">Vehicle Registry Update</DialogTitle>
+             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Route: {selectedTrip?.from} → {selectedTrip?.destination}</p>
+           </DialogHeader>
+           <div className="py-6 space-y-6">
+              <div className="space-y-1.5">
+                 <label className="text-[10px] font-black text-slate-400 uppercase">Vehicle Number</label>
+                 <input value={vehicleEdit.vehicleNo} onChange={e => setVehicleEdit({...vehicleEdit, vehicleNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-yellow-50" />
+              </div>
+              <div className="space-y-1.5">
+                 <label className="text-[10px] font-black text-slate-400 uppercase">Driver Mobile</label>
+                 <input value={vehicleEdit.mobile} onChange={e => setVehicleEdit({...vehicleEdit, mobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs outline-none" />
+              </div>
+           </div>
+           <DialogFooter className="gap-2">
+              <Button onClick={() => setShowVehiclePortal(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-6">Cancel</Button>
+              <Button onClick={handleUpdateVehicle} className="h-9 bg-[#1e3a8a] text-white rounded-none text-[10px] font-black uppercase px-10">Update Node</Button>
+           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
