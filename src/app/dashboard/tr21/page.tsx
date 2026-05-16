@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -15,6 +16,8 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import Image from 'next/image';
+import placeholderData from '@/app/lib/placeholder-images.json';
 
 const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
@@ -44,9 +47,9 @@ export default function TR21Page() {
   const [cnItems, setCnItems] = React.useState<any[]>([]);
   const [podData, setPodData] = React.useState({ receivedBy: '', receivedDate: format(new Date(), 'yyyy-MM-dd'), remarks: '' });
   const [outData, setOutData] = React.useState({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
-  const [trackData, setTrackData] = React.useState({ mode: 'GPS', location: 'FETCHING LIVE GATEWAY...' });
   const [vehicleEdit, setVehicleEdit] = React.useState({ vehicleNo: '', mobile: '' });
   const [previousCN, setPreviousCN] = React.useState('');
+  const [editableDeliveryAddr, setEditableDeliveryAddr] = React.useState('');
 
   React.useEffect(() => { setMounted(true); }, []);
 
@@ -54,12 +57,14 @@ export default function TR21Page() {
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
   const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
   const gpsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'gps_tracking'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: vendors } = useCollection(vendorsQuery);
   const { data: customers } = useCollection(customersQuery);
+  const { data: companies } = useCollection(companiesQuery);
   const { data: gpsNodes } = useCollection(gpsQuery);
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
@@ -68,6 +73,11 @@ export default function TR21Page() {
     if (!customers || !idOrCode) return {};
     return customers.find(c => c.customerCode === idOrCode || c.id === idOrCode) || {};
   }, [customers]);
+
+  const getCompanyData = React.useCallback((plantCode: string) => {
+    if (!companies || !plantCode) return {};
+    return companies.find(c => c.linkedPlantCode === plantCode || (Array.isArray(c.plantCodes) && c.plantCodes.includes(plantCode))) || {};
+  }, [companies]);
 
   const filteredData = React.useMemo(() => {
     if (!orders || !trips || !mounted) return [];
@@ -111,6 +121,7 @@ export default function TR21Page() {
   const handlePostAssignment = () => {
     if (!assignData.vehicleNo || !assignData.assignWeight) return alert('Mandatory fields missing');
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
+    
     const newTrip = {
       id: crypto.randomUUID(),
       tripNo: tripId,
@@ -133,7 +144,8 @@ export default function TR21Page() {
       consigneeCode: selectedOrder.consigneeCode || '',
       shipToPartyCode: selectedOrder.shipToPartyCode || '',
       from: selectedOrder.from || '',
-      materialName: selectedOrder.materialName || ''
+      materialName: selectedOrder.materialName || '',
+      paymentTerms: assignData.paymentTerms || 'TO PAY'
     };
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', newTrip.id), newTrip, { merge: true });
     setShowAssign(false);
@@ -141,16 +153,10 @@ export default function TR21Page() {
   };
 
   const fetchPreviousCN = React.useCallback((plant: string, vehicle: string) => {
-    if (!trips) {
-      setPreviousCN('FETCHING...');
-      return;
-    }
-    
+    if (!trips) return;
     const history = [...trips]
       .filter(t => t.plantCode === plant && t.vehicleNo === vehicle)
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-    
-    // Find the most recent record that isn't the current trip
     const prev = history.find(t => t.id !== selectedTrip?.id);
     setPreviousCN(prev?.cnNumber || 'FIRST TRIP');
   }, [trips, selectedTrip?.id]);
@@ -166,7 +172,7 @@ export default function TR21Page() {
       cnNumber: cnData.cnNo.toUpperCase(),
       cnDate: cnData.cnDate || format(new Date(), 'yyyy-MM-dd'),
       mode: cnData.mode || 'Road',
-      paymentTerms: cnData.paymentTerms || '',
+      paymentTerms: cnData.paymentTerms || 'TO PAY',
       ratePoint: cnData.ratePoint || '',
       items: cnItems,
       totalPackages: cnItems.reduce((acc, it) => acc + (parseInt(it.package) || 0), 0),
@@ -205,11 +211,10 @@ export default function TR21Page() {
       updatedAt: new Date().toISOString()
     });
     setShowPODPortal(false);
-    setPodData({ receivedBy: '', receivedDate: format(new Date(), 'yyyy-MM-dd'), remarks: '' });
   };
 
   const handleCloseTrip = (tripId: string) => {
-    if (!confirm('SYSTEM WARNING: Are you sure you want to close this trip registry node?')) return;
+    if (!confirm('SYSTEM WARNING: Close this trip?')) return;
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', tripId), { 
       status: 'CLOSED',
       closedStatus: 'CLOSED',
@@ -218,137 +223,168 @@ export default function TR21Page() {
     });
   };
 
-  const handleSelectTrack = (trip: any) => {
-    const node = gpsNodes?.find(n => n.vehicleNumber === trip.vehicleNo);
-    setTrackData({
-      mode: 'GPS',
-      location: node ? `${node.lastLocation || 'COORDINATE LOCK ACQUIRED'}` : 'OFFLINE: NO SATELLITE HANDSHAKE'
-    });
-    setSelectedTrip(trip);
-    setShowTrackPortal(true);
-  };
-
-  const handleUpdateVehicle = () => {
-    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), {
-      vehicleNo: vehicleEdit.vehicleNo.toUpperCase(),
-      driverMobile: vehicleEdit.mobile,
-      updatedAt: new Date().toISOString()
-    });
-    setShowVehiclePortal(false);
-  };
-
   const CNPrintView = ({ trip }: { trip: any }) => {
     const consignor = getPartyData(trip.consignorCode);
     const consignee = getPartyData(trip.consigneeCode);
     const shipTo = getPartyData(trip.shipToPartyCode);
+    const carrier = getCompanyData(trip.plantCode);
+    const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
 
-    const Copy = ({ title }: { title: string }) => (
-      <div className="cn-print-page p-10 font-mono text-[10px] uppercase border border-black mb-10 bg-white shadow-sm">
-        <div className="flex justify-between items-start mb-6">
-           <div className="flex flex-col">
-              <h1 className="text-2xl font-black italic text-blue-900 leading-none tracking-tighter">SIKKA INDUSTRIES</h1>
-              <span className="text-[9px] font-bold text-slate-500 tracking-[0.2em] mt-1">& LOGISTICS • DIGITAL HUB</span>
-           </div>
-           <div className="flex flex-col items-end">
-              <div className="bg-black text-white px-6 py-1.5 font-black text-[10px] mb-2">{title}</div>
-              <span className="font-black text-sm tracking-widest">CN: {trip.cnNumber || 'NOT REGISTERED'}</span>
-           </div>
-        </div>
+    const totalPkg = (trip.items || []).reduce((acc: number, it: any) => acc + (parseInt(it.package) || 0), 0);
+    const totalWgt = (trip.items || []).reduce((acc: number, it: any) => acc + (parseFloat(it.weight) || 0), 0);
 
-        <div className="grid grid-cols-2 border-2 border-black mb-4">
-           <div className="p-4 border-r-2 border-black min-h-[120px] flex flex-col">
-              <span className="text-[8px] font-black text-slate-400 mb-2">CONSIGNOR (FROM: {trip.from || consignor.city || '-'})</span>
-              <p className="font-black text-sm mb-1">{consignor.customerName || trip.consignorName || '-'}</p>
-              <p className="text-[10px] leading-tight flex-1">{consignor.address || consignor.billingAddress || '-'}</p>
-              <div className="mt-3 flex gap-4 text-[9px] font-bold">
-                 <span>GSTIN: <span className="font-black">{consignor.gstNo || '-'}</span></span>
-                 <span>MOB: <span className="font-black">{consignor.mobile || '-'}</span></span>
+    const CopyPage = ({ label }: { label: string }) => (
+      <div className="cn-print-page p-8 font-sans text-[11px] uppercase border border-black mb-10 bg-white relative">
+        {/* Header Section */}
+        <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
+          <div className="flex gap-4 items-start">
+            {logoAsset && <div className="relative w-16 h-16"><Image src={logoAsset.url} alt="Logo" fill className="object-contain" unoptimized /></div>}
+            <div className="flex flex-col">
+              <h1 className="text-xl font-black text-blue-900 leading-none">{carrier.companyName || 'SIKKA INDUSTRIES'}</h1>
+              <p className="text-[9px] font-bold text-slate-600 mt-1">{carrier.address || 'GHAZIABAD, UTTAR PRADESH'}</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-2 text-[8px] font-bold text-slate-500">
+                <span>GSTIN: <span className="text-black">{carrier.gstNo || '-'}</span></span>
+                <span>PAN: <span className="text-black">{carrier.panNo || '-'}</span></span>
+                <span>MOB: <span className="text-black">{carrier.mobile || '-'}</span></span>
+                <span>EMAIL: <span className="text-black">{carrier.email || '-'}</span></span>
               </div>
-           </div>
-           <div className="p-4 min-h-[120px] flex flex-col">
-              <span className="text-[8px] font-black text-slate-400 mb-2">CONSIGNEE (TO: {trip.destination || consignee.city || '-'})</span>
-              <p className="font-black text-sm mb-1">{consignee.customerName || trip.consigneeName || '-'}</p>
-              <p className="text-[10px] leading-tight flex-1">{consignee.address || consignee.billingAddress || '-'}</p>
-              <div className="mt-3 flex gap-4 text-[9px] font-bold">
-                 <span>GSTIN: <span className="font-black">{consignee.gstNo || '-'}</span></span>
-                 <span>MOB: <span className="font-black">{consignee.mobile || '-'}</span></span>
-              </div>
-           </div>
+            </div>
+          </div>
+          <div className="flex flex-col items-end">
+            <div className="border-2 border-black px-4 py-1 font-black text-[10px] bg-black text-white mb-2">{label}</div>
+            <span className="text-lg font-black tracking-widest">CN: {trip.cnNumber || 'DRAFT'}</span>
+            <span className="text-[10px] font-bold mt-1">DATE: {trip.cnDate || format(new Date(), 'dd-MM-yyyy')}</span>
+            <div className="mt-2 text-right">
+              <p className="text-[9px] font-black"><span className="text-slate-400">FROM:</span> {trip.from}</p>
+              <p className="text-[9px] font-black"><span className="text-slate-400">TO:</span> {trip.destination}</p>
+              {trip.mode === 'Road from Rail' && <p className="text-[9px] font-black text-blue-600 italic"><span className="text-slate-400">VIA:</span> {trip.ratePoint}</p>}
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 border-2 border-black mb-4 h-20">
-           <div className="p-3 border-r-2 border-black flex flex-col">
-              <span className="text-[8px] font-black text-slate-400 mb-2 uppercase tracking-tighter">Vehicle Number</span>
-              <span className="font-black text-base mt-auto">{trip.vehicleNo}</span>
-           </div>
-           <div className="p-3 border-r-2 border-black flex flex-col">
-              <span className="text-[8px] font-black text-slate-400 mb-2 uppercase tracking-tighter">Mode</span>
-              <span className="font-black text-base mt-auto">{trip.mode || 'ROAD'}</span>
-           </div>
-           <div className="p-3 flex flex-col">
-              <span className="text-[8px] font-black text-slate-400 mb-2 uppercase tracking-tighter">CN Date</span>
-              <span className="font-black text-base mt-auto">{trip.cnDate || format(new Date(), 'dd-MM-yyyy')}</span>
-           </div>
-        </div>
-
+        {/* Vehicle Table */}
         <table className="w-full border-collapse border-2 border-black mb-6">
-           <thead className="bg-slate-50 border-b-2 border-black">
-              <tr className="text-[9px] font-black">
-                 <th className="p-3 border-r-2 border-black w-32 text-left">INVOICE NO</th>
-                 <th className="p-3 border-r-2 border-black text-left">DESCRIPTION OF GOODS</th>
-                 <th className="p-3 border-r-2 border-black w-32 text-center">PKG</th>
-                 <th className="p-3 w-32 text-right">WEIGHT (MT)</th>
-              </tr>
-           </thead>
-           <tbody>
-              {(trip.items || [{ invoiceNo: '-', goodsDescription: trip.materialName || '-', package: '-', packageUom: '-', weight: trip.assignWeight }]).map((it: any, i: number) => (
-                <tr key={i} className="border-b border-black">
-                  <td className="p-3 border-r-2 border-black font-bold text-xs">{it.invoiceNo}</td>
-                  <td className="p-3 border-r-2 border-black font-bold text-xs">{it.goodsDescription}</td>
-                  <td className="p-3 border-r-2 border-black text-center font-bold text-xs">{it.package} {it.packageUom}</td>
-                  <td className="p-3 text-right font-black text-xs">{parseFloat(it.weight || 0).toFixed(3)}</td>
-                </tr>
-              ))}
-           </tbody>
-           <tfoot className="border-t-2 border-black font-black bg-slate-50">
-              <tr>
-                 <td colSpan={2} className="p-3 border-r-2 border-black text-right text-[10px]">TOTAL CONSIGNMENT REGISTRY</td>
-                 <td className="p-3 border-r-2 border-black text-center text-xs">{trip.totalPackages || '-'} UNITS</td>
-                 <td className="p-3 text-right text-xs text-blue-700 underline underline-offset-4">{trip.assignWeight} MT</td>
-              </tr>
-           </tfoot>
+          <thead>
+            <tr className="bg-slate-100 border-b-2 border-black font-black text-[9px]">
+              <th className="p-2 border-r-2 border-black w-1/4">VEHICLE NUMBER</th>
+              <th className="p-2 border-r-2 border-black w-1/4">DRIVER MOBILE</th>
+              <th className="p-2 border-r-2 border-black w-1/4">PAYMENT TERM</th>
+              <th className="p-2 w-1/4">TRIP ID</th>
+            </tr>
+          </thead>
+          <tbody className="text-center font-black text-sm">
+            <tr>
+              <td className="p-3 border-r-2 border-black">{trip.vehicleNo}</td>
+              <td className="p-3 border-r-2 border-black">{trip.driverMobile}</td>
+              <td className="p-3 border-r-2 border-black">{trip.paymentTerms || 'TO PAY'}</td>
+              <td className="p-3">{trip.tripNo}</td>
+            </tr>
+          </tbody>
         </table>
 
-        <div className="border-2 border-black p-4 mb-10 bg-slate-50/50">
-           <div className="flex justify-between items-start mb-2">
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic">Delivery Address Hub (Source: XD03 Master)</span>
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Ship to: {trip.shipToParty}</span>
-           </div>
-           <p className="font-bold text-[11px] leading-relaxed italic">{shipTo.address || shipTo.shippingAddress || consignee.address || 'SEE CONSIGNEE NODE'}</p>
+        {/* Party Details Section */}
+        <div className="grid grid-cols-3 border-2 border-black mb-6">
+          <div className="p-3 border-r-2 border-black min-h-[140px] flex flex-col">
+            <h4 className="font-black border-b border-slate-200 mb-2 pb-1 text-[#1e3a8a]">CONSIGNOR</h4>
+            <p className="font-black text-xs">{consignor.customerName || trip.consignorName || '-'}</p>
+            <p className="text-[9px] leading-tight flex-1 mt-1">{consignor.address || '-'}</p>
+            <p className="text-[9px] font-bold mt-2">GSTIN: <span className="font-black">{consignor.gstNo || '-'}</span></p>
+          </div>
+          <div className="p-3 border-r-2 border-black min-h-[140px] flex flex-col">
+            <h4 className="font-black border-b border-slate-200 mb-2 pb-1 text-[#1e3a8a]">CONSIGNEE</h4>
+            <p className="font-black text-xs">{consignee.customerName || trip.consigneeName || '-'}</p>
+            <p className="text-[9px] leading-tight flex-1 mt-1">{consignee.address || '-'}</p>
+            <p className="text-[9px] font-bold mt-2">GSTIN: <span className="font-black">{consignee.gstNo || '-'}</span></p>
+          </div>
+          <div className="p-3 min-h-[140px] flex flex-col">
+            <h4 className="font-black border-b border-slate-200 mb-2 pb-1 text-[#1e3a8a]">SHIP TO PARTY</h4>
+            <p className="font-black text-xs">{shipTo.customerName || trip.shipToParty || '-'}</p>
+            <p className="text-[9px] leading-tight flex-1 mt-1">{shipTo.address || '-'}</p>
+            <p className="text-[9px] font-bold mt-2">GSTIN: <span className="font-black">{shipTo.gstNo || '-'}</span></p>
+          </div>
         </div>
 
-        <div className="flex justify-between items-end mt-auto pt-16">
-           <div className="space-y-2">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">CARRIER PAN: <span className="text-black ml-2 font-black">{trip.carrierPan || '-'}</span></p>
-              <p className="text-[9px] font-black italic text-slate-600">“This Consignment Note was generated digitally and is to be considered as original.”</p>
-           </div>
-           <div className="text-center w-52">
-              <div className="border-b-2 border-black w-full mb-2 h-12" />
-              <span className="text-[9px] font-black uppercase tracking-tighter">AUTHORIZED SIGNATORY</span>
-           </div>
+        {/* Material Table */}
+        <table className="w-full border-collapse border-2 border-black mb-6">
+          <thead>
+            <tr className="bg-slate-100 border-b-2 border-black font-black text-[9px]">
+              <th className="p-2 border-r-2 border-black w-24">INVOICE NO</th>
+              <th className="p-2 border-r-2 border-black w-32">E-WAYBILL NO</th>
+              <th className="p-2 border-r-2 border-black text-left">DESCRIPTION OF GOODS</th>
+              <th className="p-2 border-r-2 border-black w-24 text-center">PACKAGE</th>
+              <th className="p-2 w-24 text-right">WEIGHT (MT)</th>
+            </tr>
+          </thead>
+          <tbody className="font-bold text-[10px]">
+            {(trip.items || [{invoiceNo: '-', ewaybillNo: '-', goodsDescription: trip.materialName, package: '-', packageUom: '-', weight: trip.assignWeight}]).map((it: any, i: number) => (
+              <tr key={i} className="border-b border-black">
+                <td className="p-2 border-r-2 border-black">{it.invoiceNo}</td>
+                <td className="p-2 border-r-2 border-black">{it.ewaybillNo}</td>
+                <td className="p-2 border-r-2 border-black italic">{it.goodsDescription}</td>
+                <td className="p-2 border-r-2 border-black text-center">{it.package} {it.packageUom}</td>
+                <td className="p-2 text-right font-black">{parseFloat(it.weight || 0).toFixed(3)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-slate-50 font-black text-xs border-t-2 border-black">
+              <td colSpan={3} className="p-2 border-r-2 border-black text-right">TOTAL CONSIGNMENT REGISTRY</td>
+              <td className="p-2 border-r-2 border-black text-center">{totalPkg} UNITS</td>
+              <td className="p-2 text-right text-blue-700 underline">{totalWgt.toFixed(3)} MT</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        {/* Delivery Box */}
+        <div className="border-2 border-black p-3 mb-6 bg-slate-50/30">
+          <div className="flex justify-between items-start mb-2">
+            <h5 className="font-black text-[9px] border-b border-black">DELIVERY ADDRESS:</h5>
+            <span className="text-[8px] font-bold text-slate-400">SHIP TO: {trip.shipToParty}</span>
+          </div>
+          <div 
+            contentEditable 
+            suppressContentEditableWarning
+            onBlur={(e) => setEditableDeliveryAddr(e.currentTarget.textContent || '')}
+            className="text-[11px] font-bold leading-relaxed italic outline-none min-h-[40px] cursor-text print:cursor-default"
+          >
+            {editableDeliveryAddr || shipTo.address || consignee.address || 'REFER MASTER REGISTRY XD03'}
+          </div>
+        </div>
+
+        {/* Terms & Signatory */}
+        <div className="flex justify-between items-end mt-4">
+          <div className="w-2/3">
+            <h6 className="font-black text-[8px] mb-1">TERMS & CONDITIONS:</h6>
+            <p className="text-[7px] leading-tight text-slate-500 italic text-justify pr-10">
+              The carrier is responsible for the safe delivery of the consignment in the same condition as received. 
+              The driver must verify the package count before loading. All disputes are subject to the jurisdiction 
+              of the carrier registered office hub. Rates are inclusive of all taxes unless specified otherwise in SAP node.
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-2 w-48">
+            <div className="border-b-2 border-black w-full h-12" />
+            <span className="font-black text-[8px]">AUTHORIZED SIGNATORY</span>
+          </div>
+        </div>
+
+        {/* Digital Note Footer */}
+        <div className="absolute bottom-4 left-8 right-8 text-center pt-2 border-t border-slate-100">
+          <p className="text-[8px] font-black text-slate-400">
+            NOTE: "THIS CONSIGNMENT NOTE WAS GENERATED DIGITALLY AND IS TO BE CONSIDERED AS ORIGINAL."
+          </p>
         </div>
       </div>
     );
 
     return (
-      <div id="printable-area" className="bg-slate-100 p-10 overflow-y-auto h-full custom-scrollbar print:p-0">
-         <div className="max-w-[800px] mx-auto print:max-w-none">
-            <Copy title="CONSIGNOR COPY" />
-            <div className="print:page-break-after-always" />
-            <Copy title="CONSIGNEE COPY" />
-            <div className="print:page-break-after-always" />
-            <Copy title="CARRIER COPY" />
-         </div>
+      <div id="printable-area" className="bg-slate-200 p-10 overflow-y-auto h-full green-scrollbar print:p-0">
+        <div className="max-w-[800px] mx-auto print:max-w-none">
+          <CopyPage label="CONSIGNOR COPY" />
+          <div className="print:page-break-after-always" />
+          <CopyPage label="CONSIGNEE COPY" />
+          <div className="print:page-break-after-always" />
+          <CopyPage label="DRIVER COPY" />
+        </div>
       </div>
     );
   };
@@ -411,7 +447,7 @@ export default function TR21Page() {
                       <td className="p-3 border-r text-center">{item.quantity}</td>
                       <td className="p-3 border-r text-center text-emerald-600 font-black">{item.balance.toFixed(3)}</td>
                       <td className="p-3">
-                         <Button onClick={() => { setSelectedOrder(item); setAssignData({assignWeight: item.balance}); setShowAssign(true); }} size="sm" className="h-7 text-[9px] font-black uppercase bg-[#0056d2] rounded-none">Assign</Button>
+                         <Button onClick={() => { setSelectedOrder(item); setAssignData({assignWeight: item.balance, paymentTerms: 'TO PAY'}); setShowAssign(true); }} size="sm" className="h-7 text-[9px] font-black uppercase bg-[#0056d2] rounded-none">Assign</Button>
                       </td>
                     </>
                   ) : (
@@ -423,7 +459,7 @@ export default function TR21Page() {
                       <td className="p-3 border-r">{item.consigneeName || '-'}</td>
                       <td className="p-3 border-r text-center">{item.assignWeight}</td>
                       <td className="p-3 border-r">
-                         <button onClick={() => { setSelectedTrip(item); if(item.cnNumber) { setShowPrintView(true); } else { setCnData({mode: 'Road'}); setCnItems([{invoiceNo: '', goodsDescription: item.materialName || '', weight: item.assignWeight, package: '', packageUom: 'Bag'}]); fetchPreviousCN(item.plantCode, item.vehicleNo); setShowCNPortal(true); } }} className="flex items-center gap-2 hover:text-[#0056d2] transition-colors group">
+                         <button onClick={() => { setSelectedTrip(item); if(item.cnNumber) { setEditableDeliveryAddr(''); setShowPrintView(true); } else { setCnData({mode: 'Road', paymentTerms: item.paymentTerms || 'TO PAY'}); setCnItems([{invoiceNo: '', goodsDescription: item.materialName || '', weight: item.assignWeight, package: '', packageUom: 'Bag'}]); fetchPreviousCN(item.plantCode, item.vehicleNo); setShowCNPortal(true); } }} className="flex items-center gap-2 hover:text-[#0056d2] transition-colors group">
                             {item.cnNumber ? <><Printer className="h-3.5 w-3.5" /> {item.cnNumber}</> : <><Plus className="h-3 w-3" /> REGISTRY</>}
                             {item.cnNumber && <div onClick={(e) => { e.stopPropagation(); setCnData({cnNo: item.cnNumber, cnDate: item.cnDate, mode: item.mode, paymentTerms: item.paymentTerms, ratePoint: item.ratePoint}); setCnItems(item.items || []); setShowCNPortal(true); }} className="p-1 hover:bg-blue-100 rounded ml-auto opacity-0 group-hover:opacity-100 transition-opacity"><Edit3 className="h-3 w-3 text-blue-500" /></div>}
                          </button>
@@ -433,13 +469,13 @@ export default function TR21Page() {
                           <>
                             <Button onClick={() => { setSelectedTrip(item); setOutData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} size="sm" className="h-7 text-[9px] font-black bg-[#1e3a8a] rounded-none">OUT</Button>
                             <Button onClick={() => { setSelectedTrip(item); setShowUnassignWarning(true); }} size="sm" variant="ghost" className="h-7 text-[9px] font-black text-red-500 hover:bg-red-50 rounded-none">UNASSIGN</Button>
-                            <Button onClick={() => handleSelectTrack(item)} size="sm" variant="outline" className="h-7 text-[9px] font-black border-slate-300 text-slate-500"><Radar className="h-3 w-3" /></Button>
+                            <Button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} size="sm" variant="outline" className="h-7 text-[9px] font-black border-slate-300 text-slate-500"><Radar className="h-3 w-3" /></Button>
                           </>
                         )}
                         {activeTab === 'In-Transit' && (
                            <>
                              <Button onClick={() => handleArrival(item.id)} size="sm" className="h-7 text-[9px] font-black bg-emerald-600 rounded-none">ARRIVED</Button>
-                             <Button onClick={() => handleSelectTrack(item)} size="sm" variant="outline" className="h-7 text-[9px] font-black border-slate-300 text-slate-500"><Radar className="h-3 w-3" /></Button>
+                             <Button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} size="sm" variant="outline" className="h-7 text-[9px] font-black border-slate-300 text-slate-500"><Radar className="h-3 w-3" /></Button>
                            </>
                         )}
                         {activeTab === 'Arrived' && <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} size="sm" className="h-7 text-[9px] font-black bg-purple-600 rounded-none">POD REG</Button>}
@@ -463,7 +499,7 @@ export default function TR21Page() {
       {/* CN Entry Portal */}
       <Dialog open={showCNPortal} onOpenChange={setShowCNPortal}>
         <DialogContent className="max-w-[950px] max-h-[95vh] rounded-none border-[3px] border-[#0056d2] font-mono p-0 flex flex-col">
-           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
+           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0">
               <DialogTitle className="text-sm font-black uppercase text-[#0056d2]">Consignment Note Registry Hub: {selectedTrip?.tripNo}</DialogTitle>
               <div className="grid grid-cols-4 gap-6 mt-4 text-[10px] font-black uppercase text-slate-400">
                  <div className="space-y-0.5"><span className="text-slate-300">PLANT</span><p className="text-slate-800">{selectedTrip?.plantCode}</p></div>
@@ -477,7 +513,14 @@ export default function TR21Page() {
                  <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter italic">Previous CN (Registry Match)</label><input readOnly value={previousCN} className="h-9 w-full border border-slate-200 bg-slate-50 px-3 text-[11px] font-black outline-none" /></div>
                  <div className="space-y-1.5"><label className="text-[10px] font-black text-[#0056d2] uppercase tracking-tighter">CN Number *</label><input autoFocus value={cnData.cnNo || ''} onChange={e => setCnData({...cnData, cnNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-yellow-50 shadow-sm" /></div>
                  <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">CN Date</label><input type="date" value={cnData.cnDate || format(new Date(), 'yyyy-MM-dd')} onChange={e => setCnData({...cnData, cnDate: e.target.value})} className="h-9 w-full border border-slate-400 px-3 outline-none" /></div>
-                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Payment Terms</label><input value={cnData.paymentTerms || ''} onChange={e => setCnData({...cnData, paymentTerms: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 outline-none" placeholder="E.G. TO BE BILLED" /></div>
+                 <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Payment Terms</label>
+                    <select value={cnData.paymentTerms} onChange={e => setCnData({...cnData, paymentTerms: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-[11px] font-black">
+                       <option value="PAID">PAID</option>
+                       <option value="TO PAY">TO PAY</option>
+                       <option value="FOC">FOC</option>
+                    </select>
+                 </div>
                  <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Transport Mode</label>
                     <select value={cnData.mode} onChange={e => setCnData({...cnData, mode: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-[11px] font-black">
@@ -485,12 +528,12 @@ export default function TR21Page() {
                        <option value="Road from Rail">Road from Rail</option>
                     </select>
                  </div>
-                 {cnData.mode === 'Road from Rail' && <div className="space-y-1.5 animate-fade-in"><label className="text-[10px] font-black text-blue-600 uppercase tracking-tighter italic underline underline-offset-4">Rate Point Location</label><input value={cnData.ratePoint || ''} onChange={e => setCnData({...cnData, ratePoint: e.target.value.toUpperCase()})} className="h-9 w-full border border-blue-400 px-3 text-[11px] font-black outline-none focus:bg-blue-50 shadow-inner" /></div>}
+                 {cnData.mode === 'Road from Rail' && <div className="space-y-1.5 animate-fade-in"><label className="text-[10px] font-black text-blue-600 uppercase tracking-tighter italic underline underline-offset-4">Rake Point Name</label><input value={cnData.ratePoint || ''} onChange={e => setCnData({...cnData, ratePoint: e.target.value.toUpperCase()})} className="h-9 w-full border border-blue-400 px-3 text-[11px] font-black outline-none focus:bg-blue-50 shadow-inner" /></div>}
               </div>
               <div className="space-y-4">
                  <h4 className="text-[10px] font-black uppercase text-slate-500 border-b-2 border-slate-100 pb-3 flex justify-between items-center">
                     <span>Material Invoice Registry Node</span>
-                    <Button onClick={() => setCnItems([...cnItems, {invoiceNo: '', goodsDescription: selectedTrip?.materialName || '', weight: '', package: '', packageUom: 'Bag'}])} variant="ghost" size="sm" className="h-7 text-[9px] font-black uppercase text-[#0056d2] border border-blue-100 px-4 hover:bg-blue-50 transition-all"><Plus className="h-3.5 w-3.5 mr-1" /> Add Invoice Item</Button>
+                    <Button onClick={() => setCnItems([...cnItems, {invoiceNo: '', ewaybillNo: '', goodsDescription: selectedTrip?.materialName || '', weight: '', package: '', packageUom: 'Bag'}])} variant="ghost" size="sm" className="h-7 text-[9px] font-black uppercase text-[#0056d2] border border-blue-100 px-4 hover:bg-blue-50 transition-all"><Plus className="h-3.5 w-3.5 mr-1" /> Add Invoice Item</Button>
                  </h4>
                  <div className="border border-slate-200 shadow-inner bg-slate-50/30 overflow-hidden">
                     <table className="w-full text-[10px]">
@@ -537,50 +580,6 @@ export default function TR21Page() {
         </DialogContent>
       </Dialog>
 
-      {/* POD Entry Portal */}
-      <Dialog open={showPODPortal} onOpenChange={setShowPODPortal}>
-        <DialogContent className="max-w-md rounded-none border-[3px] border-purple-600 font-mono">
-           <DialogHeader>
-             <DialogTitle className="text-sm font-black uppercase italic text-purple-600">POD Registry: {selectedTrip?.tripNo}</DialogTitle>
-           </DialogHeader>
-           <div className="py-6 space-y-6">
-              <div className="space-y-1.5">
-                 <label className="text-[10px] font-black text-slate-400 uppercase">Received By *</label>
-                 <input autoFocus value={podData.receivedBy} onChange={e => setPodData({...podData, receivedBy: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-yellow-50" />
-              </div>
-              <div className="space-y-1.5">
-                 <label className="text-[10px] font-black text-slate-400 uppercase">Received Date</label>
-                 <input type="date" value={podData.receivedDate} onChange={e => setPodData({...podData, receivedDate: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs outline-none" />
-              </div>
-              <div className="space-y-1.5">
-                 <label className="text-[10px] font-black text-slate-400 uppercase">Remarks</label>
-                 <input value={podData.remarks} onChange={e => setPodData({...podData, remarks: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs outline-none" />
-              </div>
-           </div>
-           <DialogFooter className="gap-2">
-              <Button onClick={() => setShowPODPortal(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-6">Exit</Button>
-              <Button onClick={handlePostPOD} className="h-9 bg-purple-600 text-white rounded-none text-[10px] font-black uppercase px-10 shadow-lg">Post POD Registry</Button>
-           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Unassign Warning */}
-      <Dialog open={showUnassignWarning} onOpenChange={setShowUnassignWarning}>
-        <DialogContent className="max-w-md rounded-none border-[4px] border-red-600 font-mono">
-           <DialogHeader>
-             <DialogTitle className="text-red-600 flex items-center gap-2 font-black uppercase italic"><AlertTriangle className="h-5 w-5" /> REVERSAL WARNING</DialogTitle>
-           </DialogHeader>
-           <div className="py-6 space-y-4">
-              <p className="text-xs font-bold text-slate-700 leading-relaxed uppercase">Are you sure you want to unassign Vehicle <span className="font-black text-red-600">{selectedTrip?.vehicleNo}</span> from order <span className="font-black">{selectedTrip?.orderNo}</span>?</p>
-              <p className="text-[10px] text-slate-400 uppercase italic leading-tight">This action will permanently reverse the dispatch lifecycle and reopen the sale order for new vehicle assignment.</p>
-           </div>
-           <DialogFooter className="gap-2">
-              <Button onClick={handleUnassign} className="bg-red-600 text-white h-9 rounded-none text-[10px] font-black uppercase px-8 shadow-md">Confirm Reversal</Button>
-              <Button onClick={() => setShowUnassignWarning(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-8">Exit ❌</Button>
-           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Assignment Dialog */}
       <Dialog open={showAssign} onOpenChange={setShowAssign}>
         <DialogContent className="max-w-[800px] max-h-[95vh] rounded-none border-[3px] border-[#0056d2] font-mono p-0 flex flex-col">
@@ -602,6 +601,14 @@ export default function TR21Page() {
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Driver Mobile</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs outline-none focus:bg-yellow-50" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase italic">Assign Date time (SYSTEM DEFAULT)</label><input type="datetime-local" value={assignData.assignDate || format(new Date(), "yyyy-MM-dd'T'HH:mm")} onChange={e => setAssignData({...assignData, assignDate: e.target.value})} className="h-9 w-full border border-slate-300 bg-slate-50 px-3 text-[11px] outline-none" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-[#0056d2] uppercase">Assign Qty (MT) *</label><input type="number" step="0.001" max={selectedOrder?.balance} value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-9 w-full border border-blue-400 px-3 text-xs font-black outline-none focus:bg-blue-50 text-blue-700" /></div>
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-slate-400 uppercase">Default Payment Term</label>
+                   <select value={assignData.paymentTerms} onChange={e => setAssignData({...assignData, paymentTerms: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-[11px] font-bold">
+                      <option value="PAID">PAID</option>
+                      <option value="TO PAY">TO PAY</option>
+                      <option value="FOC">FOC</option>
+                   </select>
+                </div>
              </div>
 
              <div className="space-y-6 bg-slate-50/50 p-6 border border-slate-200">
@@ -644,6 +651,125 @@ export default function TR21Page() {
                 <Button onClick={handlePostAssignment} className="bg-[#0056d2] text-white rounded-none h-10 uppercase text-[10px] font-black px-20 shadow-lg active:scale-95 transition-all">Post Registry and Exit Hub</Button>
              </div>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Track Dialog */}
+      <Dialog open={showTrackPortal} onOpenChange={setShowTrackPortal}>
+        <DialogContent className="max-w-md rounded-none border-[3px] border-[#0056d2] font-mono">
+           <DialogHeader>
+             <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2]">Satellite Track Registry</DialogTitle>
+             <div className="mt-4 flex gap-4 items-center">
+                <div className="w-12 h-12 bg-slate-100 flex items-center justify-center border border-slate-200"><Radar className="h-6 w-6 text-blue-600 animate-pulse" /></div>
+                <div className="space-y-0.5">
+                   <p className="text-[11px] font-black uppercase text-slate-800">{selectedTrip?.vehicleNo}</p>
+                   <p className="text-[9px] font-bold text-slate-400">Driver: {selectedTrip?.driverMobile}</p>
+                </div>
+             </div>
+           </DialogHeader>
+           <div className="py-8 space-y-6">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-sm">
+                 <div className="flex items-start gap-3">
+                    <MapPin className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                       <span className="text-[10px] font-black uppercase text-slate-400">Street + City Live Handshake</span>
+                       <p className="text-xs font-bold text-slate-800 leading-relaxed uppercase">
+                          {gpsNodes?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'SYNCHRONIZING SATELLITE GATEWAY...'}
+                       </p>
+                    </div>
+                 </div>
+              </div>
+              <div className="space-y-1.5">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Track Mode Selection</label>
+                 <select className="h-9 w-full border border-slate-400 bg-white px-3 text-[11px] font-black">
+                    <option value="GPS">SATELLITE GPS (Wheelseye)</option>
+                    <option value="SIM">SIM TOWER TRIANGULATION</option>
+                 </select>
+              </div>
+           </div>
+           <DialogFooter className="gap-2">
+              <Button onClick={() => setShowTrackPortal(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-6">Cancel</Button>
+              <Button onClick={() => setShowTrackPortal(false)} className="h-9 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase px-12 shadow-lg">Post and Exit</Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* POD Entry Portal */}
+      <Dialog open={showPODPortal} onOpenChange={setShowPODPortal}>
+        <DialogContent className="max-w-md rounded-none border-[3px] border-purple-600 font-mono">
+           <DialogHeader>
+             <DialogTitle className="text-sm font-black uppercase italic text-purple-600">POD Registry: {selectedTrip?.tripNo}</DialogTitle>
+           </DialogHeader>
+           <div className="py-6 space-y-6">
+              <div className="space-y-1.5">
+                 <label className="text-[10px] font-black text-slate-400 uppercase">Received By *</label>
+                 <input autoFocus value={podData.receivedBy} onChange={e => setPodData({...podData, receivedBy: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-yellow-50" />
+              </div>
+              <div className="space-y-1.5">
+                 <label className="text-[10px] font-black text-slate-400 uppercase">Received Date</label>
+                 <input type="date" value={podData.receivedDate} onChange={e => setPodData({...podData, receivedDate: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs outline-none" />
+              </div>
+              <div className="space-y-1.5">
+                 <label className="text-[10px] font-black text-slate-400 uppercase">Remarks</label>
+                 <input value={podData.remarks} onChange={e => setPodData({...podData, remarks: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs outline-none" />
+              </div>
+           </div>
+           <DialogFooter className="gap-2">
+              <Button onClick={() => setShowPODPortal(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-6">Exit</Button>
+              <Button onClick={handlePostPOD} className="h-9 bg-purple-600 text-white rounded-none text-[10px] font-black uppercase px-10 shadow-lg">Post POD Registry</Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Gate Out Dialog */}
+      <Dialog open={showOutPortal} onOpenChange={setShowOutPortal}>
+        <DialogContent className="max-w-md rounded-none border-[3px] border-[#1e3a8a] font-mono">
+           <DialogHeader>
+             <DialogTitle className="text-sm font-black uppercase italic text-[#1e3a8a]">Gate-Out Registry Dispatch</DialogTitle>
+             <div className="mt-4 p-3 bg-slate-50 border border-slate-200">
+                <p className="text-[11px] font-black uppercase text-slate-800">{selectedTrip?.vehicleNo}</p>
+                <p className="text-[9px] font-bold text-slate-400 mt-0.5">Route: {selectedTrip?.from} → {selectedTrip?.destination}</p>
+             </div>
+           </DialogHeader>
+           <div className="py-8 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dispatch Date</label>
+                   <input type="date" value={outData.date} onChange={e => setOutData({...outData, date: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-[11px]" />
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dispatch Time</label>
+                   <input type="time" value={outData.time} onChange={e => setOutData({...outData, time: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-[11px]" />
+                </div>
+              </div>
+              <div className="p-3 bg-blue-50 border border-blue-100 flex items-start gap-3">
+                 <AlertTriangle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                 <p className="text-[9px] text-blue-700 italic font-bold leading-tight">
+                    Warning: Once posted, the trip node will move to the "In-Transit" registry and can only be reversed via specialized Unassign protocol.
+                 </p>
+              </div>
+           </div>
+           <DialogFooter className="gap-2">
+              <Button onClick={() => setShowOutPortal(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-6">Cancel</Button>
+              <Button onClick={handleGateOut} className="h-9 bg-[#1e3a8a] text-white rounded-none text-[10px] font-black uppercase px-10 shadow-lg">Post and Exit</Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unassign Warning */}
+      <Dialog open={showUnassignWarning} onOpenChange={setShowUnassignWarning}>
+        <DialogContent className="max-w-md rounded-none border-[4px] border-red-600 font-mono">
+           <DialogHeader>
+             <DialogTitle className="text-red-600 flex items-center gap-2 font-black uppercase italic"><AlertTriangle className="h-5 w-5" /> REVERSAL WARNING</DialogTitle>
+           </DialogHeader>
+           <div className="py-6 space-y-4">
+              <p className="text-xs font-bold text-slate-700 leading-relaxed uppercase">Are you sure you want to unassign Vehicle <span className="font-black text-red-600">{selectedTrip?.vehicleNo}</span> from order <span className="font-black">{selectedTrip?.orderNo}</span>?</p>
+              <p className="text-[10px] text-slate-400 uppercase italic leading-tight">This action will permanently reverse the dispatch lifecycle and reopen the sale order for new vehicle assignment.</p>
+           </div>
+           <DialogFooter className="gap-2">
+              <Button onClick={handleUnassign} className="bg-red-600 text-white h-9 rounded-none text-[10px] font-black uppercase px-8 shadow-md">Confirm Reversal</Button>
+              <Button onClick={() => setShowUnassignWarning(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-8">Exit ❌</Button>
+           </DialogFooter>
         </DialogContent>
       </Dialog>
 
