@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Save, ChevronLeft, ChevronRight, Trash2, Search } from 'lucide-react';
+import { Save, ChevronLeft, ChevronRight, Trash2, Search, Download, Upload, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
@@ -32,7 +32,6 @@ function SAPAutocomplete({ value, options, onSelect, disabled, hasError, placeho
   const [inputValue, setInputValue] = React.useState(value || '');
   const containerRef = React.useRef<HTMLDivElement>(null);
 
-  // Sync internal input value with external value
   React.useEffect(() => {
     setInputValue(value || '');
   }, [value]);
@@ -86,7 +85,7 @@ function SAPAutocomplete({ value, options, onSelect, disabled, hasError, placeho
         onChange={(e) => {
           const val = e.target.value.toUpperCase();
           setInputValue(val);
-          onSelect(val); // Allow manual typing while still showing suggestions
+          onSelect(val);
           setIsOpen(true);
           setHighlightedIndex(0);
         }}
@@ -137,6 +136,11 @@ export default function VAPage() {
   const [searchId, setSearchId] = React.useState('');
   const [currentPage, setCurrentPage] = React.useState(1);
   const [errors, setErrors] = React.useState<string[]>([]);
+  
+  // Bulk Upload States
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadResults, setUploadResults] = React.useState<{ success: number; failed: { row: number; msg: string }[] } | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
@@ -197,11 +201,9 @@ export default function VAPage() {
   }, [filteredCustomers]);
 
   const handleLookupPartyId = (name: string, type: 'consignor' | 'consignee' | 'shipTo') => {
-    // ENFORCE STRICT PLANT MATCH: Search only within customers belonging to the selected plant
     const party = filteredCustomers.find(c => c.customerName === name);
     
     if (!party) {
-      // Clear codes if no match found in the current plant registry
       const clearUpdates: any = {};
       if (type === 'consignor') { clearUpdates.consignorCode = ''; clearUpdates.from = ''; }
       if (type === 'consignee') { clearUpdates.consigneeCode = ''; }
@@ -211,17 +213,9 @@ export default function VAPage() {
     }
 
     const updates: any = {};
-    if (type === 'consignor') {
-      updates.consignorCode = party.customerCode;
-      updates.from = party.city || '';
-    }
-    if (type === 'consignee') {
-      updates.consigneeCode = party.customerCode;
-    }
-    if (type === 'shipTo') {
-      updates.shipToPartyCode = party.customerCode;
-      updates.destination = party.city || '';
-    }
+    if (type === 'consignor') { updates.consignorCode = party.customerCode; updates.from = party.city || ''; }
+    if (type === 'consignee') { updates.consigneeCode = party.customerCode; }
+    if (type === 'shipTo') { updates.shipToPartyCode = party.customerCode; updates.destination = party.city || ''; }
     
     setFormData(prev => ({ ...prev, ...updates }));
   };
@@ -231,10 +225,7 @@ export default function VAPage() {
 
     if (activeTCode === 'VA04') {
       if (!matchedOrder) return alert('Registry Error: Sale Order Node not found');
-      
-      if (matchedOrder.balance <= 0.001) {
-        return alert('VALIDATION ERROR: Sale Order fully assigned. Short close protocol blocked.');
-      }
+      if (matchedOrder.balance <= 0.001) return alert('VALIDATION ERROR: Sale Order fully assigned. Short close protocol blocked.');
 
       setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', matchedOrder.id), { 
         status: 'Short closed',
@@ -281,6 +272,110 @@ export default function VAPage() {
     alert('Registry Synchronized');
   };
 
+  // Bulk Upload Implementation
+  const handleDownloadTemplate = () => {
+    const headers = ['Order No', 'Plant', 'Consignor Code', 'Consignor Name', 'Consignee Code', 'Consignee Name', 'Ship to Party Code', 'Ship to Party Name', 'Material', 'Weight'];
+    const csv = headers.join(',') + '\n';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `VA01_Order_Template_${format(new Date(), 'ddMMyy')}.csv`;
+    a.click();
+  };
+
+  const handleBulkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadResults(null);
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      const rows = text.split('\n').map(r => r.split(',').map(c => c.trim())).filter(r => r.length > 1 && r[0] !== 'Order No');
+      
+      const failed: { row: number; msg: string }[] = [];
+      const validRows: any[] = [];
+
+      // 1. Mandatory & Master Data Validation
+      rows.forEach((r, idx) => {
+        const [orderNo, plant, cnrCode, cnrName, cneCode, cneName, stpCode, stpName, material, weight] = r;
+        const rowNum = idx + 2;
+
+        if (!orderNo || !plant || !cnrCode || !cnrName || !cneCode || !cneName || !stpCode || !stpName || !material || !weight) {
+          failed.push({ row: rowNum, msg: 'Mandatory field(s) missing' });
+          return;
+        }
+
+        const plantExists = plants?.some(p => p.plantCode === plant);
+        if (!plantExists) { failed.push({ row: rowNum, msg: `Invalid Plant: ${plant}` }); return; }
+
+        const cnr = customers?.find(c => c.customerCode === cnrCode && c.customerName === cnrName);
+        const cne = customers?.find(c => c.customerCode === cneCode && c.customerName === cneName);
+        const stp = customers?.find(c => c.customerCode === stpCode && c.customerName === stpName);
+
+        if (!cnr) { failed.push({ row: rowNum, msg: `Consignor Mismatch: ${cnrCode}/${cnrName}` }); return; }
+        if (!cne) { failed.push({ row: rowNum, msg: `Consignee Mismatch: ${cneCode}/${cneName}` }); return; }
+        if (!stp) { failed.push({ row: rowNum, msg: `Ship-To Mismatch: ${stpCode}/${stpName}` }); return; }
+
+        const isDuplicate = orders?.some(o => o.orderNo === orderNo);
+        if (isDuplicate) { failed.push({ row: rowNum, msg: `Duplicate Order No: ${orderNo}` }); return; }
+
+        validRows.push({
+          orderNo, plantCode: plant, consignorCode: cnrCode, consignorName: cnrName,
+          consigneeCode: cneCode, consigneeName: cneName, shipToPartyCode: stpCode, shipToParty: stpName,
+          materialName: material, quantity: parseFloat(weight), from: cnr.city || '', destination: stp.city || ''
+        });
+      });
+
+      if (failed.length > 0) {
+        setUploadResults({ success: 0, failed });
+        setIsUploading(false);
+        return;
+      }
+
+      // 2. Multi-Material Aggregation Logic
+      const aggregated: Record<string, any> = {};
+      validRows.forEach(row => {
+        if (!aggregated[row.orderNo]) {
+          aggregated[row.orderNo] = { ...row, materials: [row.materialName] };
+        } else {
+          aggregated[row.orderNo].quantity += row.quantity;
+          if (!aggregated[row.orderNo].materials.includes(row.materialName)) {
+            aggregated[row.orderNo].materials.push(row.materialName);
+          }
+        }
+      });
+
+      // 3. Registry Creation
+      let successCount = 0;
+      Object.values(aggregated).forEach(order => {
+        const docId = crypto.randomUUID();
+        const payload = {
+          ...order,
+          id: docId,
+          materialName: order.materials.join(', '),
+          status: 'Open',
+          uom: 'MT',
+          orderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+          createdAt: new Date().toISOString(),
+          updatedAt: serverTimestamp(),
+          updatedBy: 'Sikkaind_Bulk_Portal'
+        };
+        delete payload.materials;
+        setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), payload, { merge: true });
+        successCount++;
+      });
+
+      setUploadResults({ success: successCount, failed: [] });
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsText(file);
+  };
+
   const handleDelete = (id: string) => {
     if (confirm('SATELLITE WARNING: Permanently delete this order node?')) {
       deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', id));
@@ -297,18 +392,53 @@ export default function VAPage() {
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
         <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - SALE ORDER REGISTRY</h2>
         <div className="flex items-center gap-3">
+          {activeTCode === 'VA01' && !formData.id && (
+            <>
+               <Button onClick={handleDownloadTemplate} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300 hover:bg-slate-50">
+                  <Download className="h-3.5 w-3.5 mr-2" /> Template
+               </Button>
+               <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleBulkUpload} />
+               <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-[#0056d2] text-[#0056d2] hover:bg-blue-50">
+                  <Upload className="h-3.5 w-3.5 mr-2" /> Bulk Upload
+               </Button>
+               <div className="w-[1px] h-6 bg-slate-200 mx-1" />
+            </>
+          )}
           <Button 
             onClick={handleSave} 
-            disabled={(isReadOnly && activeTCode !== 'VA04') || (activeTCode === 'VA04' && (!matchedOrder || matchedOrder.balance <= 0.001))} 
+            disabled={isUploading || (isReadOnly && activeTCode !== 'VA04') || (activeTCode === 'VA04' && (!matchedOrder || matchedOrder.balance <= 0.001))} 
             className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"
           >
-            <Save className="h-3.5 w-3.5 mr-2" /> {activeTCode === 'VA04' ? 'Execute Short Close' : 'Save (F8)'}
+            {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Save className="h-3.5 w-3.5 mr-2" />}
+            {activeTCode === 'VA04' ? 'Execute Short Close' : 'Save (F8)'}
           </Button>
           <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
         </div>
       </div>
 
       <div className="px-2">
+        {/* Upload Results Display */}
+        {activeTCode === 'VA01' && uploadResults && (
+          <div className={cn("mb-8 p-6 border-l-4 shadow-sm animate-fade-in", uploadResults.failed.length > 0 ? "bg-red-50 border-red-500" : "bg-emerald-50 border-emerald-500")}>
+             <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                   {uploadResults.failed.length > 0 ? <AlertCircle className="text-red-500" /> : <CheckCircle2 className="text-emerald-500" />}
+                   <span className="text-[12px] font-black uppercase tracking-tight">
+                     Upload Summary: {uploadResults.success} Successfully Created | {uploadResults.failed.length} Failed Registry Nodes
+                   </span>
+                </div>
+                <button onClick={() => setUploadResults(null)} className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase">Clear Message &times;</button>
+             </div>
+             {uploadResults.failed.length > 0 && (
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-4 custom-scrollbar">
+                   {uploadResults.failed.map((f, i) => (
+                      <p key={i} className="text-[10px] font-bold text-red-600 uppercase italic">Row {f.row}: {f.msg}</p>
+                   ))}
+                </div>
+             )}
+          </div>
+        )}
+
         {!formData.id && activeTCode !== 'VA01' && activeTCode !== 'VA04' ? (
           <div className="space-y-6">
             <div className="bg-white p-6 border border-slate-300 shadow-sm flex items-center gap-6 animate-fade-in">
@@ -401,7 +531,6 @@ export default function VAPage() {
                      setFormData({
                        ...formData, 
                        plantCode: val,
-                       // CLEAR DATA ON PLANT CHANGE TO PREVENT MISMATCH
                        consignorName: '',
                        consignorCode: '',
                        consigneeName: '',
