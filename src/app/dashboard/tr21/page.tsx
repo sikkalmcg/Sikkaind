@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Printer, Save, ChevronLeft, ChevronRight, X, Download, 
-  Plus, Trash, Edit3, Radar, Truck, MapPin, Package, ShoppingCart, CheckCircle, RefreshCw
+  Plus, Trash, Edit3, Radar, Truck, MapPin, Package, ShoppingCart, CheckCircle, RefreshCw, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, d
 import { collection, doc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import Image from 'next/image';
 import placeholderData from '@/app/lib/placeholder-images.json';
@@ -193,7 +193,7 @@ export default function TR21Page() {
       vehicleNo: assignData.vehicleNumber.toUpperCase(),
       vehicleNumber: assignData.vehicleNumber.toUpperCase(),
       driverMobile: assignData.driverMobile || '',
-      fleetType: assignData.fleetType,
+      fleetType: assignData.fleetType || 'Own Vehicle',
       assignWeight: assignData.assignQty,
       transporterName: selectedVendor?.vendorName || '',
       vendorName: selectedVendor?.vendorName || '',
@@ -258,7 +258,6 @@ export default function TR21Page() {
 
   if (!mounted) return <div className="flex-1 bg-[#f2f2f2]" />;
 
-  // Preview Data Resolution
   const carrier = companies?.find(c => c.plantCodes?.includes(selectedTrip?.plantCode)) || companies?.[0];
   const consignorProfile = allCustomers?.find(c => c.customerCode === selectedTrip?.consignorId);
   const consigneeProfile = allCustomers?.find(c => c.customerCode === selectedTrip?.consigneeId);
@@ -286,7 +285,7 @@ export default function TR21Page() {
                 {activeTab === 'Open Orders' ? (
                   <>
                     <th className="p-3 border-r">Plant</th>
-                    <th className="p-3 border-r">Sale Order</th>
+                    <th className="p-3 border-r w-[160px]">Sale Order</th>
                     <th className="p-3 border-r">Consignor</th>
                     <th className="p-3 border-r">Consignee</th>
                     <th className="p-3 border-r">Ship to Party</th>
@@ -329,7 +328,7 @@ export default function TR21Page() {
                       <td className="p-3 border-r text-center text-blue-600">{formatWeight(item.dispatched)}</td>
                       <td className="p-3 border-r text-center text-emerald-600 font-black">{formatWeight(item.balance)}</td>
                       <td className="p-3">
-                         <Button onClick={() => { setSelectedOrder(item); setAssignData({assignQty: item.balance, fleetType: 'Own Vehicle'}); setShowAssign(true); }} size="sm" className="h-7 text-[9px] font-black uppercase bg-[#0056d2] rounded-none">Assign</Button>
+                         <Button onClick={() => { setSelectedOrder(item); setAssignData({assignQty: item.balance, fleetType: 'Own Vehicle'}); setShowAssign(true); }} size="sm" className="h-7 text-[9px] font-black uppercase bg-[#0056d2] rounded-none px-6">Assign</Button>
                       </td>
                     </>
                   ) : (
@@ -441,9 +440,41 @@ export default function TR21Page() {
         </div>
       </div>
 
-      {/* Popups */}
-      
-      {/* 1. CN Entry Portal */}
+      {/* 1. Assign Dialog */}
+      <Dialog open={showAssign} onOpenChange={setShowAssign}>
+        <DialogContent className="max-w-md rounded-none border-[3px] border-[#0056d2] font-mono">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2]">Vehicle Assignment Registry</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+             <div className="flex items-center gap-4">
+                <label className="text-[11px] font-black uppercase text-slate-600 w-28 text-right">Vehicle No *:</label>
+                <input value={assignData.vehicleNumber || ''} onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} className="flex-1 h-8 border border-slate-400 px-3 text-xs font-black uppercase outline-none focus:bg-yellow-50" placeholder="UP14CT1234" />
+             </div>
+             <div className="flex items-center gap-4">
+                <label className="text-[11px] font-black uppercase text-slate-600 w-28 text-right">Driver Mobile:</label>
+                <input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="flex-1 h-8 border border-slate-400 px-3 text-xs font-black outline-none" placeholder="9876543210" />
+             </div>
+             <div className="flex items-center gap-4">
+                <label className="text-[11px] font-black uppercase text-slate-600 w-28 text-right">Assign Qty (MT):</label>
+                <input type="number" step="0.001" value={assignData.assignQty || ''} onChange={e => setAssignData({...assignData, assignQty: e.target.value})} className="flex-1 h-8 border border-slate-400 px-3 text-xs font-black outline-none" />
+             </div>
+             <div className="flex items-center gap-4">
+                <label className="text-[11px] font-black uppercase text-slate-600 w-28 text-right">Transporter:</label>
+                <select value={assignData.vendorId || ''} onChange={e => setAssignData({...assignData, vendorId: e.target.value})} className="flex-1 h-8 border border-slate-400 bg-white px-2 text-[11px] font-black uppercase">
+                   <option value="">OWN VEHICLE / DIRECT</option>
+                   {vendors?.map(v => <option key={v.id} value={v.id}>{v.vendorName}</option>)}
+                </select>
+             </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button onClick={() => setShowAssign(false)} variant="outline" className="h-8 rounded-none text-[10px] font-black uppercase px-6 border-slate-300">Cancel</Button>
+            <Button onClick={handlePostAssignment} className="h-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase px-8">Post Assignment</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2. CN Entry Portal */}
       <Dialog open={showCNPortal} onOpenChange={setShowCNPortal}>
         <DialogContent className="max-w-[1100px] rounded-none border-[4px] border-[#0056d2] font-mono p-0 max-h-[90vh] overflow-y-auto">
            <DialogHeader className="bg-[#f8fafc] p-6 border-b border-slate-200 sticky top-0 z-30">
@@ -528,7 +559,7 @@ export default function TR21Page() {
         </DialogContent>
       </Dialog>
 
-      {/* 2. CN 3-Copy Print Preview */}
+      {/* 3. CN 3-Copy Print Preview */}
       <Dialog open={showCNPreview} onOpenChange={setShowCNPreview}>
         <DialogContent className="max-w-[1000px] p-0 rounded-none border-none bg-white h-[95vh] overflow-y-auto font-mono no-scrollbar shadow-2xl">
           <DialogHeader className="sr-only">
@@ -665,6 +696,108 @@ export default function TR21Page() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 4. Gate-Out Dialog */}
+      <Dialog open={showOutPortal} onOpenChange={setShowOutPortal}>
+        <DialogContent className="max-w-sm rounded-none border-[3px] border-[#1e3a8a] font-mono">
+           <DialogHeader>
+              <DialogTitle className="text-sm font-black uppercase italic text-[#1e3a8a]">Confirm Gate-Out Hub</DialogTitle>
+           </DialogHeader>
+           <div className="py-6 space-y-4">
+              <div className="space-y-1">
+                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Dispatch Date</label>
+                 <input type="date" value={outData.date} onChange={e => setOutData({...outData, date: e.target.value})} className="w-full h-9 border border-slate-300 px-3 text-xs font-black outline-none" />
+              </div>
+              <div className="space-y-1">
+                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Dispatch Time</label>
+                 <input type="time" value={outData.time} onChange={e => setOutData({...outData, time: e.target.value})} className="w-full h-9 border border-slate-300 px-3 text-xs font-black outline-none" />
+              </div>
+           </div>
+           <DialogFooter>
+              <Button onClick={handlePostGateOut} className="w-full h-10 bg-[#1e3a8a] text-white rounded-none uppercase text-[10px] font-black shadow-lg">Confirm Dispatch (F8)</Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 5. Vehicle Update Dialog */}
+      <Dialog open={showVehiclePortal} onOpenChange={setShowVehiclePortal}>
+        <DialogContent className="max-w-sm rounded-none border-[3px] border-[#0056d2] font-mono">
+           <DialogHeader>
+              <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2]">Modify Vehicle Node</DialogTitle>
+           </DialogHeader>
+           <div className="py-6 space-y-4">
+              <div className="space-y-1">
+                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Vehicle Number *</label>
+                 <input value={vehicleData.vehicleNumber} onChange={e => setVehicleData({...vehicleData, vehicleNumber: e.target.value.toUpperCase()})} className="w-full h-9 border border-slate-300 px-3 text-xs font-black outline-none focus:bg-yellow-50" />
+              </div>
+              <div className="space-y-1">
+                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Driver Mobile</label>
+                 <input value={vehicleData.driverMobile} onChange={e => setVehicleData({...vehicleData, driverMobile: e.target.value})} className="w-full h-9 border border-slate-300 px-3 text-xs font-bold outline-none" />
+              </div>
+           </div>
+           <DialogFooter>
+              <Button onClick={handleUpdateVehicle} className="w-full h-10 bg-[#0056d2] text-white rounded-none uppercase text-[10px] font-black shadow-lg">Update Registry</Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 6. Track Portal Dialog */}
+      <Dialog open={showTrackPortal} onOpenChange={setShowTrackPortal}>
+        <DialogContent className="max-w-4xl rounded-none border-[4px] border-[#1e3a8a] font-mono p-0">
+           <DialogHeader className="p-6 bg-slate-900 text-white flex flex-row items-center justify-between">
+              <div>
+                <DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Live Satellite Monitoring</DialogTitle>
+                <p className="text-[9px] font-bold text-blue-400 uppercase tracking-widest mt-1">Vehicle: {selectedTrip?.vehicleNo || selectedTrip?.vehicleNumber} • Trip: {selectedTrip?.tripNo || selectedTrip?.tripId}</p>
+              </div>
+              <Badge className="bg-emerald-500 rounded-none h-6 px-4 font-black">ACTIVE LINK</Badge>
+           </DialogHeader>
+           <div className="p-10 space-y-8 bg-slate-50">
+              <div className="grid grid-cols-2 gap-8">
+                 <div className="bg-white border border-slate-200 p-6 space-y-6 shadow-sm">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 border-b pb-2">Operational Node</h4>
+                    <div className="space-y-4">
+                       <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-slate-500 uppercase">Current Status:</span><span className="text-xs font-black uppercase text-blue-600">{selectedTrip?.status}</span></div>
+                       <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-slate-500 uppercase">Transporter:</span><span className="text-xs font-black uppercase truncate max-w-[200px]">{selectedTrip?.transporterName || 'OWN FLEET'}</span></div>
+                       <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-slate-500 uppercase">Assigned Qty:</span><span className="text-xs font-black uppercase">{formatWeight(selectedTrip?.assignWeight)} MT</span></div>
+                    </div>
+                 </div>
+                 <div className="bg-white border border-slate-200 p-6 space-y-6 shadow-sm">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 border-b pb-2">Satellite Data</h4>
+                    <div className="space-y-4">
+                       <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase">Live Address Node:</span>
+                          <span className="text-[11px] font-black uppercase text-slate-800 leading-tight italic">{liveLocation}</span>
+                       </div>
+                       <div className="flex justify-between items-center pt-2">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase italic">Synchronization:</span>
+                          <span className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> VERIFIED</span>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="flex justify-center pt-4">
+                 {(() => {
+                    const vGps = gpsData.find(g => g.vehicleNumber === (selectedTrip?.vehicleNo || selectedTrip?.vehicleNumber));
+                    const mapsUrl = vGps ? `https://www.google.com/maps?q=${vGps.latitude},${vGps.longitude}` : null;
+                    
+                    return mapsUrl ? (
+                      <Button asChild className="h-12 px-12 bg-[#0056d2] text-white rounded-none text-[11px] font-black uppercase shadow-xl hover:scale-105 transition-all">
+                        <a href={mapsUrl} target="_blank" rel="noopener noreferrer">
+                          <MapPin className="h-4 w-4 mr-2" /> Open In Google Maps Hub
+                        </a>
+                      </Button>
+                    ) : (
+                      <div className="h-12 px-12 bg-slate-200 text-slate-400 border border-slate-300 flex items-center gap-2 text-[10px] font-black uppercase">
+                         <Radar className="h-4 w-4" /> Vehicle Hub Offline
+                      </div>
+                    );
+                 })()}
+              </div>
+           </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
