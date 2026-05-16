@@ -141,10 +141,12 @@ export default function VAPage() {
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
 
   const { data: plants } = useCollection(plantsQuery);
   const { data: orders } = useCollection(ordersQuery);
   const { data: customers } = useCollection(customersQuery);
+  const { data: trips } = useCollection(tripsQuery);
 
   React.useEffect(() => {
     if (activeTCode === 'VA01' && !formData.id) {
@@ -165,6 +167,21 @@ export default function VAPage() {
       });
     }
   }, [activeTCode, formData.id]);
+
+  const matchedOrder = React.useMemo(() => {
+    if (activeTCode !== 'VA04' || !formData.orderNo) return null;
+    const ord = (orders || []).find(o => o.orderNo === formData.orderNo);
+    if (!ord) return null;
+    
+    const dispatched = (trips || [])
+      .filter(t => t.orderNo === ord.orderNo && t.status !== 'REJECTION')
+      .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
+      
+    return {
+      ...ord,
+      balance: (parseFloat(ord.quantity) || 0) - dispatched
+    };
+  }, [activeTCode, formData.orderNo, orders, trips]);
 
   const filteredCustomers = React.useMemo(() => {
     if (!customers || !formData.plantCode) return [];
@@ -213,9 +230,13 @@ export default function VAPage() {
     if (activeTCode === 'VA03') return;
 
     if (activeTCode === 'VA04') {
-      const o = orders?.find(ord => ord.orderNo === formData.orderNo);
-      if (!o) return alert('Order Registry Node not found');
-      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { 
+      if (!matchedOrder) return alert('Registry Error: Sale Order Node not found');
+      
+      if (matchedOrder.balance <= 0.001) {
+        return alert('VALIDATION ERROR: Sale Order fully assigned. Short close protocol blocked.');
+      }
+
+      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', matchedOrder.id), { 
         status: 'Short closed',
         shortCloseReason: formData.shortCloseReason || 'Manual Termination',
         updatedAt: serverTimestamp() 
@@ -276,7 +297,11 @@ export default function VAPage() {
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
         <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - SALE ORDER REGISTRY</h2>
         <div className="flex items-center gap-3">
-          <Button onClick={handleSave} disabled={isReadOnly && activeTCode !== 'VA04'} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95">
+          <Button 
+            onClick={handleSave} 
+            disabled={(isReadOnly && activeTCode !== 'VA04') || (activeTCode === 'VA04' && (!matchedOrder || matchedOrder.balance <= 0.001))} 
+            className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"
+          >
             <Save className="h-3.5 w-3.5 mr-2" /> {activeTCode === 'VA04' ? 'Execute Short Close' : 'Save (F8)'}
           </Button>
           <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
@@ -336,15 +361,32 @@ export default function VAPage() {
         ) : activeTCode === 'VA04' ? (
           <div className="bg-white p-12 border border-slate-300 shadow-sm max-w-4xl mx-auto w-full">
              <h3 className="text-red-600 font-black uppercase italic mb-8 border-b pb-4">Short Close Workflow</h3>
-             <div className="space-y-6">
-                <div className="flex items-center gap-8">
-                    <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Sale Order No:</label>
-                    <input value={formData.orderNo || ''} onChange={e => setFormData({...formData, orderNo: e.target.value.toUpperCase()})} className="h-9 w-80 border border-slate-400 px-3 text-[12px] font-black outline-none" placeholder="ENTER ORDER NO..." />
+             <div className="space-y-10">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-8">
+                      <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Sale Order No:</label>
+                      <input value={formData.orderNo || ''} onChange={e => setFormData({...formData, orderNo: e.target.value.toUpperCase()})} className="h-9 w-80 border border-slate-400 px-3 text-[12px] font-black outline-none" placeholder="ENTER ORDER NO..." />
+                  </div>
+                  <div className="flex items-center gap-8">
+                      <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Reason:</label>
+                      <input value={formData.shortCloseReason || ''} onChange={e => setFormData({...formData, shortCloseReason: e.target.value.toUpperCase()})} className="h-9 w-80 border border-slate-400 px-3 text-[12px] font-black outline-none" placeholder="OPTIONAL..." />
+                  </div>
                 </div>
-                <div className="flex items-center gap-8">
-                    <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Reason:</label>
-                    <input value={formData.shortCloseReason || ''} onChange={e => setFormData({...formData, shortCloseReason: e.target.value.toUpperCase()})} className="h-9 w-80 border border-slate-400 px-3 text-[12px] font-black outline-none" placeholder="OPTIONAL..." />
-                </div>
+
+                {matchedOrder && (
+                  <div className="grid grid-cols-2 gap-y-4 gap-x-12 p-8 bg-slate-50 border border-slate-100 rounded-sm animate-fade-in text-[11px] font-bold uppercase">
+                    <div className="flex justify-between border-b pb-2"><span className="text-slate-400">Consignor:</span><span className="text-slate-800">{matchedOrder.consignorName}</span></div>
+                    <div className="flex justify-between border-b pb-2"><span className="text-slate-400">Consignee:</span><span className="text-slate-800">{matchedOrder.consigneeName}</span></div>
+                    <div className="flex justify-between border-b pb-2"><span className="text-slate-400">Ship To Party:</span><span className="text-slate-800">{matchedOrder.shipToParty}</span></div>
+                    <div className="flex justify-between border-b pb-2"><span className="text-slate-400 font-black text-[#1e3a8a]">Balance Qty:</span><span className="text-emerald-600 font-black">{matchedOrder.balance.toFixed(3)} MT</span></div>
+                    
+                    {matchedOrder.balance <= 0.001 && (
+                       <div className="col-span-2 mt-4 p-3 bg-red-50 border border-red-100 text-red-600 font-black text-[9px] text-center italic">
+                          SATELLITE ALERT: ORDER FULLY ASSIGNED. SHORT CLOSE PROTOCOL BLOCKED.
+                       </div>
+                    )}
+                  </div>
+                )}
              </div>
           </div>
         ) : (
