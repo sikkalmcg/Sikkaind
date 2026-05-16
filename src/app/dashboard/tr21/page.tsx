@@ -118,7 +118,8 @@ export default function TR21Page() {
   const getRoute = (item: any) => {
     if (!item) return '-';
     const pCity = plants?.find(p => p.plantCode === item.plantCode)?.city || item.plantCode;
-    return `${pCity} - ${item.destination || '-'}`;
+    const destCity = item.destination || '-';
+    return `${pCity} - ${destCity}`;
   };
 
   const getMaterialDisplay = (items: any[]) => {
@@ -461,22 +462,24 @@ export default function TR21Page() {
         </div>
       </div>
 
-      {/* 1. Enhanced Assign Dialog */}
+      {/* 1. Optimized Assign Dialog with Fixed Footer */}
       <Dialog open={showAssign} onOpenChange={setShowAssign}>
-        <DialogContent className="max-w-[700px] rounded-none border-[3px] border-[#0056d2] font-mono p-0">
-          <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
-            <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2]">Vehicle Assignment Hub</DialogTitle>
-            {selectedOrder && (
-              <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-4 text-[10px] font-bold uppercase text-slate-500">
-                <div className="flex justify-between border-b border-slate-100 pb-1"><span>Consignee:</span><span className="text-slate-800">{selectedOrder.consignee}</span></div>
-                <div className="flex justify-between border-b border-slate-100 pb-1"><span>Ship To:</span><span className="text-slate-800">{selectedOrder.shipToParty}</span></div>
-                <div className="flex justify-between border-b border-slate-100 pb-1"><span>Route:</span><span className="text-slate-800">{getRoute(selectedOrder)}</span></div>
-                <div className="flex justify-between border-b border-slate-100 pb-1"><span>Order Qty:</span><span className="text-blue-600 font-black">{formatWeight(selectedOrder.weight || selectedOrder.quantity)} MT</span></div>
-              </div>
-            )}
+        <DialogContent className="max-w-[700px] rounded-none border-[3px] border-[#0056d2] font-mono p-0 max-h-[95vh] flex flex-col shadow-2xl">
+          <DialogHeader className="bg-slate-50 px-8 py-4 border-b border-slate-200 shrink-0">
+            <DialogTitle className="sr-only">Vehicle Assignment</DialogTitle>
+            <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-500 tracking-widest">
+               <div className="flex gap-4">
+                 <span>ROUTE:</span>
+                 <span className="text-slate-900">{getRoute(selectedOrder)}</span>
+               </div>
+               <div className="flex gap-4">
+                 <span>ORDER QTY:</span>
+                 <span className="text-[#0056d2]">{formatWeight(selectedOrder?.weight || selectedOrder?.quantity)} MT</span>
+               </div>
+            </div>
           </DialogHeader>
 
-          <div className="p-8 space-y-6">
+          <div className="flex-1 overflow-y-auto p-8 space-y-8 min-h-0 green-scrollbar">
              <div className="grid grid-cols-2 gap-8">
                <div className="space-y-1">
                  <label className="text-[10px] font-black uppercase text-slate-400">Vehicle Number *</label>
@@ -484,7 +487,7 @@ export default function TR21Page() {
                    autoFocus
                    value={assignData.vehicleNumber || ''} 
                    onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} 
-                   className="h-8 w-full border border-slate-400 px-3 text-xs font-black uppercase outline-none focus:bg-yellow-50" 
+                   className="h-8 w-full border border-slate-400 px-3 text-xs font-black uppercase outline-none focus:bg-yellow-50 shadow-sm" 
                    placeholder="UP14CT1234" 
                  />
                </div>
@@ -511,14 +514,14 @@ export default function TR21Page() {
                  <select 
                    value={assignData.fleetType} 
                    onChange={e => setAssignData({...assignData, fleetType: e.target.value})} 
-                   className="h-8 w-full border border-slate-400 bg-white px-2 text-[11px] font-black uppercase"
+                   className="h-8 w-full border border-slate-400 bg-white px-2 text-[11px] font-black uppercase shadow-sm"
                  >
                    <option value="Own Vehicle">Own Vehicle</option>
                    <option value="Contract Vehicle">Contract Vehicle</option>
                    <option value="Market Vehicle">Market Vehicle</option>
                  </select>
                </div>
-               <div className="space-y-1">
+               <div className="space-y-1 col-span-2">
                  <label className="text-[10px] font-black uppercase text-slate-400">Assign Qty (MT) *</label>
                  <input 
                    type="number" 
@@ -534,43 +537,42 @@ export default function TR21Page() {
                </div>
              </div>
 
-             {/* Market Vehicle Conditional Fields */}
              {assignData.fleetType === 'Market Vehicle' && (
-               <div className="bg-blue-50/50 border border-blue-100 p-6 space-y-6 animate-fade-in">
+               <div className="bg-[#f8fafc] border border-slate-200 p-6 space-y-6 animate-fade-in shadow-inner">
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-blue-800">Vendor Name (XK03 Lookup)</label>
+                      <label className="text-[10px] font-black uppercase text-[#1e3a8a]">Vendor Name (XK03 Lookup)</label>
                       <select 
                         value={assignData.vendorId || ''} 
                         onChange={e => {
                           const v = vendors?.find(vend => vend.id === e.target.value);
                           setAssignData({...assignData, vendorId: e.target.value, vendorName: v?.vendorName, vendorMobile: v?.mobile});
                         }} 
-                        className="h-8 w-full border border-blue-200 bg-white px-2 text-[11px] font-black uppercase outline-none"
+                        className="h-8 w-full border border-slate-300 bg-white px-2 text-[11px] font-black uppercase outline-none"
                       >
                         <option value="">SELECT TRANSPORTER...</option>
                         {vendors?.map(v => <option key={v.id} value={v.id}>{v.vendorName}</option>)}
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-blue-800">Vendor Mobile</label>
+                      <label className="text-[10px] font-black uppercase text-[#1e3a8a]">Vendor Mobile</label>
                       <input 
                         value={assignData.vendorMobile || ''} 
                         readOnly 
-                        className="h-8 w-full border border-blue-100 bg-slate-50 px-3 text-xs font-bold text-slate-400" 
+                        className="h-8 w-full border border-slate-200 bg-slate-100 px-3 text-xs font-bold text-slate-400" 
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-blue-800">Arrange By</label>
+                      <label className="text-[10px] font-black uppercase text-[#1e3a8a]">Arrange By</label>
                       <input 
                         value={assignData.arrangeBy || ''} 
                         onChange={e => setAssignData({...assignData, arrangeBy: e.target.value.toUpperCase()})} 
-                        className="h-8 w-full border border-blue-200 px-3 text-xs font-black uppercase outline-none" 
+                        className="h-8 w-full border border-slate-300 px-3 text-xs font-black uppercase outline-none" 
                         placeholder="NAME..." 
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-blue-800">Rate (PMT)</label>
+                      <label className="text-[10px] font-black uppercase text-[#1e3a8a]">Rate (PMT)</label>
                       <div className="flex items-center gap-3">
                         <input 
                           type="number" 
@@ -580,7 +582,7 @@ export default function TR21Page() {
                             const r = e.target.value;
                             setAssignData({...assignData, rate: r, freightAmount: parseFloat(r) * (parseFloat(assignData.assignQty) || 0)});
                           }} 
-                          className="h-8 flex-1 border border-blue-200 px-3 text-xs font-black outline-none disabled:bg-slate-100" 
+                          className="h-8 flex-1 border border-slate-300 px-3 text-xs font-black outline-none disabled:bg-slate-200" 
                         />
                         <div className="flex items-center gap-1.5 shrink-0">
                            <Checkbox 
@@ -593,15 +595,15 @@ export default function TR21Page() {
                       </div>
                     </div>
                     <div className="space-y-1 col-span-2">
-                      <label className="text-[10px] font-black uppercase text-blue-800">Freight Amount</label>
+                      <label className="text-[10px] font-black uppercase text-[#1e3a8a]">Freight Amount</label>
                       <input 
                         type="number" 
                         readOnly={!assignData.isFixRate}
                         value={assignData.freightAmount || ''} 
                         onChange={e => setAssignData({...assignData, freightAmount: e.target.value})} 
                         className={cn(
-                          "h-10 w-full border border-blue-300 px-4 text-sm font-black outline-none",
-                          !assignData.isFixRate ? "bg-blue-100/50 text-blue-900" : "bg-white text-emerald-600"
+                          "h-10 w-full border border-slate-300 px-4 text-sm font-black outline-none",
+                          !assignData.isFixRate ? "bg-slate-100 text-slate-600" : "bg-white text-emerald-600 border-emerald-200"
                         )} 
                       />
                     </div>
@@ -610,8 +612,8 @@ export default function TR21Page() {
              )}
           </div>
 
-          <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-3">
-            <Button onClick={() => setShowAssign(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase px-8 border-slate-300">Exit (F3)</Button>
+          <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-3 shrink-0">
+            <Button onClick={() => setShowAssign(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase px-8 border-slate-300 hover:bg-slate-100">Exit ❌</Button>
             <Button onClick={handlePostAssignment} className="h-9 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase px-12 shadow-lg active:scale-95 transition-all">Post Registry (F8)</Button>
           </DialogFooter>
         </DialogContent>
@@ -619,11 +621,11 @@ export default function TR21Page() {
 
       {/* 2. CN Entry Portal */}
       <Dialog open={showCNPortal} onOpenChange={setShowCNPortal}>
-        <DialogContent className="max-w-[1100px] rounded-none border-[4px] border-[#0056d2] font-mono p-0 max-h-[90vh] overflow-y-auto">
-           <DialogHeader className="bg-[#f8fafc] p-6 border-b border-slate-200 sticky top-0 z-30">
+        <DialogContent className="max-w-[1100px] rounded-none border-[4px] border-[#0056d2] font-mono p-0 max-h-[90vh] flex flex-col">
+           <DialogHeader className="bg-[#f8fafc] p-6 border-b border-slate-200 shrink-0">
               <DialogTitle className="text-lg font-black uppercase italic tracking-tighter text-[#0056d2]">Consignment Note Registry</DialogTitle>
            </DialogHeader>
-           <div className="p-8 space-y-10">
+           <div className="flex-1 overflow-y-auto p-8 space-y-10 green-scrollbar">
               <div className="grid grid-cols-3 gap-x-12 gap-y-6">
                  <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase text-slate-400">Previous CN</label>
@@ -693,12 +695,11 @@ export default function TR21Page() {
                  </table>
                  <Button onClick={() => setCnItems([...cnItems, {invoiceNo: '', ewaybillNo: '', goodsDescription: '', package: '0', packageUom: 'Bag', weight: '0.000'}])} variant="outline" className="h-7 text-[8px] font-black uppercase"><Plus className="h-3 w-3 mr-1" /> Add Item</Button>
               </div>
-
-              <div className="flex justify-end gap-4">
-                 <Button onClick={() => setShowCNPortal(false)} variant="outline" className="h-10 px-12 rounded-none uppercase text-[10px] font-black">Cancel</Button>
-                 <Button onClick={handlePostCN} className="h-10 px-16 bg-[#0056d2] text-white rounded-none uppercase text-[10px] font-black">Post Registry</Button>
-              </div>
            </div>
+           <DialogFooter className="p-6 border-t bg-slate-50 gap-4 shrink-0">
+              <Button onClick={() => setShowCNPortal(false)} variant="outline" className="h-10 px-12 rounded-none uppercase text-[10px] font-black">Cancel</Button>
+              <Button onClick={handlePostCN} className="h-10 px-16 bg-[#0056d2] text-white rounded-none uppercase text-[10px] font-black shadow-md">Post Registry</Button>
+           </DialogFooter>
         </DialogContent>
       </Dialog>
 
