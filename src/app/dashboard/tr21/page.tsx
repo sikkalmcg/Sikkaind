@@ -201,6 +201,7 @@ export default function TR21Page() {
     }
 
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
+    const now = new Date().toISOString();
     const newTrip = {
       id: crypto.randomUUID(),
       tripNo: tripId,
@@ -216,8 +217,8 @@ export default function TR21Page() {
       transporterName: assignData.vendorName || '',
       carrierPan: assignData.vendorPan || '',
       status: 'LOADING',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       consignorName: selectedOrder.consignorName || '',
       consignorCode: selectedOrder.consignorCode || '',
       consigneeCode: selectedOrder.consigneeCode || '',
@@ -428,13 +429,13 @@ export default function TR21Page() {
         </div>
 
         {/* High-Density Grid Registry */}
-        <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner green-scrollbar p-1">
-          <div className="flex flex-col gap-0.5">
+        <div className="flex-1 overflow-x-auto overflow-y-hidden flex flex-col bg-white border border-slate-300 shadow-inner green-scrollbar">
+          <div className="min-w-[1400px] flex flex-col flex-1 overflow-y-auto green-scrollbar">
             {/* Header */}
-            <div className="flex bg-[#f8fafc] border-b border-slate-200 text-[9px] font-black uppercase text-slate-500 sticky top-0 z-20">
+            <div className="flex bg-[#f8fafc] border-b border-slate-300 text-[9px] font-black uppercase text-slate-500 sticky top-0 z-20">
                {activeTab === 'Open Orders' ? (
                  <>
-                   <div className="p-3 w-[5%] border-r text-center">Plnt</div>
+                   <div className="p-3 w-[4%] border-r text-center">Plnt</div>
                    <div className="p-3 w-[10%] border-r">Sale Order</div>
                    <div className="p-3 w-[12%] border-r">Consignor</div>
                    <div className="p-3 w-[12%] border-r">Consignee</div>
@@ -447,16 +448,17 @@ export default function TR21Page() {
                  </>
                ) : (
                  <>
-                   <div className="p-3 w-[5%] border-r text-center">Plnt</div>
-                   <div className="p-3 w-[12%] border-r">Order / Trip</div>
-                   <div className="p-3 w-[15%] border-r">Consignor / Consignee</div>
-                   <div className="p-3 w-[12%] border-r">Ship to Party</div>
-                   <div className="p-3 w-[10%] border-r">Route</div>
+                   <div className="p-3 w-[4%] border-r text-center">Plnt</div>
+                   <div className="p-3 w-[8%] border-r">Sale Order</div>
+                   <div className="p-3 w-[9%] border-r text-blue-700">Trip ID</div>
+                   <div className="p-3 w-[13%] border-r">Consignor / Consignee</div>
+                   <div className="p-3 w-[11%] border-r">Ship To Party</div>
+                   <div className="p-3 w-[8%] border-r">Route</div>
                    <div className="p-3 w-[10%] border-r">Fleet / Vehicle</div>
                    <div className="p-3 w-[5%] border-r text-center">Qty</div>
-                   <div className="p-3 w-[10%] border-r">Invoice/Ewb</div>
-                   <div className="p-3 w-[10%] border-r">Carrier/Vendor</div>
-                   <div className="p-3 w-[10%] border-r">CN No</div>
+                   <div className="p-3 w-[8%] border-r">Invoice / EWB</div>
+                   <div className="p-3 w-[8%] border-r">Carrier/Vendor</div>
+                   <div className="p-3 w-[8%] border-r">CN No</div>
                    <div className="p-3 flex-1 text-center">Action Hub</div>
                  </>
                )}
@@ -475,44 +477,44 @@ export default function TR21Page() {
 
               return (
                 <div key={item.id} className="flex flex-col border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
-                  <div className="flex items-center text-[10px] font-bold uppercase min-h-[70px]">
+                  <div className="flex items-center text-[10px] font-bold uppercase min-h-[60px]">
                     {activeTab === 'Open Orders' ? (
                       <>
-                        <div className="p-3 w-[5%] border-r text-center text-slate-400 font-black">{item.plantCode}</div>
+                        <div className="p-3 w-[4%] border-r text-center text-slate-400 font-black">{item.plantCode}</div>
                         <div className="p-3 w-[10%] border-r font-black text-blue-700">{item.orderNo}</div>
                         <div className="p-3 w-[12%] border-r truncate">{item.consignorName}</div>
                         <div className="p-3 w-[12%] border-r truncate">{item.consigneeName}</div>
                         <div className="p-3 w-[12%] border-r truncate font-black">{item.shipToParty}</div>
-                        <div className="p-3 w-[10%] border-r italic text-slate-500">{item.from} → {item.destination}</div>
+                        <div className="p-3 w-[10%] border-r italic text-slate-500 leading-tight">{item.from} → {item.destination}</div>
                         <div className="p-3 w-[8%] border-r text-right font-black">{item.quantity}</div>
                         <div className="p-3 w-[8%] border-r text-right font-black text-slate-400">{item.dispatched?.toFixed(3)}</div>
                         <div className="p-3 w-[8%] border-r text-right font-black text-emerald-600">{item.balance?.toFixed(3)}</div>
                         <div className="p-3 flex-1 flex justify-center">
-                           <Button onClick={() => { setSelectedOrder(item); setAssignData({assignWeight: item.balance.toFixed(3), paymentTerms: 'TO PAY'}); setShowAssign(true); }} className="h-8 text-[10px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-6 shadow-sm hover:scale-105 transition-all">Assign</Button>
+                           <Button onClick={() => { setSelectedOrder(item); setAssignData({assignWeight: item.balance.toFixed(3), paymentTerms: 'TO PAY'}); setShowAssign(true); }} className="h-7 text-[9px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-6 shadow-sm hover:scale-105 transition-all">Assign</Button>
                         </div>
                       </>
                     ) : (
                       <>
-                        <div className="p-3 w-[5%] border-r text-center text-slate-400 font-black">{item.plantCode}</div>
-                        <div className="p-3 w-[12%] border-r flex flex-col gap-0.5">
-                           <span className="text-slate-400 text-[8px] font-black">SO: {item.orderNo}</span>
-                           <span className="text-blue-700 font-black">ID: {item.tripNo}</span>
-                        </div>
-                        <div className="p-3 w-[15%] border-r flex flex-col gap-0.5">
+                        <div className="p-3 w-[4%] border-r text-center text-slate-400 font-black">{item.plantCode}</div>
+                        <div className="p-3 w-[8%] border-r text-slate-700 font-bold">{item.orderNo}</div>
+                        <div className="p-3 w-[9%] border-r font-black text-blue-700">{item.tripNo}</div>
+                        <div className="p-3 w-[13%] border-r flex flex-col gap-0.5">
                            <span className="truncate">{item.consignorName}</span>
-                           <span className="truncate text-slate-400 text-[8px] italic border-t border-slate-50 pt-0.5">To: {item.consigneeName}</span>
+                           <span className="truncate text-slate-400 text-[8px] italic border-t border-slate-50 pt-0.5">TO: {item.consigneeName}</span>
                         </div>
-                        <div className="p-3 w-[12%] border-r font-black text-slate-700 truncate">{item.shipToParty}</div>
-                        <div className="p-3 w-[10%] border-r italic text-slate-500 text-[8px]">{item.from} → {item.destination}</div>
-                        <div className="p-3 w-[10%] border-r flex flex-col gap-0.5" onClick={() => { setSelectedTrip(item); setVehicleEdit({vehicleNo: item.vehicleNo, mobile: item.driverMobile}); setShowVehiclePortal(true); }}>
+                        <div className="p-3 w-[11%] border-r font-black text-slate-700 truncate">{item.shipToParty}</div>
+                        <div className="p-3 w-[8%] border-r italic text-slate-500 text-[8px] leading-tight">{item.from} → {item.destination}</div>
+                        <div className="p-3 w-[10%] border-r flex flex-col gap-0.5 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedTrip(item); setVehicleEdit({vehicleNo: item.vehicleNo, mobile: item.driverMobile}); setShowVehiclePortal(true); }}>
                            <span className="text-slate-400 text-[8px] font-black">{item.fleetType}</span>
-                           <span className="font-black text-slate-800 hover:text-blue-600 cursor-pointer">{item.vehicleNo}</span>
+                           <span className="font-black text-slate-800">{item.vehicleNo}</span>
                            <span className="text-[8px] font-bold text-slate-300">{item.driverMobile}</span>
                         </div>
                         <div className="p-3 w-[5%] border-r text-center font-black text-blue-600 text-[11px]">{item.assignWeight}</div>
-                        <div className="p-3 w-[10%] border-r truncate text-slate-400 text-[8px] leading-tight">{item.invoiceDisplay}<br/>{item.ewaybillDisplay}</div>
-                        <div className="p-3 w-[10%] border-r truncate text-slate-500 font-black italic">{item.transporterName || 'OWN FLEET'}</div>
-                        <div className="p-3 w-[10%] border-r">
+                        <div className="p-3 w-[8%] border-r truncate text-slate-400 text-[8px] leading-tight">
+                           INV: {item.invoiceDisplay}<br/>EWB: {item.ewaybillDisplay}
+                        </div>
+                        <div className="p-3 w-[8%] border-r truncate text-slate-500 font-black italic">{item.transporterName || 'OWN FLEET'}</div>
+                        <div className="p-3 w-[8%] border-r">
                            <button onClick={() => { setSelectedTrip(item); if(item.cnNumber) { setShowPrintView(true); } else { setCnData({mode: 'Road', paymentTerms: item.paymentTerms || 'TO PAY'}); setCnItems([{invoiceNo: '', goodsDescription: item.materialName || '', weight: item.assignWeight, package: '', packageUom: 'Bag'}]); fetchPreviousCN(item.plantCode, item.vehicleNo); setShowCNPortal(true); } }} className="flex flex-col gap-0.5 hover:text-[#0056d2] transition-colors group w-full font-black text-left text-[10px]">
                               {item.cnNumber ? (
                                 <>
@@ -533,7 +535,7 @@ export default function TR21Page() {
                         <div className="p-3 flex-1 flex flex-col gap-2 items-center justify-center">
                            {activeTab === 'Loading' && (
                              <div className="flex gap-2">
-                                <Button onClick={() => { setSelectedTrip(item); setOutData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} className="h-7 text-[10px] font-black bg-[#1e3a8a] text-white rounded-none px-4">OUT</Button>
+                                <Button onClick={() => { setSelectedTrip(item); setOutData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} className="h-7 text-[9px] font-black bg-[#1e3a8a] text-white rounded-none px-4">OUT</Button>
                                 <Button onClick={() => { setSelectedTrip(item); setShowUnassignWarning(true); }} variant="outline" className="h-7 text-[9px] font-black text-red-500 border-red-100 rounded-none px-3">REV</Button>
                              </div>
                            )}
@@ -567,17 +569,20 @@ export default function TR21Page() {
                   </div>
 
                   {activeTab !== 'Open Orders' && (
-                    <div className="flex bg-slate-50/50 border-t border-slate-100 h-8 items-center">
-                       <div className="w-[30%]" />
-                       <div className="flex-1 flex items-center justify-between px-4">
+                    <div className="flex bg-slate-50/70 border-t border-slate-200 h-9 items-center px-4">
+                       <div className="w-[30%] flex items-center gap-4 text-[8px] font-black text-slate-400">
+                          <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> CREATED: {item.createdAt ? format(new Date(item.createdAt), 'dd-MM HH:mm') : '-'}</span>
+                          <span className="flex items-center gap-1"><RefreshCw className="h-2.5 w-2.5" /> UPDATED: {item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
+                       </div>
+                       <div className="flex-1 flex items-center justify-between">
                           <div className="flex items-center gap-2 group cursor-pointer overflow-hidden max-w-[70%]" onClick={() => window.open(mapsUrl, '_blank')}>
                              <MapPin className="h-3 w-3 text-red-500 shrink-0" />
-                             <span className="text-[9px] font-black text-[#0056d2] uppercase truncate group-hover:underline italic">
-                                {liveNode?.lastLocation || 'SYNCHRONIZING...'}
+                             <span className="text-[9px] font-black text-[#0056d2] uppercase truncate group-hover:underline italic tracking-tight">
+                                {liveNode?.lastLocation || 'SYNCHRONIZING LOCATION...'}
                              </span>
                           </div>
-                          <button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} className="flex items-center gap-1.5 h-6 bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all text-[8px] font-black uppercase rounded-full px-3 shrink-0 shadow-sm">
-                             <Radar className="h-2.5 w-2.5" /> 
+                          <button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} className="flex items-center gap-1.5 h-6 bg-white border border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all text-[8px] font-black uppercase rounded-full px-3 shrink-0 shadow-sm">
+                             <Radar className="h-2.5 w-2.5 text-blue-500" /> 
                              Track Mode
                           </button>
                        </div>
@@ -595,7 +600,7 @@ export default function TR21Page() {
         <div className="fixed inset-0 z-[100] bg-slate-100 flex flex-col overflow-hidden animate-fade-in">
            <div className="bg-white border-b border-slate-300 px-8 py-2 flex items-center justify-between shadow-sm shrink-0 z-10">
               <div className="flex flex-col">
-                 <h3 className="text-xs font-black uppercase text-[#1e3a8a] italic">Registry: Consignment Note Preview</h3>
+                 <h3 className="text-xs font-black uppercase text-[#1e3a8a] italic tracking-tighter">Registry: Consignment Note Preview</h3>
                  <span className="text-[9px] font-bold text-slate-400">TRIP: {selectedTrip.tripNo} | CN: {selectedTrip.cnNumber}</span>
               </div>
               <div className="flex gap-4">
@@ -635,8 +640,8 @@ export default function TR21Page() {
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-black text-slate-400 uppercase">Fleet Type Strategy</label>
                    <select value={assignData.fleetType || 'Own Vehicle'} onChange={e => setAssignData({...assignData, fleetType: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-[11px] font-bold">
-                      <option value="Own Vehicle">Own Vehicle Node</option>
-                      <option value="Contract Vehicle">Contract Vehicle Node</option>
+                      <option value="Own Vehicle">Own Vehicle</option>
+                      <option value="Contract Vehicle">Contract Vehicle</option>
                       <option value="Market Vehicle">Market Vehicle Strategy</option>
                    </select>
                 </div>
@@ -645,7 +650,7 @@ export default function TR21Page() {
                 <div className="space-y-6 bg-blue-50/30 p-6 border border-blue-100 animate-fade-in">
                    <div className="grid grid-cols-2 gap-8">
                       <div className="space-y-1.5">
-                         <label className="text-[10px] font-black text-blue-600 uppercase italic underline underline-offset-2">Vendor Registry Lookup (XK03)</label>
+                         <label className="text-[10px] font-black text-blue-600 uppercase italic underline underline-offset-2">Vendor Registry Lookup</label>
                          <select value={assignData.vendorId || ''} onChange={e => {
                            const v = vendors?.find(vend => vend.id === e.target.value);
                            setAssignData({...assignData, vendorId: e.target.value, vendorName: v?.vendorName || '', vendorPan: v?.panNo || '', vendorMobile: v?.mobile || ''});
@@ -791,7 +796,7 @@ export default function TR21Page() {
                     <div className="space-y-1">
                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Handshake</span>
                        <p className="text-sm font-black text-slate-800 leading-relaxed uppercase italic">
-                          {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING...'}
+                          {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING ADDRESS...'}
                        </p>
                     </div>
                  </div>
@@ -862,11 +867,11 @@ const CNPrintView = ({ trip }: { trip: any }) => {
           </div>
           <div className="flex flex-col">
             <h1 className="text-[27px] leading-none mb-1 font-normal text-blue-900 uppercase tracking-tighter">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
-            <p className="text-[14.5px] max-w-[420px] leading-tight mb-3 font-normal uppercase">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
-            <div className="flex flex-col gap-0.5 text-[14.5px] font-normal uppercase">
-              <div className="flex items-center gap-1.5">
+            <p className="text-[13px] max-w-[420px] leading-tight mb-3 font-normal uppercase">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
+            <div className="flex flex-col gap-0.5 text-[13px] font-normal uppercase">
+              <div className="flex items-center gap-3">
                  <div className="flex gap-1"><span>GSTIN:</span><span>{carrier.gstNo || '-'}</span></div>
-                 <div className="flex gap-1 ml-1"><span>PAN:</span><span>{carrier.panNo || '-'}</span></div>
+                 <div className="flex gap-1"><span>PAN:</span><span>{carrier.panNo || '-'}</span></div>
               </div>
               <div className="flex gap-1"><span>MOBILE:</span><span>{carrier.mobile || '-'}</span></div>
               <div className="flex gap-1"><span>EMAIL:</span><span>{carrier.email || '-'}</span></div>
@@ -877,8 +882,8 @@ const CNPrintView = ({ trip }: { trip: any }) => {
         <div className="flex flex-col items-end">
           <div className="border border-black bg-black text-white px-3 py-0.5 text-[16px] mb-4 font-normal tracking-wider">{label}</div>
           <div className="text-right space-y-2 font-normal uppercase">
+            <div className="flex justify-end items-center gap-2 text-[19px] tracking-tighter font-normal"><span>DATE:</span><span>{trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</span></div>
             <div className="flex justify-end gap-2 text-[19px] tracking-tighter font-normal"><span>CN:</span><span>{trip.cnNumber || 'DRAFT'}</span></div>
-            <div className="flex justify-end gap-2 text-[19px] font-normal"><span>DATE:</span><span>{trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</span></div>
             <div className="flex justify-end gap-2 text-[19px] font-normal mt-1 text-emerald-800"><span>FROM:</span><span>{consignor.city || trip.from}</span></div>
             <div className="flex justify-end gap-2 text-[19px] font-normal text-blue-800"><span>TO:</span><span>{shipTo.city || trip.destination}</span></div>
           </div>
@@ -887,7 +892,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
 
       <div className="border-t border-black mb-4" />
 
-      <table className="w-full border-collapse border border-black mb-4 font-normal text-[15px]">
+      <table className="w-full border-collapse border border-black mb-4 font-normal text-[14px]">
         <thead>
           <tr className="bg-slate-50 border-b border-black text-center font-normal">
             <th className="p-2 border-r border-black font-normal uppercase">VEHICLE NUMBER</th>
@@ -896,7 +901,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
             <th className="p-2 font-normal uppercase">TRIP ID</th>
           </tr>
         </thead>
-        <tbody className="text-center text-[16px]">
+        <tbody className="text-center text-[15px]">
           <tr className="font-normal">
             <td className="p-2 border-r border-black font-normal">{trip.vehicleNo}</td>
             <td className="p-2 border-r border-black font-normal">{trip.driverMobile}</td>
@@ -913,10 +918,10 @@ const CNPrintView = ({ trip }: { trip: any }) => {
           { title: 'SHIP TO PARTY', data: shipTo, fallback: trip.shipToParty }
         ].map((node, i) => (
           <div key={i} className={cn("p-2.5 flex flex-col font-normal uppercase", i < 2 && "border-r border-black")}>
-            <h4 className="border-b border-black mb-2 pb-1 text-[16px] font-normal tracking-tight">{node.title}</h4>
-            <p className="text-[17px] leading-tight mb-1.5 font-normal">{node.data.customerName || node.fallback || '-'}</p>
+            <h4 className="border-b border-black mb-2 pb-1 text-[15px] font-normal tracking-tight">{node.title}</h4>
+            <p className="text-[16px] leading-tight mb-1.5 font-normal">{node.data.customerName || node.fallback || '-'}</p>
             <p className="text-[14px] leading-snug flex-1 italic mb-2 font-normal">{node.data.address || '-'}</p>
-            <div className="mt-auto space-y-1 text-[15px] font-normal">
+            <div className="mt-auto space-y-1 text-[14px] font-normal">
               <div className="flex gap-1"><span>MOBILE:</span><span>{node.data.mobile || '-'}</span></div>
               <div className="flex gap-1 pt-1 border-t border-slate-100"><span>GSTIN:</span><span>{node.data.gstNo || '-'}</span></div>
             </div>
@@ -924,7 +929,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
         ))}
       </div>
 
-      <table className="w-full border-collapse border border-black mb-4 font-normal text-[15px]">
+      <table className="w-full border-collapse border border-black mb-4 font-normal text-[14px]">
         <thead>
           <tr className="bg-slate-50 border-b border-black font-normal">
             <th className="p-2 border-r border-black text-left font-normal uppercase">INVOICE NO</th>
@@ -933,7 +938,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
             <th className="p-2 text-right w-28 font-normal uppercase">WEIGHT (MT)</th>
           </tr>
         </thead>
-        <tbody className="text-[16px] font-normal uppercase">
+        <tbody className="text-[15px] font-normal uppercase">
           {(trip.items?.length ? trip.items : [{invoiceNo: '-', goodsDescription: trip.materialName || '-', package: '-', packageUom: '-', weight: trip.assignWeight || '0.000'}]).map((it: any, i: number) => (
             <tr key={i} className="border-b border-black last:border-b-0 font-normal">
               <td className="p-2 border-r border-black font-normal">{it.invoiceNo}</td>
@@ -944,7 +949,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
           ))}
         </tbody>
         <tfoot>
-          <tr className="bg-slate-50 text-[17px] border-t border-black font-normal uppercase">
+          <tr className="bg-slate-50 text-[16px] border-t border-black font-normal uppercase">
             <td colSpan={2} className="p-2 border-r border-black text-right font-normal">TOTAL CONSIGNMENT REGISTRY</td>
             <td className="p-2 border-r border-black text-center font-normal">{totalPkg} PKG</td>
             <td className="p-2 text-right font-normal">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
