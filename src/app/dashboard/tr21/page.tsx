@@ -702,7 +702,7 @@ export default function TR21Page() {
           </div>
           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 shrink-0">
              <div className="flex gap-4">
-                <Button onClick={() => setShowAssign(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-black border-slate-300 px-10">Exit ❌</Button>
+                <Button onClick={() => setShowAssign(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-black border-slate-300 px-10">Exit &times;</Button>
                 <Button onClick={handlePostAssignment} className="bg-[#0056d2] text-white rounded-none h-10 uppercase text-[10px] font-black px-20 shadow-lg">Post Registry Node</Button>
              </div>
           </DialogFooter>
@@ -717,7 +717,7 @@ export default function TR21Page() {
               <div className="grid grid-cols-4 gap-6 mt-4 text-[10px] font-black uppercase text-slate-400">
                  <div className="space-y-0.5"><span className="text-slate-300">PLANT</span><p className="text-slate-800">{selectedTrip?.plantCode}</p></div>
                  <div className="space-y-0.5 truncate"><span className="text-slate-300">SHIP TO PARTY</span><p className="text-slate-800">{selectedTrip?.shipToParty}</p></div>
-                 <div className="space-y-0.5 truncate"><span className="text-slate-300">ROUTE</span><p className="text-slate-800">{selectedTrip?.from} → {selectedTrip?.destination}</p></div>
+                 <div className="space-y-0.5 truncate"><span className="text-slate-300">ROUTE</span><p className="text-slate-800">{selectedTrip?.from} &rarr; {selectedTrip?.destination}</p></div>
                  <div className="space-y-0.5"><span className="text-slate-300">VEHICLE</span><p className="text-slate-800">{selectedTrip?.vehicleNo}</p></div>
               </div>
            </DialogHeader>
@@ -844,7 +844,7 @@ export default function TR21Page() {
              <DialogTitle className="text-sm font-black uppercase italic text-[#1e3a8a]">Gate-Out Registry Dispatch</DialogTitle>
              <div className="mt-4 p-3 bg-slate-50 border border-slate-200">
                 <p className="text-[11px] font-black uppercase text-slate-800">{selectedTrip?.vehicleNo}</p>
-                <p className="text-[9px] font-bold text-slate-400 mt-0.5">Route: {selectedTrip?.from} → {selectedTrip?.destination}</p>
+                <p className="text-[9px] font-bold text-slate-400 mt-0.5">Route: {selectedTrip?.from} &rarr; {selectedTrip?.destination}</p>
              </div>
            </DialogHeader>
            <div className="py-8 space-y-6">
@@ -884,7 +884,7 @@ export default function TR21Page() {
            </div>
            <DialogFooter className="gap-2">
               <Button onClick={handleUnassign} className="bg-red-600 text-white h-9 rounded-none text-[10px] font-black uppercase px-8 shadow-md">Confirm Reversal</Button>
-              <Button onClick={() => setShowUnassignWarning(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-8">Exit ❌</Button>
+              <Button onClick={() => setShowUnassignWarning(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-8">Exit &times;</Button>
            </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -894,7 +894,7 @@ export default function TR21Page() {
         <DialogContent className="max-w-md rounded-none border-[3px] border-[#1e3a8a] font-mono">
            <DialogHeader>
              <DialogTitle className="text-sm font-black uppercase italic text-[#1e3a8a]">Vehicle Detail Registry Hub</DialogTitle>
-             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Route: {selectedTrip?.from} → {selectedTrip?.destination}</p>
+             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Route: {selectedTrip?.from} &rarr; {selectedTrip?.destination}</p>
            </DialogHeader>
            <div className="py-6 space-y-6">
               <div className="space-y-1.5">
@@ -908,7 +908,7 @@ export default function TR21Page() {
            </div>
            <DialogFooter className="gap-2">
               <Button onClick={() => setShowVehiclePortal(false)} variant="outline" className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300 px-6">Cancel</Button>
-              <Button onClick={handleUpdateVehicle} className="h-9 bg-[#1e3a8a] text-white rounded-none text-[10px] font-black uppercase px-10">Update Registry</Button>
+              <Button onClick={handleUpdateVehicle} className="h-9 bg-[#1e3a8a] text-white rounded-none text-[10px] font-black uppercase px-10">Update Node</Button>
            </DialogFooter>
         </DialogContent>
       </Dialog>

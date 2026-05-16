@@ -55,7 +55,11 @@ export default function VAPage() {
 
   const filteredCustomers = React.useMemo(() => {
     if (!customers || !formData.plantCode) return [];
-    return customers.filter(c => Array.isArray(c.plantCodes) ? c.plantCodes.includes(formData.plantCode) : c.plantCodes === formData.plantCode);
+    return customers.filter(c => {
+      const codes = c.plantCodes;
+      if (Array.isArray(codes)) return codes.includes(formData.plantCode);
+      return codes === formData.plantCode;
+    });
   }, [customers, formData.plantCode]);
 
   const handleLookupPartyId = (name: string, type: 'consignor' | 'consignee' | 'shipTo') => {
@@ -250,7 +254,7 @@ export default function VAPage() {
                    className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('consignorName') ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
                    <option value="">SELECT MASTER...</option>
-                   {customers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+                   {filteredCustomers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
                  </select>
                </div>
                <div className="flex items-center gap-8">
@@ -267,7 +271,7 @@ export default function VAPage() {
                    className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('consigneeName') ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
                    <option value="">SELECT MASTER...</option>
-                   {customers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+                   {filteredCustomers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
                  </select>
                </div>
                <div className="flex items-center gap-8">
@@ -279,7 +283,7 @@ export default function VAPage() {
                    className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('shipToParty') ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
                    <option value="">SELECT MASTER...</option>
-                   {customers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+                   {filteredCustomers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
                  </select>
                </div>
 
