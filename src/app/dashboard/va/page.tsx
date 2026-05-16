@@ -162,15 +162,29 @@ export default function VAPage() {
             <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
                <table className="w-full text-left text-[11px]">
                   <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase text-slate-500">
-                    <tr><th className="p-4 border-r">Order No</th><th className="p-4 border-r">Status</th><th className="p-4 border-r">Consignor</th><th className="p-4 border-r">Consignee</th><th className="p-4">Action</th></tr>
+                    <tr>
+                      <th className="p-4 border-r">Plant</th>
+                      <th className="p-4 border-r">Sale Order</th>
+                      <th className="p-4 border-r">Consignor</th>
+                      <th className="p-4 border-r">From</th>
+                      <th className="p-4 border-r">Consignee</th>
+                      <th className="p-4 border-r">Ship to Party</th>
+                      <th className="p-4 border-r">Destination</th>
+                      <th className="p-4 border-r">Weight</th>
+                      <th className="p-4">Action</th>
+                    </tr>
                   </thead>
-                  <tbody className="font-bold uppercase text-[12px]">
+                  <tbody className="font-bold uppercase text-[11px]">
                     {paginated.map(o => (
-                      <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer">
+                      <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer transition-colors">
+                        <td className="p-4 border-r text-slate-500">{o.plantCode}</td>
                         <td className="p-4 border-r text-[#0056d2] font-black">{o.orderNo}</td>
-                        <td className="p-4 border-r"><Badge variant="outline" className="rounded-none text-[8px] font-black uppercase">{o.status}</Badge></td>
                         <td className="p-4 border-r">{o.consignorName}</td>
+                        <td className="p-4 border-r text-slate-400 italic">{o.from}</td>
                         <td className="p-4 border-r">{o.consigneeName}</td>
+                        <td className="p-4 border-r">{o.shipToParty}</td>
+                        <td className="p-4 border-r text-slate-400 italic">{o.destination}</td>
+                        <td className="p-4 border-r font-black">{o.quantity}</td>
                         <td className="p-4">
                            {activeTCode === 'VA02' && <button onClick={(e) => { e.stopPropagation(); handleDelete(o.id); }} className="p-1 hover:bg-red-50 text-red-400 transition-colors"><Trash2 className="h-4 w-4" /></button>}
                         </td>
