@@ -5,12 +5,21 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { 
   X, LogOut, Grid2X2, Package, Edit3, Info, User, Users, ShoppingBag, 
-  Truck, Radar, FileText, ShieldAlert, XCircle, Save, ArrowLeft, LogOut as ExitIcon, Printer, Search
+  Truck, Radar, FileText, ShieldAlert, XCircle, Save, ArrowLeft, LogOut as ExitIcon, Printer, Search,
+  Plus, Minus
 } from 'lucide-react';
 import { useUser, initializeFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import placeholderData from '@/app/lib/placeholder-images.json';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 const MASTER_TCODES = [
   { code: 'OX01', description: 'PLANT MASTER: CREATE', icon: Package, module: 'Master Data' },
@@ -39,15 +48,15 @@ const MASTER_TCODES = [
   { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES', icon: Grid2X2, module: 'System' },
 ];
 
-const FAVORITE_TCODES = [
-  { code: 'OX03', description: 'PLANT MASTER HUB', icon: Package },
-  { code: 'FM03', description: 'COMPANY HUB', icon: Grid2X2 },
-  { code: 'XK03', description: 'VENDOR REGISTRY', icon: User },
-  { code: 'XD03', description: 'CUSTOMER REGISTRY', icon: Users },
-  { code: 'VA01', description: 'CREATE SALE ORDER', icon: ShoppingBag },
-  { code: 'TR21', description: 'TRIP BOARD CONTROL', icon: Truck },
-  { code: 'WGPS24', description: 'GPS MONITORING', icon: Radar },
-  { code: 'ZCODE', description: 'SYSTEM TRANS MAP', icon: FileText },
+const INITIAL_FAVORITES = [
+  { code: 'OX03', description: 'PLANT MASTER HUB' },
+  { code: 'FM03', description: 'COMPANY HUB' },
+  { code: 'XK03', description: 'VENDOR REGISTRY' },
+  { code: 'XD03', description: 'CUSTOMER REGISTRY' },
+  { code: 'VA01', description: 'CREATE SALE ORDER' },
+  { code: 'TR21', description: 'TRIP BOARD CONTROL' },
+  { code: 'WGPS24', description: 'GPS MONITORING' },
+  { code: 'ZCODE', description: 'SYSTEM TRANS MAP' },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -62,6 +71,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showHistory, setShowHistory] = React.useState(false);
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
 
+  // Favorite States
+  const [userFavorites, setUserFavorites] = React.useState<any[]>([]);
+  const [showAddFav, setShowAddFav] = React.useState(false);
+  const [newFavCode, setNewFavCode] = React.useState('');
+  const [selectedFavCode, setSelectedFavCode] = React.useState<string | null>(null);
+
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
 
@@ -75,6 +90,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   React.useEffect(() => {
     const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true';
     setIsBootstrapAdmin(isAdmin);
+
+    // Initialize Favorites
+    const saved = localStorage.getItem('sap_user_favorites');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const enriched = parsed.map((fav: any) => {
+          const master = MASTER_TCODES.find(m => m.code === fav.code);
+          return { ...fav, icon: master?.icon || Grid2X2 };
+        });
+        setUserFavorites(enriched);
+      } catch (e) {
+        setUserFavorites(INITIAL_FAVORITES.map(f => ({ ...f, icon: MASTER_TCODES.find(m => m.code === f.code)?.icon || Grid2X2 })));
+      }
+    } else {
+      setUserFavorites(INITIAL_FAVORITES.map(f => ({ ...f, icon: MASTER_TCODES.find(m => m.code === f.code)?.icon || Grid2X2 })));
+    }
   }, []);
 
   const executeTCode = React.useCallback((cmd: string) => {
@@ -140,6 +172,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setHistory(prev => [input, ...prev.filter(h => h !== input)].slice(0, 10));
   }, [isBootstrapAdmin, userProfile, router]);
 
+  const handleAddFavorite = () => {
+    const code = newFavCode.toUpperCase().trim();
+    if (!code) return;
+    
+    const master = MASTER_TCODES.find(m => m.code === code);
+    if (!master) {
+      alert(`Transaction ${code} does not exist in master registry`);
+      return;
+    }
+    if (userFavorites.some(f => f.code === code)) {
+      alert(`Transaction ${code} already in favorites`);
+      return;
+    }
+
+    const newFav = { 
+      code: master.code, 
+      description: master.description.split(':')[0], 
+      icon: master.icon 
+    };
+    const updated = [...userFavorites, newFav];
+    setUserFavorites(updated);
+    localStorage.setItem('sap_user_favorites', JSON.stringify(updated.map(f => ({ code: f.code, description: f.description }))));
+    setNewFavCode('');
+    setShowAddFav(false);
+  };
+
+  const handleRemoveFavorite = () => {
+    if (!selectedFavCode) return;
+    const updated = userFavorites.filter(f => f.code !== selectedFavCode);
+    setUserFavorites(updated);
+    localStorage.setItem('sap_user_favorites', JSON.stringify(updated.map(f => ({ code: f.code, description: f.description }))));
+    setSelectedFavCode(null);
+  };
+
   const triggerGlobalSave = () => {
     window.dispatchEvent(new CustomEvent('sap-save-triggered'));
   };
@@ -201,19 +267,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Persistent Sidebar (Page Bar) */}
         <aside className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden shadow-sm shrink-0">
-          <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50">
+          <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50 flex items-center justify-between">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2">
               <Grid2X2 className="h-3.5 w-3.5" /> Quick Access Hub
             </h2>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setShowAddFav(true)}
+                className="p-1 hover:bg-blue-100 rounded text-blue-700 transition-colors" 
+                title="Add Favorite"
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+              <button 
+                onClick={handleRemoveFavorite}
+                className={cn(
+                  "p-1 rounded transition-colors",
+                  selectedFavCode ? "hover:bg-red-100 text-red-600" : "text-slate-300 cursor-not-allowed"
+                )}
+                title="Remove Favorite"
+                disabled={!selectedFavCode}
+              >
+                <Minus className="h-3 w-3" />
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto green-scrollbar">
-            {FAVORITE_TCODES.map(t => (
+            {userFavorites.map(t => (
               <div 
                 key={t.code} 
-                onClick={() => executeTCode(t.code)} 
+                onClick={() => {
+                  setSelectedFavCode(t.code);
+                  executeTCode(t.code);
+                }} 
                 className={cn(
                   "flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all",
-                  searchParams.get('tcode') === t.code && "bg-blue-50 border-l-4 border-l-[#0056d2]"
+                  (searchParams.get('tcode') === t.code || selectedFavCode === t.code) && "bg-blue-50 border-l-4 border-l-[#0056d2]"
                 )}
               >
                 <div className="flex flex-col">
@@ -223,7 +312,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="flex-1" />
                 <t.icon className={cn(
                   "h-3.5 w-3.5 text-slate-300 group-hover:text-blue-600 transition-colors",
-                  searchParams.get('tcode') === t.code && "text-blue-600"
+                  (searchParams.get('tcode') === t.code || selectedFavCode === t.code) && "text-blue-600"
                 )} />
               </div>
             ))}
@@ -248,6 +337,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         <div className="shrink-0 ml-4 hidden sm:block text-blue-400 font-bold italic tracking-wider">SIKKA INDUSTRIES & LOGISTICS</div>
       </div>
+
+      {/* Add Favorite Dialog */}
+      <Dialog open={showAddFav} onOpenChange={setShowAddFav}>
+        <DialogContent className="max-w-md rounded-none border-[3px] border-[#0056d2] font-mono">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2]">Add to Favorites</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+             <div className="flex items-center gap-4">
+                <label className="text-[11px] font-black uppercase text-slate-600 w-24 text-right">T-Code:</label>
+                <input 
+                  autoFocus
+                  value={newFavCode} 
+                  onChange={e => setNewFavCode(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === 'Enter' && handleAddFavorite()}
+                  className="flex-1 h-8 border border-slate-400 px-3 text-xs font-black uppercase outline-none focus:bg-yellow-50"
+                  placeholder="E.G. VA01"
+                />
+             </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button onClick={() => setShowAddFav(false)} variant="outline" className="h-8 rounded-none text-[10px] font-black uppercase px-6 border-slate-300">Cancel ❌</Button>
+            <Button onClick={handleAddFavorite} className="h-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase px-8">Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
