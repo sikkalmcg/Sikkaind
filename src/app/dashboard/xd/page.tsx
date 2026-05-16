@@ -21,7 +21,7 @@ export default function XDPage() {
   
   const [formData, setFormData] = React.useState<any>({});
   const [searchId, setSearchId] = React.useState('');
-  const [currentPage, setCurrentPage] = React.useState(1);
+  const [currentPage, React.useState] = React.useState(1);
   const [errors, setErrors] = React.useState<string[]>([]);
 
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
@@ -115,7 +115,7 @@ export default function XDPage() {
                         <td className="p-4 border-r text-[#0056d2] font-black">{c.customerCode}</td>
                         <td className="p-4 border-r">{c.customerName}</td>
                         <td className="p-4 border-r">{c.city}</td>
-                        <td className="p-4 border-r text-slate-400">{c.gstin}</td>
+                        <td className="p-4 border-r text-slate-400">{c.gstNo || c.gstin}</td>
                         <td className="p-4 text-slate-300">{format(new Date(c.updatedAt || new Date()), 'dd/MM HH:mm')}</td>
                       </tr>
                     ))}
@@ -196,7 +196,7 @@ export default function XDPage() {
                </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">GSTIN:</label>
-                 <input value={formData.gstin || ''} onChange={e => setFormData({...formData, gstin: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
+                 <input value={formData.gstNo || formData.gstin || ''} onChange={e => setFormData({...formData, gstNo: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
                </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Mobile:</label>

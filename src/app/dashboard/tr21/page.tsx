@@ -333,6 +333,8 @@ export default function TR21Page() {
               <div className="grid grid-cols-2 gap-x-8 gap-y-0.5 text-[8px] font-black text-slate-500">
                 <div className="flex gap-1"><span>GSTIN:</span> <span className="text-black">{carrier.gstNo || '-'}</span></div>
                 <div className="flex gap-1"><span>PAN:</span> <span className="text-black">{carrier.panNo || '-'}</span></div>
+                <div className="flex gap-1"><span>MOB:</span> <span className="text-black">{carrier.mobile || '-'}</span></div>
+                <div className="flex gap-1"><span>EMAIL:</span> <span className="text-black lowercase">{carrier.email || '-'}</span></div>
                 <div className="flex gap-1 col-span-2"><span>WEB:</span> <span className="text-black lowercase">{carrier.website || 'WWW.SIKKALOGISTICS.COM'}</span></div>
               </div>
             </div>
@@ -379,7 +381,7 @@ export default function TR21Page() {
             <p className="text-[9px] leading-relaxed flex-1 text-slate-600 italic">{consignor.address || '-'}</p>
             <div className="mt-2 space-y-0.5 text-[9px] font-bold">
               <div className="flex justify-between"><span>MOB:</span> <span>{consignor.mobile || '-'}</span></div>
-              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{consignor.gstNo || '-'}</span></div>
+              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{consignor.gstNo || consignor.gstin || '-'}</span></div>
             </div>
           </div>
           <div className="p-3 border-r-2 border-black flex flex-col">
@@ -388,7 +390,7 @@ export default function TR21Page() {
             <p className="text-[9px] leading-relaxed flex-1 text-slate-600 italic">{consignee.address || '-'}</p>
             <div className="mt-2 space-y-0.5 text-[9px] font-bold">
               <div className="flex justify-between"><span>MOB:</span> <span>{consignee.mobile || '-'}</span></div>
-              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{consignee.gstNo || '-'}</span></div>
+              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{consignee.gstNo || consignee.gstin || '-'}</span></div>
             </div>
           </div>
           <div className="p-3 flex flex-col">
@@ -397,7 +399,7 @@ export default function TR21Page() {
             <p className="text-[9px] leading-relaxed flex-1 text-slate-600 italic">{shipTo.address || '-'}</p>
             <div className="mt-2 space-y-0.5 text-[9px] font-bold">
               <div className="flex justify-between"><span>MOB:</span> <span>{shipTo.mobile || '-'}</span></div>
-              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{shipTo.gstNo || '-'}</span></div>
+              <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{shipTo.gstNo || shipTo.gstin || '-'}</span></div>
             </div>
           </div>
         </div>
@@ -431,20 +433,6 @@ export default function TR21Page() {
             </tr>
           </tfoot>
         </table>
-
-        <div className="border-2 border-black p-4 mb-6 bg-slate-50/20">
-          <div className="flex justify-between items-start mb-2 border-b border-black pb-1">
-            <h5 className="font-black text-[10px]">DELIVERY ACKNOWLEDGEMENT & ADDRESS:</h5>
-          </div>
-          <div 
-            contentEditable 
-            suppressContentEditableWarning
-            onBlur={(e) => setEditableDeliveryAddr(e.currentTarget.textContent || '')}
-            className="text-[11px] font-black leading-tight italic outline-none min-h-[60px] cursor-text print:cursor-default"
-          >
-            {editableDeliveryAddr || shipTo.address || 'PLEASE VERIFY DELIVERY POINT AT DESTINATION NODE'}
-          </div>
-        </div>
 
         <div className="flex justify-between items-end mt-10">
           <div className="w-2/3">

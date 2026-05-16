@@ -1,9 +1,8 @@
-
 'use client';
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Save, ChevronLeft, ChevronRight, Upload, X } from 'lucide-react';
+import { Save, ChevronLeft, ChevronRight, Upload, X, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
@@ -196,6 +195,16 @@ export default function FMPage() {
                    onChange={e => setFormData({...formData, email: e.target.value.toLowerCase()})} 
                    disabled={isReadOnly} 
                    className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('email') ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Website:</label>
+                 <input 
+                   value={formData.website || ''} 
+                   onChange={e => setFormData({...formData, website: e.target.value.toLowerCase()})} 
+                   disabled={isReadOnly} 
+                   className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" 
+                   placeholder="WWW.EXAMPLE.COM"
                  />
                </div>
                <div className="flex items-center gap-8">
