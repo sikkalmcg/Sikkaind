@@ -360,9 +360,9 @@ export default function TR21Page() {
 
     const CopyPage = ({ label }: { label: string }) => (
       <div className="cn-print-page p-6 font-normal uppercase border border-black mb-8 bg-white relative text-black">
-        <div className="flex justify-between items-start mb-2">
+        <div className="flex justify-between items-start mb-3">
           <div className="flex gap-4 items-start">
-            <div className="relative w-14 h-14">
+            <div className="relative w-16 h-16">
               {carrier.logoUrl ? (
                 <img src={carrier.logoUrl} alt="Logo" className="object-contain w-full h-full" />
               ) : logoAsset && (
@@ -370,108 +370,109 @@ export default function TR21Page() {
               )}
             </div>
             <div className="flex flex-col">
-              <h1 className="text-[21px] leading-none mb-1 font-normal text-blue-900">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
-              <p className="text-[12px] max-w-[380px] leading-tight mb-1 font-normal">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-[11px]">
-                <div className="flex gap-1 font-normal"><span>GSTIN:</span> <span className="font-normal">{carrier.gstNo || '-'}</span></div>
-                <div className="flex gap-1 font-normal"><span>PAN:</span> <span className="font-normal">{carrier.panNo || '-'}</span></div>
-                <div className="flex gap-1 font-normal"><span>MOB:</span> <span className="font-normal">{carrier.mobile || '-'}</span></div>
-                <div className="flex gap-1 font-normal"><span>EMAIL:</span> <span className="font-normal lowercase">{carrier.email || '-'}</span></div>
+              <h1 className="text-[22px] leading-none mb-1 font-normal text-blue-900">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
+              <p className="text-[13px] max-w-[420px] leading-tight mb-1.5 font-normal">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-[12px]">
+                <div className="flex gap-1 font-normal"><span>GSTIN:</span>{carrier.gstNo || '-'}</div>
+                <div className="flex gap-1 font-normal"><span>PAN:</span>{carrier.panNo || '-'}</div>
+                <div className="flex gap-1 font-normal"><span>MOB:</span>{carrier.mobile || '-'}</div>
+                <div className="flex gap-1 font-normal"><span>EMAIL:</span>{carrier.email || '-'}</div>
+                <div className="flex gap-1 font-normal"><span>WEB:</span>{carrier.website || '-'}</div>
               </div>
             </div>
           </div>
           <div className="flex flex-col items-end">
-            <div className="border border-black bg-black text-white px-2 py-0.5 text-[12px] mb-2 font-normal">{label}</div>
+            <div className="border border-black bg-black text-white px-2 py-0.5 text-[13px] mb-3 font-normal">{label}</div>
             <div className="text-right space-y-1 font-normal">
               <span className="text-[19px] tracking-tighter font-normal">CN: {trip.cnNumber || 'DRAFT'}</span>
-              <p className="text-[14px] font-normal">DATE: {trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</p>
-              <p className="text-[14px] font-normal mt-1">FROM: {consignor.city || trip.from}</p>
-              <p className="text-[14px] font-normal">TO: {shipTo.city || trip.destination}</p>
+              <p className="text-[16px] font-normal">DATE: {trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</p>
+              <p className="text-[16px] font-normal mt-1">FROM: {consignor.city || trip.from}</p>
+              <p className="text-[16px] font-normal">TO: {shipTo.city || trip.destination}</p>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-black mb-2" />
+        <div className="border-t border-black mb-3" />
 
-        <table className="w-full border-collapse border border-black mb-2 font-normal">
+        <table className="w-full border-collapse border border-black mb-3 font-normal">
           <thead>
-            <tr className="bg-slate-50 border-b border-black text-[12px] text-center">
-              <th className="p-1 border-r border-black font-normal uppercase">VEHICLE NUMBER</th>
-              <th className="p-1 border-r border-black font-normal uppercase">DRIVER MOBILE</th>
-              <th className="p-1 border-r border-black font-normal uppercase">PAYMENT TERM</th>
-              <th className="p-1 font-normal uppercase">TRIP ID</th>
+            <tr className="bg-slate-50 border-b border-black text-[13px] text-center">
+              <th className="p-1.5 border-r border-black font-normal uppercase">VEHICLE NUMBER</th>
+              <th className="p-1.5 border-r border-black font-normal uppercase">DRIVER MOBILE</th>
+              <th className="p-1.5 border-r border-black font-normal uppercase">PAYMENT TERM</th>
+              <th className="p-1.5 font-normal uppercase">TRIP ID</th>
             </tr>
           </thead>
-          <tbody className="text-center text-[14px]">
+          <tbody className="text-center text-[15px]">
             <tr className="font-normal">
-              <td className="p-1.5 border-r border-black font-normal">{trip.vehicleNo}</td>
-              <td className="p-1.5 border-r border-black font-normal">{trip.driverMobile}</td>
-              <td className="p-1.5 border-r border-black font-normal">{trip.paymentTerms || 'PAID'}</td>
-              <td className="p-1.5 font-normal">{trip.tripNo}</td>
+              <td className="p-2 border-r border-black font-normal">{trip.vehicleNo}</td>
+              <td className="p-2 border-r border-black font-normal">{trip.driverMobile}</td>
+              <td className="p-2 border-r border-black font-normal">{trip.paymentTerms || 'PAID'}</td>
+              <td className="p-2 font-normal">{trip.tripNo}</td>
             </tr>
           </tbody>
         </table>
 
-        <div className="grid grid-cols-3 border border-black mb-2 font-normal">
+        <div className="grid grid-cols-3 border border-black mb-3 font-normal min-h-[140px]">
           {[
             { title: 'CONSIGNOR', data: consignor, fallback: trip.consignorName },
             { title: 'CONSIGNEE', data: consignee, fallback: trip.consigneeName },
             { title: 'SHIP TO PARTY', data: shipTo, fallback: trip.shipToParty }
           ].map((node, i) => (
-            <div key={i} className={cn("p-1.5 flex flex-col font-normal", i < 2 && "border-r border-black")}>
-              <h4 className="border-b border-black mb-1 pb-0.5 text-[12px] font-normal uppercase">{node.title}</h4>
-              <p className="text-[14px] leading-tight mb-0.5 font-normal">{node.data.customerName || node.fallback || '-'}</p>
-              <p className="text-[12px] leading-snug flex-1 italic mb-1.5 font-normal">{node.data.address || '-'}</p>
+            <div key={i} className={cn("p-2 flex flex-col font-normal", i < 2 && "border-r border-black")}>
+              <h4 className="border-b border-black mb-1.5 pb-1 text-[13px] font-normal uppercase">{node.title}</h4>
+              <p className="text-[15px] leading-tight mb-1 font-normal">{node.data.customerName || node.fallback || '-'}</p>
+              <p className="text-[13px] leading-snug flex-1 italic mb-2 font-normal">{node.data.address || '-'}</p>
               <div className="mt-auto space-y-0.5 text-[12px] font-normal">
-                <div className="flex justify-between font-normal uppercase"><span>MOB:</span> <span>{node.data.mobile || '-'}</span></div>
-                <div className="flex justify-between pt-0.5 border-t border-slate-100 font-normal uppercase"><span>GSTIN:</span> <span>{node.data.gstNo || '-'}</span></div>
+                <div className="flex gap-1 font-normal uppercase"><span>MOB:</span>{node.data.mobile || '-'}</div>
+                <div className="flex gap-1 pt-1 border-t border-slate-100 font-normal uppercase"><span>GSTIN:</span>{node.data.gstNo || '-'}</div>
               </div>
             </div>
           ))}
         </div>
 
-        <table className="w-full border-collapse border border-black mb-2 font-normal">
+        <table className="w-full border-collapse border border-black mb-3 font-normal">
           <thead>
-            <tr className="bg-slate-50 border-b border-black text-[12px]">
-              <th className="p-1 border-r border-black text-left font-normal uppercase">INVOICE NO</th>
-              <th className="p-1 border-r border-black text-left font-normal uppercase">E-WAYBILL NO</th>
-              <th className="p-1 border-r border-black text-left font-normal uppercase">DESCRIPTION OF GOODS</th>
-              <th className="p-1 border-r border-black text-center w-20 font-normal uppercase">PKG</th>
-              <th className="p-1 text-right w-24 font-normal uppercase">WEIGHT (MT)</th>
+            <tr className="bg-slate-50 border-b border-black text-[13px]">
+              <th className="p-1.5 border-r border-black text-left font-normal uppercase">INVOICE NO</th>
+              <th className="p-1.5 border-r border-black text-left font-normal uppercase">E-WAYBILL NO</th>
+              <th className="p-1.5 border-r border-black text-left font-normal uppercase">DESCRIPTION OF GOODS</th>
+              <th className="p-1.5 border-r border-black text-center w-24 font-normal uppercase">PKG</th>
+              <th className="p-1.5 text-right w-28 font-normal uppercase">WEIGHT (MT)</th>
             </tr>
           </thead>
-          <tbody className="text-[13px] font-normal">
+          <tbody className="text-[14px] font-normal">
             {(trip.items?.length ? trip.items : [{invoiceNo: '-', ewaybillNo: '-', goodsDescription: trip.materialName || '-', package: '-', packageUom: '-', weight: trip.assignWeight || '0.000'}]).map((it: any, i: number) => (
               <tr key={i} className="border-b border-black last:border-b-0 font-normal">
-                <td className="p-1 border-r border-black font-normal">{it.invoiceNo}</td>
-                <td className="p-1 border-r border-black font-normal">{it.ewaybillNo}</td>
-                <td className="p-1 border-r border-black italic break-words font-normal">{it.goodsDescription}</td>
-                <td className="p-1 border-r border-black text-center font-normal">{it.package} {it.packageUom || ''}</td>
-                <td className="p-1 text-right font-normal">{parseFloat(it.weight || 0).toFixed(3)}</td>
+                <td className="p-1.5 border-r border-black font-normal">{it.invoiceNo}</td>
+                <td className="p-1.5 border-r border-black font-normal">{it.ewaybillNo}</td>
+                <td className="p-1.5 border-r border-black italic break-words font-normal">{it.goodsDescription}</td>
+                <td className="p-1.5 border-r border-black text-center font-normal">{it.package} {it.packageUom || ''}</td>
+                <td className="p-1.5 text-right font-normal">{parseFloat(it.weight || 0).toFixed(3)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-slate-50 text-[14px] border-t border-black font-normal">
-              <td colSpan={3} className="p-1 border-r border-black text-right font-normal uppercase">TOTAL CONSIGNMENT REGISTRY</td>
-              <td className="p-1 border-r border-black text-center font-normal uppercase">{totalPkg} PKG</td>
-              <td className="p-1 text-right font-normal">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
+            <tr className="bg-slate-50 text-[15px] border-t border-black font-normal">
+              <td colSpan={3} className="p-1.5 border-r border-black text-right font-normal uppercase">TOTAL CONSIGNMENT REGISTRY</td>
+              <td className="p-1.5 border-r border-black text-center font-normal uppercase">{totalPkg} PKG</td>
+              <td className="p-1.5 text-right font-normal">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
             </tr>
           </tfoot>
         </table>
 
-        <div className="flex justify-between items-end mt-4 font-normal">
+        <div className="flex justify-between items-end mt-5 font-normal">
           <div className="w-2/3 font-normal">
-            <h6 className="text-[12px] mb-0.5 underline font-normal uppercase">TERMS & CONDITIONS:</h6>
-            <p className="text-[11px] leading-snug italic text-justify pr-8 font-normal uppercase">
+            <h6 className="text-[13px] mb-1 underline font-normal uppercase">TERMS & CONDITIONS:</h6>
+            <p className="text-[12px] leading-relaxed italic text-justify pr-10 font-normal uppercase">
               1. The carrier is responsible for safe delivery in original condition.<br/>
               2. Consignor must ensure correct material count before sealing.<br/>
               3. Rates are based on {trip.fleetType || 'Agreed Node'} strategy.
             </p>
           </div>
-          <div className="flex flex-col items-center gap-1 w-48 font-normal">
-            <div className="border-b border-black w-full h-8" />
-            <span className="text-[12px] font-normal uppercase">AUTHORIZED SIGNATORY</span>
+          <div className="flex flex-col items-center gap-1.5 w-52 font-normal">
+            <div className="border-b border-black w-full h-10" />
+            <span className="text-[13px] font-normal uppercase">AUTHORIZED SIGNATORY</span>
           </div>
         </div>
       </div>
@@ -735,7 +736,12 @@ export default function TR21Page() {
                          <div className="flex items-center justify-between">
                             <label className="text-[10px] font-black text-slate-400 uppercase">Rate (Per MT)</label>
                             <div className="flex items-center gap-2 px-2 bg-slate-200/50">
-                               <Checkbox id="fix-rate" checked={assignData.isFixRate} onCheckedChange={(checked) => setAssignData({ ...assignData, isFixRate: !!checked })} className="h-3 w-3 rounded-none border-slate-400" />
+                               <Checkbox 
+                                 id="fix-rate" 
+                                 checked={assignData.isFixRate} 
+                                 onCheckedChange={(checked) => setAssignData({ ...assignData, isFixRate: !!checked })} 
+                                 className="h-3 w-3 rounded-none border-slate-400" 
+                               />
                                <label htmlFor="fix-rate" className="text-[8px] font-black text-slate-600 uppercase cursor-pointer">Fix Rate</label>
                             </div>
                          </div>
