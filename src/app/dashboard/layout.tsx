@@ -39,6 +39,17 @@ const MASTER_TCODES = [
   { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES', icon: Grid2X2, module: 'System' },
 ];
 
+const FAVORITE_TCODES = [
+  { code: 'OX03', description: 'PLANT MASTER HUB', icon: Package },
+  { code: 'FM03', description: 'COMPANY HUB', icon: Grid2X2 },
+  { code: 'XK03', description: 'VENDOR REGISTRY', icon: User },
+  { code: 'XD03', description: 'CUSTOMER REGISTRY', icon: Users },
+  { code: 'VA01', description: 'CREATE SALE ORDER', icon: ShoppingBag },
+  { code: 'TR21', description: 'TRIP BOARD CONTROL', icon: Truck },
+  { code: 'WGPS24', description: 'GPS MONITORING', icon: Radar },
+  { code: 'ZCODE', description: 'SYSTEM TRANS MAP', icon: FileText },
+];
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -57,7 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const profileRef = useMemoFirebase(() => {
     if (!user) return null;
     const rid = localStorage.getItem('sap_registry_id');
-    return rid ? doc(db, 'user_registry', rid) : doc(db, 'user_registry', user.uid);
+    return rid ? doc(db, 'users', 'Sikkaind', 'users_master', rid) : null;
   }, [user, db]);
   const { data: userProfile } = useDoc(profileRef);
 
@@ -88,7 +99,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (input.startsWith('/N')) code = input.substring(2);
     else if (input.startsWith('/O')) {
       const target = input.substring(2);
-      // Open in new tab logic using routeMap
       const routeMap: any = {
         'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
         'XD': '/dashboard/xd', 'VA': '/dashboard/va', 'SU': '/dashboard/su',
@@ -107,8 +117,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const exists = MASTER_TCODES.find(t => t.code === code);
     if (!exists) { alert(`Transaction ${code} does not exist`); setTCode(''); return; }
 
-    const authorizedTcodes = isBootstrapAdmin ? MASTER_TCODES.map(t => t.code) : (userProfile?.tcodes || []);
-    if (!authorizedTcodes.includes(code)) { alert(`No authorization for transaction ${code}`); setTCode(''); return; }
+    const authorizedTcodes = isBootstrapAdmin ? MASTER_TCODES.map(t => t.code) : (userProfile?.tcodeAccess || []);
+    if (!isBootstrapAdmin && !authorizedTcodes.includes(code)) { 
+      alert(`No authorization for transaction ${code}`); 
+      setTCode(''); 
+      return; 
+    }
 
     const routeMap: any = {
       'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
@@ -117,7 +131,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       'SE38': '/dashboard/se38', 'ZCODE': '/dashboard/zcode'
     };
 
-    // Correctly handle multi-character codes and 2-character prefixes
     const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(code) ? code : code.substring(0, 2);
     const targetRoute = routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
     
@@ -186,7 +199,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {children}
+        {/* Desktop Persistent Sidebar (Page Bar) */}
+        <aside className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden shadow-sm shrink-0">
+          <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2">
+              <Grid2X2 className="h-3.5 w-3.5" /> Quick Access Hub
+            </h2>
+          </div>
+          <div className="flex-1 overflow-y-auto green-scrollbar">
+            {FAVORITE_TCODES.map(t => (
+              <div 
+                key={t.code} 
+                onClick={() => executeTCode(t.code)} 
+                className={cn(
+                  "flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all",
+                  searchParams.get('tcode') === t.code && "bg-blue-50 border-l-4 border-l-[#0056d2]"
+                )}
+              >
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a]">{t.code}</span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase">{t.description}</span>
+                </div>
+                <div className="flex-1" />
+                <t.icon className={cn(
+                  "h-3.5 w-3.5 text-slate-300 group-hover:text-blue-600 transition-colors",
+                  searchParams.get('tcode') === t.code && "text-blue-600"
+                )} />
+              </div>
+            ))}
+          </div>
+          <div className="p-4 border-t border-slate-100 bg-slate-50">
+             <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest text-center">SIKKA ENTERPRISE • V1.0</p>
+          </div>
+        </aside>
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-hidden flex flex-col">
+          {children}
+        </main>
       </div>
 
       {/* SAP Status Bar */}
@@ -194,7 +244,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-8 overflow-hidden flex-1">
           <span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span>
           <span className="shrink-0">{searchParams.get('tcode') || 'HOME'}</span>
-          <span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'IDENTIFYING...')}</span>
+          <span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.employeeName || 'IDENTIFYING...') }</span>
         </div>
         <div className="shrink-0 ml-4 hidden sm:block text-blue-400 font-bold italic tracking-wider">SIKKA INDUSTRIES & LOGISTICS</div>
       </div>

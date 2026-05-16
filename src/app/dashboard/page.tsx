@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -13,16 +12,6 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
 const SHARED_HUB_ID = 'Sikkaind'; 
-
-const FAVORITE_TCODES = [
-  { code: 'OX03', description: 'PLANT MASTER PREVIEW', icon: Package },
-  { code: 'FM03', description: 'COMPANY MASTER PREVIEW', icon: Grid2X2 },
-  { code: 'XK03', description: 'VENDOR MASTER PREVIEW', icon: Package },
-  { code: 'XD03', description: 'CUSTOMER MASTER PREVIEW', icon: ShoppingBag },
-  { code: 'VA03', description: 'SALES ORDER PREVIEW', icon: ShoppingBag },
-  { code: 'TR21', description: 'TRIP BOARD CONTROL', icon: Truck },
-  { code: 'WGPS24', description: 'GPS TRACKING HUB', icon: Radar },
-];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -60,68 +49,43 @@ export default function DashboardPage() {
     return () => { unsubscribeTrips(); unsubscribeOrders(); };
   }, [db, homePlantFilter]);
 
-  const handleNavigate = (code: string) => {
-    const c = code.toUpperCase();
-    const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(c) ? c : c.substring(0, 2);
-    let target = baseCode.toLowerCase();
-    if (target === 'wgps24') target = 'wgsp24';
-    router.push(`/dashboard/${target}?tcode=${c}`);
-  };
-
   return (
-    <div className="flex-1 flex overflow-hidden">
-      <div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Quick Access Hub</h2>
+    <div className="flex-1 overflow-y-auto p-8 bg-[#f2f2f2] animate-fade-in text-[#333]">
+      <div className="mb-10 flex justify-between items-end">
+        <div className="flex flex-col">
+          <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter leading-none">
+            SIKKA INDUSTRIES
+          </h1>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2">
+            & LOGISTICS • NODE CONTROL CENTER
+          </span>
         </div>
-        <div className="flex-1 overflow-y-auto green-scrollbar">
-          {FAVORITE_TCODES.map(t => (
-            <div key={t.code} onClick={() => handleNavigate(t.code)} className="flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all">
-              <span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a]">{t.code} - {t.description}</span>
-              <div className="flex-1" />
-              <t.icon className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600" />
-            </div>
-          ))}
+        <div className="flex gap-4">
+           <div className="flex flex-col gap-1">
+             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Global Plant Filter</label>
+             <select className="h-8 border border-slate-300 bg-white px-2 text-[10px] font-black uppercase outline-none focus:ring-1 focus:bg-yellow-50" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}>
+               <option value="ALL">ALL NODES</option>
+               {plants?.map(p => (
+                 <option key={p.id} value={p.plantCode}>PLANT {p.plantCode}</option>
+               ))}
+             </select>
+           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-8 bg-[#f2f2f2] animate-fade-in text-[#333]">
-        <div className="mb-10 flex justify-between items-end">
-          <div className="flex flex-col">
-            <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter leading-none">
-              SIKKA INDUSTRIES
-            </h1>
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2">
-              & LOGISTICS • NODE CONTROL CENTER
-            </span>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
+        {[
+          { l: 'OPEN ORDER', c: counts.open, cl: 'text-blue-600' }, 
+          { l: 'LOADING', c: counts.loading, cl: 'text-orange-600' }, 
+          { l: 'IN-TRANSIT', c: counts.transit, cl: 'text-emerald-600' }, 
+          { l: 'ARRIVED', c: counts.arrived, cl: 'text-indigo-600' }, 
+          { l: 'POD VERIFY', c: counts.pod, cl: 'text-purple-600' }
+        ].map(w => (
+          <div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-all cursor-default group">
+            <span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest h-6 flex items-center group-hover:text-blue-600 transition-colors">{w.l}</span>
+            <span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span>
           </div>
-          <div className="flex gap-4">
-             <div className="flex flex-col gap-1">
-               <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Global Plant Filter</label>
-               <select className="h-8 border border-slate-300 bg-white px-2 text-[10px] font-black uppercase outline-none focus:ring-1 focus:bg-yellow-50" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}>
-                 <option value="ALL">ALL NODES</option>
-                 {plants?.map(p => (
-                   <option key={p.id} value={p.plantCode}>PLANT {p.plantCode}</option>
-                 ))}
-               </select>
-             </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
-          {[
-            { l: 'OPEN ORDER', c: counts.open, cl: 'text-blue-600' }, 
-            { l: 'LOADING', c: counts.loading, cl: 'text-orange-600' }, 
-            { l: 'IN-TRANSIT', c: counts.transit, cl: 'text-emerald-600' }, 
-            { l: 'ARRIVED', c: counts.arrived, cl: 'text-indigo-600' }, 
-            { l: 'POD VERIFY', c: counts.pod, cl: 'text-purple-600' }
-          ].map(w => (
-            <div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-all cursor-default group">
-              <span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest h-6 flex items-center group-hover:text-blue-600 transition-colors">{w.l}</span>
-              <span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
     </div>
   );
