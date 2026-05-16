@@ -477,36 +477,29 @@ export default function TR21Page() {
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
         <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD CONTROL HUB</h2>
         <div className="flex gap-4 items-center">
-           {showPrintView ? (
-             <>
-                <Button onClick={() => window.print()} className="h-8 bg-emerald-600 rounded-none text-[10px] font-black uppercase px-6"><Printer className="h-3.5 w-3.5 mr-2" /> Print All (F8)</Button>
-                <Button onClick={() => setShowPrintView(false)} variant="outline" className="h-8 border-red-500 text-red-500 rounded-none text-[10px] font-black uppercase px-6 hover:bg-red-50 transition-all"><X className="h-3.5 w-3.5 mr-2" /> Exit Preview</Button>
-             </>
-           ) : (
-             <div className="flex items-center gap-6 bg-[#f8fafc] border border-slate-200 p-1 px-4 shadow-inner">
-               <div className="flex items-center gap-2">
-                 <Filter className="h-3.5 w-3.5 text-slate-400" />
-                 <select 
-                   value={plantFilter} 
-                   onChange={e => setPlantFilter(e.target.value)}
-                   className="h-7 bg-transparent text-[10px] font-black uppercase outline-none focus:text-blue-600"
-                 >
-                   <option value="ALL">All Plants</option>
-                   {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
-                 </select>
-               </div>
-               <div className="w-[1px] h-4 bg-slate-300" />
-               <div className="flex items-center gap-2">
-                 <Search className="h-3.5 w-3.5 text-slate-400" />
-                 <input 
-                   value={searchQuery}
-                   onChange={e => setSearchQuery(e.target.value)}
-                   className="h-7 w-48 bg-transparent text-[10px] font-black uppercase outline-none focus:w-64 transition-all"
-                   placeholder="SEARCH REGISTRY..."
-                 />
-               </div>
+           <div className="flex items-center gap-6 bg-[#f8fafc] border border-slate-200 p-1 px-4 shadow-inner">
+             <div className="flex items-center gap-2">
+               <Filter className="h-3.5 w-3.5 text-slate-400" />
+               <select 
+                 value={plantFilter} 
+                 onChange={e => setPlantFilter(e.target.value)}
+                 className="h-7 bg-transparent text-[10px] font-black uppercase outline-none focus:text-blue-600"
+               >
+                 <option value="ALL">All Plants</option>
+                 {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+               </select>
              </div>
-           )}
+             <div className="w-[1px] h-4 bg-slate-300" />
+             <div className="flex items-center gap-2">
+               <Search className="h-3.5 w-3.5 text-slate-400" />
+               <input 
+                 value={searchQuery}
+                 onChange={e => setSearchQuery(e.target.value)}
+                 className="h-7 w-48 bg-transparent text-[10px] font-black uppercase outline-none focus:w-64 transition-all"
+                 placeholder="SEARCH REGISTRY..."
+               />
+             </div>
+           </div>
         </div>
       </div>
 
@@ -630,8 +623,25 @@ export default function TR21Page() {
       </div>
 
       {showPrintView && selectedTrip && (
-        <div className="fixed inset-0 top-[48px] z-50 overflow-hidden bg-slate-100 flex flex-col">
-           <CNPrintView trip={selectedTrip} />
+        <div className="fixed inset-0 z-[100] bg-slate-100 flex flex-col overflow-hidden animate-fade-in">
+           {/* CN PREVIEW ACTION BAR */}
+           <div className="bg-white border-b border-slate-300 px-8 py-2 flex items-center justify-between shadow-sm shrink-0 z-10">
+              <div className="flex flex-col">
+                 <h3 className="text-xs font-black uppercase text-[#1e3a8a] italic">Registry: Consignment Note Preview</h3>
+                 <span className="text-[9px] font-bold text-slate-400">TRIP SEQUENCE: {selectedTrip.tripNo} | CN: {selectedTrip.cnNumber}</span>
+              </div>
+              <div className="flex gap-4">
+                 <Button onClick={() => window.print()} className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-none text-[10px] font-black uppercase px-10 shadow-md">
+                    <Printer className="h-4 w-4 mr-2" /> Print (F8)
+                 </Button>
+                 <Button onClick={() => setShowPrintView(false)} variant="outline" className="h-9 border-red-500 text-red-600 hover:bg-red-50 rounded-none text-[10px] font-black uppercase px-8">
+                    <X className="h-4 w-4 mr-2" /> Close Preview
+                 </Button>
+              </div>
+           </div>
+           <div className="flex-1 overflow-hidden">
+              <CNPrintView trip={selectedTrip} />
+           </div>
         </div>
       )}
 
