@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -95,16 +95,6 @@ export default function TR21Page() {
   const { data: customers } = useCollection(customersQuery);
   const { data: companies } = useCollection(companiesQuery);
   const { data: plants } = useCollection(plantsQuery);
-
-  const getPartyData = React.useCallback((idOrCode: string) => {
-    if (!customers || !idOrCode) return {};
-    return customers.find(c => c.customerCode === idOrCode || c.id === idOrCode) || {};
-  }, [customers]);
-
-  const getCompanyData = React.useCallback((plantCode: string) => {
-    if (!companies || !plantCode) return {};
-    return companies.find(c => c.linkedPlantCode === plantCode || (Array.isArray(c.plantCodes) && c.plantCodes.includes(plantCode))) || {};
-  }, [companies]);
 
   // Tab Calculation Logic
   const counts = React.useMemo(() => {
@@ -349,10 +339,15 @@ export default function TR21Page() {
     document.title = originalTitle;
   };
 
+  const getPartyData = React.useCallback((idOrCode: string) => {
+    if (!customers || !idOrCode) return {};
+    return customers.find(c => c.customerCode === idOrCode || c.id === idOrCode) || {};
+  }, [customers]);
+
   if (!mounted) return null;
 
   return (
-    <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden">
+    <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden text-[#333]">
       {/* Page Header */}
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
         <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD CONTROL HUB</h2>
@@ -534,7 +529,7 @@ export default function TR21Page() {
            <div className="bg-white border-b border-slate-300 px-8 py-2 flex items-center justify-between shadow-sm shrink-0 z-10">
               <div className="flex flex-col">
                  <h3 className="text-xs font-black uppercase text-[#1e3a8a] italic">Registry: Consignment Note Preview</h3>
-                 <span className="text-[9px] font-bold text-slate-400 font-normal">TRIP SEQUENCE: {selectedTrip.tripNo} | CN: {selectedTrip.cnNumber}</span>
+                 <span className="text-[9px] font-bold text-slate-400">TRIP SEQUENCE: {selectedTrip.tripNo} | CN: {selectedTrip.cnNumber}</span>
               </div>
               <div className="flex gap-4">
                  <Button onClick={handleGeneratePDF} className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-none text-[10px] font-black uppercase px-10 shadow-md">
@@ -803,7 +798,7 @@ export default function TR21Page() {
         </DialogContent>
       </Dialog>
 
-      {/* Track Portal Overlay with Enhanced Header and Live Data */}
+      {/* Track Portal Overlay */}
       <Dialog open={showTrackPortal} onOpenChange={setShowTrackPortal}>
         <DialogContent className="max-w-[700px] rounded-none border-[3px] border-[#0056d2] font-mono text-slate-900 p-0 overflow-hidden">
            <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
@@ -813,7 +808,6 @@ export default function TR21Page() {
              </DialogTitle>
            </DialogHeader>
            <div className="p-8 space-y-8">
-              {/* Enhanced Info Registry Header */}
               <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-[11px] font-black uppercase bg-white border border-slate-100 p-6 shadow-inner">
                  <div className="flex justify-between border-b pb-1.5"><span className="text-slate-400 font-bold">Vehicle No:</span><span className="text-[#1e3a8a]">{selectedTrip?.vehicleNo}</span></div>
                  <div className="flex justify-between border-b pb-1.5"><span className="text-slate-400 font-bold">Driver Mob:</span><span className="text-slate-700">{selectedTrip?.driverMobile || '-'}</span></div>
@@ -827,13 +821,12 @@ export default function TR21Page() {
                     <div className="space-y-1">
                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Street + City Live Handshake</span>
                        <p className="text-sm font-black text-slate-800 leading-relaxed uppercase italic">
-                          {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'SYNCHRONIZING SATELLITE GATEWAY...'}
+                          {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING NODE LOCATION...'}
                        </p>
                     </div>
                  </div>
               </div>
 
-              {/* Status Visual Registry */}
               <div className="relative flex justify-between px-4">
                  {['Booked', 'Loading', 'Transit', 'Arrived', 'Delivered'].map((step, i) => {
                     const statuses = ['LOADING', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'CLOSED'];
@@ -865,8 +858,13 @@ export default function TR21Page() {
 }
 
 const CNPrintView = ({ trip }: { trip: any }) => {
-  const { data: customers } = useCollection(collection(useFirestore(), 'users', SHARED_HUB_ID, 'customers'));
-  const { data: companies } = useCollection(collection(useFirestore(), 'users', SHARED_HUB_ID, 'companies'));
+  const db = useFirestore();
+  
+  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
+  
+  const { data: customers } = useCollection(customersQuery);
+  const { data: companies } = useCollection(companiesQuery);
   
   const getPartyData = (idOrCode: string) => {
     if (!customers || !idOrCode) return {};
@@ -901,7 +899,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
             <h1 className="text-[25px] leading-none mb-1 font-normal text-blue-900 uppercase tracking-tighter">{carrier.companyName || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
             <p className="text-[16px] max-w-[420px] leading-tight mb-3 font-normal uppercase">{carrier.address || 'INDUSTRIAL AREA, GHAZIABAD'}</p>
             <div className="flex flex-col gap-0.5 text-[15px] font-normal uppercase">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                  <div className="flex gap-1"><span>GSTIN:</span><span>{carrier.gstNo || '-'}</span></div>
                  <div className="flex gap-1"><span>PAN:</span><span>{carrier.panNo || '-'}</span></div>
               </div>
@@ -914,7 +912,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
         <div className="flex flex-col items-end">
           <div className="border border-black bg-black text-white px-3 py-0.5 text-[15px] mb-4 font-normal tracking-wider">{label}</div>
           <div className="text-right space-y-1.5 font-normal uppercase">
-            <div className="text-[22px] tracking-tighter font-normal">CN: {trip.cnNumber || 'DRAFT'}</div>
+            <div className="text-[19px] tracking-tighter font-normal">CN: {trip.cnNumber || 'DRAFT'}</div>
             <div className="flex justify-end gap-2 text-[19px] font-normal"><span>DATE:</span><span>{trip.cnDate || format(new Date(), 'yyyy-MM-dd')}</span></div>
             <div className="flex justify-end gap-2 text-[19px] font-normal mt-1 text-emerald-800"><span>FROM:</span><span>{consignor.city || trip.from}</span></div>
             <div className="flex justify-end gap-2 text-[19px] font-normal text-blue-800"><span>TO:</span><span>{shipTo.city || trip.destination}</span></div>
