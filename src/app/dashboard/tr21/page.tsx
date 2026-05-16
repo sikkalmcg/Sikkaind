@@ -114,14 +114,14 @@ export default function TR21Page() {
     const newTrip = {
       id: crypto.randomUUID(),
       tripNo: tripId,
-      orderNo: selectedOrder.orderNo,
+      orderNo: selectedOrder.orderNo || '',
       plantCode: selectedOrder.plantCode || '',
       consigneeName: selectedOrder.consigneeName || '',
       shipToParty: selectedOrder.shipToParty || '',
       destination: selectedOrder.destination || '',
       vehicleNo: assignData.vehicleNo.toUpperCase(),
       driverMobile: assignData.driverMobile || '',
-      assignWeight: assignData.assignWeight,
+      assignWeight: assignData.assignWeight || '',
       fleetType: assignData.fleetType || 'Own Vehicle',
       transporterName: assignData.vendorName || '',
       carrierPan: assignData.vendorPan || '',
@@ -140,18 +140,20 @@ export default function TR21Page() {
     setAssignData({});
   };
 
-  const fetchPreviousCN = async (plant: string, vehicle: string) => {
-    const qSnap = await getDocs(query(collection(db, 'users', SHARED_HUB_ID, 'trip_board'), 
-      where('plantCode', '==', plant),
-      where('vehicleNo', '==', vehicle),
-      orderBy('createdAt', 'desc'),
-      limit(2)
-    ));
-    if (qSnap.docs.length > 1) {
-      const prev = qSnap.docs[1].data();
-      setPreviousCN(prev.cnNumber || 'N/A');
-    } else setPreviousCN('FIRST TRIP');
-  };
+  const fetchPreviousCN = React.useCallback((plant: string, vehicle: string) => {
+    if (!trips) {
+      setPreviousCN('FETCHING...');
+      return;
+    }
+    
+    const history = [...trips]
+      .filter(t => t.plantCode === plant && t.vehicleNo === vehicle)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    
+    // Find the most recent record that isn't the current trip
+    const prev = history.find(t => t.id !== selectedTrip?.id);
+    setPreviousCN(prev?.cnNumber || 'FIRST TRIP');
+  }, [trips, selectedTrip?.id]);
 
   const handleUnassign = () => {
     deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id));
