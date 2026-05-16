@@ -62,6 +62,11 @@ export default function VAPage() {
     });
   }, [customers, formData.plantCode]);
 
+  // SPECIFIC FILTER FOR CONSIGNORS
+  const filteredConsignors = React.useMemo(() => {
+    return filteredCustomers.filter(c => c.customerType === 'Consignor');
+  }, [filteredCustomers]);
+
   const handleLookupPartyId = (name: string, type: 'consignor' | 'consignee' | 'shipTo') => {
     const party = customers?.find(c => c.customerName === name);
     if (!party) return;
@@ -254,7 +259,7 @@ export default function VAPage() {
                    className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('consignorName') ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
                    <option value="">SELECT MASTER...</option>
-                   {filteredCustomers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+                   {filteredConsignors?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
                  </select>
                </div>
                <div className="flex items-center gap-8">
