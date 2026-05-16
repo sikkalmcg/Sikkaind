@@ -334,7 +334,7 @@ export default function TR21Page() {
                 <div className="flex gap-1"><span>PAN:</span> <span className="text-black">{carrier.panNo || '-'}</span></div>
                 <div className="flex gap-1"><span>MOB:</span> <span className="text-black">{carrier.mobile || '-'}</span></div>
                 <div className="flex gap-1"><span>EMAIL:</span> <span className="text-black lowercase">{carrier.email || '-'}</span></div>
-                <div className="flex gap-1 col-span-2"><span>WEB:</span> <span className="text-black lowercase">{carrier.website || 'WWW.SIKKALOGISTICS.COM'}</span></div>
+                <div className="flex gap-1 col-span-2"><span>WEB:</span> <span className="text-black lowercase">{carrier.website || '-'}</span></div>
               </div>
             </div>
           </div>
