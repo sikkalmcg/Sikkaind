@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -11,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -223,6 +222,16 @@ export default function TR21Page() {
     });
   };
 
+  const handleUpdateVehicle = () => {
+    if (!vehicleEdit.vehicleNo) return alert('Vehicle Number Mandatory');
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
+      vehicleNo: vehicleEdit.vehicleNo.toUpperCase(),
+      driverMobile: vehicleEdit.mobile,
+      updatedAt: new Date().toISOString()
+    });
+    setShowVehiclePortal(false);
+  };
+
   const CNPrintView = ({ trip }: { trip: any }) => {
     const consignor = getPartyData(trip.consignorCode);
     const consignee = getPartyData(trip.consigneeCode);
@@ -235,7 +244,6 @@ export default function TR21Page() {
 
     const CopyPage = ({ label }: { label: string }) => (
       <div className="cn-print-page p-8 font-sans text-[11px] uppercase border border-black mb-10 bg-white relative">
-        {/* Header Section */}
         <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
           <div className="flex gap-4 items-start">
             {logoAsset && <div className="relative w-16 h-16"><Image src={logoAsset.url} alt="Logo" fill className="object-contain" unoptimized /></div>}
@@ -262,7 +270,6 @@ export default function TR21Page() {
           </div>
         </div>
 
-        {/* Vehicle Table */}
         <table className="w-full border-collapse border-2 border-black mb-6">
           <thead>
             <tr className="bg-slate-100 border-b-2 border-black font-black text-[9px]">
@@ -282,7 +289,6 @@ export default function TR21Page() {
           </tbody>
         </table>
 
-        {/* Party Details Section */}
         <div className="grid grid-cols-3 border-2 border-black mb-6">
           <div className="p-3 border-r-2 border-black min-h-[140px] flex flex-col">
             <h4 className="font-black border-b border-slate-200 mb-2 pb-1 text-[#1e3a8a]">CONSIGNOR</h4>
@@ -304,7 +310,6 @@ export default function TR21Page() {
           </div>
         </div>
 
-        {/* Material Table */}
         <table className="w-full border-collapse border-2 border-black mb-6">
           <thead>
             <tr className="bg-slate-100 border-b-2 border-black font-black text-[9px]">
@@ -335,7 +340,6 @@ export default function TR21Page() {
           </tfoot>
         </table>
 
-        {/* Delivery Box */}
         <div className="border-2 border-black p-3 mb-6 bg-slate-50/30">
           <div className="flex justify-between items-start mb-2">
             <h5 className="font-black text-[9px] border-b border-black">DELIVERY ADDRESS:</h5>
@@ -351,7 +355,6 @@ export default function TR21Page() {
           </div>
         </div>
 
-        {/* Terms & Signatory */}
         <div className="flex justify-between items-end mt-4">
           <div className="w-2/3">
             <h6 className="font-black text-[8px] mb-1">TERMS & CONDITIONS:</h6>
@@ -367,7 +370,6 @@ export default function TR21Page() {
           </div>
         </div>
 
-        {/* Digital Note Footer */}
         <div className="absolute bottom-4 left-8 right-8 text-center pt-2 border-t border-slate-100">
           <p className="text-[8px] font-black text-slate-400">
             NOTE: "THIS CONSIGNMENT NOTE WAS GENERATED DIGITALLY AND IS TO BE CONSIDERED AS ORIGINAL."
