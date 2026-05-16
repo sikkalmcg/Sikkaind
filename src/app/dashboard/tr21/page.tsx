@@ -303,6 +303,14 @@ export default function TR21Page() {
     setPodData({ receivedBy: '', receivedDate: format(new Date(), 'yyyy-MM-dd'), remarks: '', podFile: null });
   };
 
+  const handleGeneratePDF = () => {
+    if (!selectedTrip?.cnNumber) return;
+    const originalTitle = document.title;
+    document.title = `${selectedTrip.cnNumber}.pdf`;
+    window.print();
+    document.title = originalTitle;
+  };
+
   const CNPrintView = ({ trip }: { trip: any }) => {
     const consignor = getPartyData(trip.consignorCode);
     const consignee = getPartyData(trip.consigneeCode);
@@ -315,7 +323,7 @@ export default function TR21Page() {
 
     const CopyPage = ({ label }: { label: string }) => (
       <div className="cn-print-page p-6 font-sans text-[11px] uppercase border border-black mb-8 bg-white relative">
-        <div className="flex justify-between items-start mb-3">
+        <div className="flex justify-between items-start mb-2">
           <div className="flex gap-4 items-start">
             <div className="relative w-14 h-14">
               {carrier.logoUrl ? (
@@ -352,90 +360,90 @@ export default function TR21Page() {
           </div>
         </div>
 
-        <div className="border-t border-black mb-3" />
+        <div className="border-t border-black mb-2" />
 
-        <table className="w-full border-collapse border border-black mb-3">
+        <table className="w-full border-collapse border border-black mb-2">
           <thead>
             <tr className="bg-slate-50 border-b border-black font-black text-[8px] text-center">
-              <th className="p-1.5 border-r border-black w-1/4">VEHICLE NUMBER</th>
-              <th className="p-1.5 border-r border-black w-1/4">DRIVER MOBILE</th>
-              <th className="p-1.5 border-r border-black w-1/4">PAYMENT TERM</th>
-              <th className="p-1.5 w-1/4">TRIP ID</th>
+              <th className="p-1 border-r border-black w-1/4">VEHICLE NUMBER</th>
+              <th className="p-1 border-r border-black w-1/4">DRIVER MOBILE</th>
+              <th className="p-1 border-r border-black w-1/4">PAYMENT TERM</th>
+              <th className="p-1 w-1/4">TRIP ID</th>
             </tr>
           </thead>
           <tbody className="text-center font-black text-xs">
             <tr>
-              <td className="p-2 border-r border-black">{trip.vehicleNo}</td>
-              <td className="p-2 border-r border-black">{trip.driverMobile}</td>
-              <td className="p-2 border-r border-black">{trip.paymentTerms || 'PAID'}</td>
-              <td className="p-2">{trip.tripNo}</td>
+              <td className="p-1.5 border-r border-black">{trip.vehicleNo}</td>
+              <td className="p-1.5 border-r border-black">{trip.driverMobile}</td>
+              <td className="p-1.5 border-r border-black">{trip.paymentTerms || 'PAID'}</td>
+              <td className="p-1.5">{trip.tripNo}</td>
             </tr>
           </tbody>
         </table>
 
-        <div className="grid grid-cols-3 border border-black mb-3">
-          <div className="p-2 border-r border-black flex flex-col">
-            <h4 className="font-black border-b border-blue-900 mb-1.5 pb-0.5 text-blue-900 text-[9px]">CONSIGNOR</h4>
-            <p className="font-black text-[10px] leading-tight mb-1">{consignor.customerName || trip.consignorName || '-'}</p>
-            <p className="text-[8px] leading-snug flex-1 text-slate-600 italic mb-2">{consignor.address || '-'}</p>
+        <div className="grid grid-cols-3 border border-black mb-2">
+          <div className="p-1.5 border-r border-black flex flex-col">
+            <h4 className="font-black border-b border-blue-900 mb-1 pb-0.5 text-blue-900 text-[9px]">CONSIGNOR</h4>
+            <p className="font-black text-[10px] leading-tight mb-0.5">{consignor.customerName || trip.consignorName || '-'}</p>
+            <p className="text-[8px] leading-snug flex-1 text-slate-600 italic mb-1.5">{consignor.address || '-'}</p>
             <div className="mt-auto space-y-0.5 text-[8px] font-bold">
-              <div className="flex justify-between"><span>MOB:</span> <span>{consignor.mobile || '-'}</span></div>
+              <div className="flex justify-between"><span>MOB:</span> <span className="font-black">{consignor.mobile || '-'}</span></div>
               <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{consignor.gstNo || '-'}</span></div>
             </div>
           </div>
-          <div className="p-2 border-r border-black flex flex-col">
-            <h4 className="font-black border-b border-blue-900 mb-1.5 pb-0.5 text-blue-900 text-[9px]">CONSIGNEE</h4>
-            <p className="font-black text-[10px] leading-tight mb-1">{consignee.customerName || trip.consigneeName || '-'}</p>
-            <p className="text-[8px] leading-snug flex-1 text-slate-600 italic mb-2">{consignee.address || '-'}</p>
+          <div className="p-1.5 border-r border-black flex flex-col">
+            <h4 className="font-black border-b border-blue-900 mb-1 pb-0.5 text-blue-900 text-[9px]">CONSIGNEE</h4>
+            <p className="font-black text-[10px] leading-tight mb-0.5">{consignee.customerName || trip.consigneeName || '-'}</p>
+            <p className="text-[8px] leading-snug flex-1 text-slate-600 italic mb-1.5">{consignee.address || '-'}</p>
             <div className="mt-auto space-y-0.5 text-[8px] font-bold">
-              <div className="flex justify-between"><span>MOB:</span> <span>{consignee.mobile || '-'}</span></div>
+              <div className="flex justify-between"><span>MOB:</span> <span className="font-black">{consignee.mobile || '-'}</span></div>
               <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{consignee.gstNo || '-'}</span></div>
             </div>
           </div>
-          <div className="p-2 flex flex-col">
-            <h4 className="font-black border-b border-blue-900 mb-1.5 pb-0.5 text-blue-900 text-[9px]">SHIP TO PARTY</h4>
-            <p className="font-black text-[10px] leading-tight mb-1">{shipTo.customerName || trip.shipToParty || '-'}</p>
-            <p className="text-[8px] leading-snug flex-1 text-slate-600 italic mb-2">{shipTo.address || '-'}</p>
+          <div className="p-1.5 flex flex-col">
+            <h4 className="font-black border-b border-blue-900 mb-1 pb-0.5 text-blue-900 text-[9px]">SHIP TO PARTY</h4>
+            <p className="font-black text-[10px] leading-tight mb-0.5">{shipTo.customerName || trip.shipToParty || '-'}</p>
+            <p className="text-[8px] leading-snug flex-1 text-slate-600 italic mb-1.5">{shipTo.address || '-'}</p>
             <div className="mt-auto space-y-0.5 text-[8px] font-bold">
-              <div className="flex justify-between"><span>MOB:</span> <span>{shipTo.mobile || '-'}</span></div>
+              <div className="flex justify-between"><span>MOB:</span> <span className="font-black">{shipTo.mobile || '-'}</span></div>
               <div className="flex justify-between pt-0.5 border-t border-slate-100"><span>GSTIN:</span> <span className="font-black">{shipTo.gstNo || '-'}</span></div>
             </div>
           </div>
         </div>
 
-        <table className="w-full border-collapse border border-black mb-3">
+        <table className="w-full border-collapse border border-black mb-2">
           <thead>
             <tr className="bg-slate-50 border-b border-black font-black text-[8px]">
-              <th className="p-1.5 border-r border-black w-28 text-left">INVOICE NO</th>
-              <th className="p-1.5 border-r border-black w-32 text-left">E-WAYBILL NO</th>
-              <th className="p-1.5 border-r border-black text-left">DESCRIPTION OF GOODS</th>
-              <th className="p-1.5 border-r border-black w-20 text-center">PKG</th>
-              <th className="p-1.5 w-24 text-right">WEIGHT (MT)</th>
+              <th className="p-1 border-r border-black w-28 text-left">INVOICE NO</th>
+              <th className="p-1 border-r border-black w-32 text-left">E-WAYBILL NO</th>
+              <th className="p-1 border-r border-black text-left">DESCRIPTION OF GOODS</th>
+              <th className="p-1 border-r border-black w-20 text-center">PKG</th>
+              <th className="p-1 w-24 text-right">WEIGHT (MT)</th>
             </tr>
           </thead>
           <tbody className="font-bold text-[9px]">
             {(trip.items?.length ? trip.items : [{invoiceNo: '-', ewaybillNo: '-', goodsDescription: trip.materialName || '-', package: '-', packageUom: '-', weight: trip.assignWeight || '0.000'}]).map((it: any, i: number) => (
               <tr key={i} className="border-b border-black last:border-b-0">
-                <td className="p-1.5 border-r border-black">{it.invoiceNo}</td>
-                <td className="p-1.5 border-r border-black">{it.ewaybillNo}</td>
-                <td className="p-1.5 border-r border-black italic break-words">{it.goodsDescription}</td>
-                <td className="p-1.5 border-r border-black text-center">{it.package} {it.packageUom || ''}</td>
-                <td className="p-1.5 text-right font-black">{parseFloat(it.weight || 0).toFixed(3)}</td>
+                <td className="p-1 border-r border-black">{it.invoiceNo}</td>
+                <td className="p-1 border-r border-black">{it.ewaybillNo}</td>
+                <td className="p-1 border-r border-black italic break-words">{it.goodsDescription}</td>
+                <td className="p-1 border-r border-black text-center">{it.package} {it.packageUom || ''}</td>
+                <td className="p-1 text-right font-black">{parseFloat(it.weight || 0).toFixed(3)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="bg-slate-50 font-black text-[10px] border-t border-black">
-              <td colSpan={3} className="p-1.5 border-r border-black text-right">TOTAL CONSIGNMENT REGISTRY</td>
-              <td className="p-1.5 border-r border-black text-center">{totalPkg} PKG</td>
-              <td className="p-1.5 text-right text-blue-700 underline font-black">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
+              <td colSpan={3} className="p-1 border-r border-black text-right">TOTAL CONSIGNMENT REGISTRY</td>
+              <td className="p-1 border-r border-black text-center">{totalPkg} PKG</td>
+              <td className="p-1 text-right text-blue-700 underline font-black">{(totalWgt || parseFloat(trip.assignWeight || 0)).toFixed(3)} MT</td>
             </tr>
           </tfoot>
         </table>
 
         <div className="flex justify-between items-end mt-4">
           <div className="w-2/3">
-            <h6 className="font-black text-[8px] mb-1 underline">TERMS & CONDITIONS:</h6>
+            <h6 className="font-black text-[8px] mb-0.5 underline">TERMS & CONDITIONS:</h6>
             <p className="text-[7px] leading-snug text-slate-500 italic text-justify pr-8 font-bold">
               1. The carrier is responsible for safe delivery in original condition.<br/>
               2. Consignor must ensure correct material count before sealing.<br/>
@@ -444,12 +452,12 @@ export default function TR21Page() {
             </p>
           </div>
           <div className="flex flex-col items-center gap-1 w-48">
-            <div className="border-b border-black w-full h-10" />
+            <div className="border-b border-black w-full h-8" />
             <span className="font-black text-[8px]">AUTHORIZED SIGNATORY</span>
           </div>
         </div>
 
-        <div className="mt-4 text-center pt-2 border-t border-slate-100">
+        <div className="mt-3 text-center pt-1 border-t border-slate-100">
           <p className="text-[8px] font-black text-slate-400">
             "THIS CONSIGNMENT NOTE WAS GENERATED DIGITALLY AND IS TO BE CONSIDERED AS ORIGINAL."
           </p>
@@ -624,18 +632,17 @@ export default function TR21Page() {
 
       {showPrintView && selectedTrip && (
         <div className="fixed inset-0 z-[100] bg-slate-100 flex flex-col overflow-hidden animate-fade-in">
-           {/* CN PREVIEW ACTION BAR */}
            <div className="bg-white border-b border-slate-300 px-8 py-2 flex items-center justify-between shadow-sm shrink-0 z-10">
               <div className="flex flex-col">
                  <h3 className="text-xs font-black uppercase text-[#1e3a8a] italic">Registry: Consignment Note Preview</h3>
                  <span className="text-[9px] font-bold text-slate-400">TRIP SEQUENCE: {selectedTrip.tripNo} | CN: {selectedTrip.cnNumber}</span>
               </div>
               <div className="flex gap-4">
-                 <Button onClick={() => window.print()} className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-none text-[10px] font-black uppercase px-10 shadow-md">
-                    <Printer className="h-4 w-4 mr-2" /> Print (F8)
+                 <Button onClick={handleGeneratePDF} className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-none text-[10px] font-black uppercase px-10 shadow-md">
+                    <Printer className="h-4 w-4 mr-2" /> Generate PDF
                  </Button>
                  <Button onClick={() => setShowPrintView(false)} variant="outline" className="h-9 border-red-500 text-red-600 hover:bg-red-50 rounded-none text-[10px] font-black uppercase px-8">
-                    <X className="h-4 w-4 mr-2" /> Close Preview
+                    <X className="h-4 w-4 mr-2" /> Close LR
                  </Button>
               </div>
            </div>
