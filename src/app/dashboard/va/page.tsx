@@ -2,9 +2,8 @@
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Save, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Save, ChevronLeft, ChevronRight, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -12,6 +11,120 @@ import { cn } from '@/lib/utils';
 
 const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
+
+/**
+ * SAPAutocomplete Component
+ * Handles manual text entry with a custom dropdown for party selection.
+ */
+interface SAPAutocompleteProps {
+  value: string;
+  options: any[];
+  onSelect: (name: string) => void;
+  disabled?: boolean;
+  hasError?: boolean;
+  placeholder?: string;
+  className?: string;
+}
+
+function SAPAutocomplete({ value, options, onSelect, disabled, hasError, placeholder, className }: SAPAutocompleteProps) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [highlightedIndex, setHighlightedIndex] = React.useState(0);
+  const [inputValue, setInputValue] = React.useState(value || '');
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // Sync internal input value with external value
+  React.useEffect(() => {
+    setInputValue(value || '');
+  }, [value]);
+
+  const filteredOptions = React.useMemo(() => {
+    if (!inputValue) return [];
+    const term = inputValue.toUpperCase();
+    return options.filter(opt => 
+      (opt.customerName || '').toUpperCase().includes(term) || 
+      (opt.city || '').toUpperCase().includes(term)
+    ).slice(0, 10);
+  }, [options, inputValue]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setIsOpen(true);
+      setHighlightedIndex(prev => (prev < filteredOptions.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (isOpen && filteredOptions[highlightedIndex]) {
+        if (e.key === 'Enter') e.preventDefault();
+        const selected = filteredOptions[highlightedIndex].customerName;
+        onSelect(selected);
+        setIsOpen(false);
+      }
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className={cn("relative", className)}>
+      <input
+        value={inputValue}
+        disabled={disabled}
+        onChange={(e) => {
+          const val = e.target.value.toUpperCase();
+          setInputValue(val);
+          onSelect(val); // Allow manual typing while still showing suggestions
+          setIsOpen(true);
+          setHighlightedIndex(0);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        className={cn(
+          "h-8 w-80 border px-2 text-[12px] font-black outline-none transition-all uppercase",
+          hasError ? "border-red-500 bg-red-50" : "border-slate-400 focus:bg-yellow-50",
+          disabled && "bg-slate-50 cursor-not-allowed border-slate-200"
+        )}
+      />
+      {isOpen && filteredOptions.length > 0 && !disabled && (
+        <ul className="absolute z-[100] w-full bg-white border border-slate-400 shadow-lg mt-0.5 max-h-60 overflow-y-auto font-mono">
+          {filteredOptions.map((opt, idx) => (
+            <li
+              key={opt.id}
+              onClick={() => {
+                onSelect(opt.customerName);
+                setIsOpen(false);
+              }}
+              onMouseEnter={() => setHighlightedIndex(idx)}
+              className={cn(
+                "px-3 py-1.5 cursor-pointer text-[10px] font-bold border-b border-slate-100 last:border-0 uppercase flex justify-between gap-4",
+                highlightedIndex === idx ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-blue-50"
+              )}
+            >
+              <span className="truncate">{opt.customerName}</span>
+              <span className={cn("shrink-0 italic text-[9px]", highlightedIndex === idx ? "text-blue-100" : "text-slate-400")}>
+                {opt.city || 'NO CITY'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export default function VAPage() {
   const searchParams = useSearchParams();
@@ -62,7 +175,6 @@ export default function VAPage() {
     });
   }, [customers, formData.plantCode]);
 
-  // SPECIFIC FILTER FOR CONSIGNORS
   const filteredConsignors = React.useMemo(() => {
     return filteredCustomers.filter(c => c.customerType === 'Consignor');
   }, [filteredCustomers]);
@@ -252,15 +364,17 @@ export default function VAPage() {
                
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR NAME:</label>
-                 <select 
-                   value={formData.consignorName || ''} 
-                   onChange={e => { setFormData({...formData, consignorName: e.target.value}); handleLookupPartyId(e.target.value, 'consignor'); }} 
-                   disabled={isReadOnly} 
-                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('consignorName') ? "border-red-500 bg-red-50" : "border-slate-400")}
-                 >
-                   <option value="">SELECT MASTER...</option>
-                   {filteredConsignors?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
-                 </select>
+                 <SAPAutocomplete
+                   value={formData.consignorName || ''}
+                   disabled={isReadOnly}
+                   options={filteredConsignors || []}
+                   onSelect={(name) => {
+                     setFormData({...formData, consignorName: name});
+                     handleLookupPartyId(name, 'consignor');
+                   }}
+                   hasError={errors.includes('consignorName')}
+                   placeholder="SEARCH CONSIGNOR..."
+                 />
                </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR CODE:</label>
@@ -269,27 +383,31 @@ export default function VAPage() {
 
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNEE NAME:</label>
-                 <select 
-                   value={formData.consigneeName || ''} 
-                   onChange={e => { setFormData({...formData, consigneeName: e.target.value}); handleLookupPartyId(e.target.value, 'consignee'); }} 
-                   disabled={isReadOnly} 
-                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('consigneeName') ? "border-red-500 bg-red-50" : "border-slate-400")}
-                 >
-                   <option value="">SELECT MASTER...</option>
-                   {filteredCustomers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
-                 </select>
+                 <SAPAutocomplete
+                   value={formData.consigneeName || ''}
+                   disabled={isReadOnly}
+                   options={filteredCustomers || []}
+                   onSelect={(name) => {
+                     setFormData({...formData, consigneeName: name});
+                     handleLookupPartyId(name, 'consignee');
+                   }}
+                   hasError={errors.includes('consigneeName')}
+                   placeholder="SEARCH CONSIGNEE..."
+                 />
                </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">SHIP TO PARTY:</label>
-                 <select 
-                   value={formData.shipToParty || ''} 
-                   onChange={e => { setFormData({...formData, shipToParty: e.target.value}); handleLookupPartyId(e.target.value, 'shipTo'); }} 
-                   disabled={isReadOnly} 
-                   className={cn("h-8 w-80 border bg-white px-2 text-[11px] font-bold uppercase outline-none", errors.includes('shipToParty') ? "border-red-500 bg-red-50" : "border-slate-400")}
-                 >
-                   <option value="">SELECT MASTER...</option>
-                   {filteredCustomers?.map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
-                 </select>
+                 <SAPAutocomplete
+                   value={formData.shipToParty || ''}
+                   disabled={isReadOnly}
+                   options={filteredCustomers || []}
+                   onSelect={(name) => {
+                     setFormData({...formData, shipToParty: name});
+                     handleLookupPartyId(name, 'shipTo');
+                   }}
+                   hasError={errors.includes('shipToParty')}
+                   placeholder="SEARCH SHIP TO..."
+                 />
                </div>
 
                <div className="flex items-center gap-8">
