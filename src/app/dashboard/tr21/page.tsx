@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Printer, Save, ChevronLeft, ChevronRight, X, Download, 
   Plus, Trash, Edit3, Radar, Truck, MapPin, Package, ShoppingCart, CheckCircle, RefreshCw, Loader2,
-  Calendar, CheckSquare, AlertTriangle, Edit, Upload, FileText, Search, Filter
+  Calendar, CheckSquare, AlertTriangle, Edit, Upload, FileText, Search, Filter, Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -712,7 +712,13 @@ export default function TR21Page() {
                       </div>
                       <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Arrange By</label><input value={assignData.arrangeBy || ''} onChange={e => setAssignData({...assignData, arrangeBy: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-[11px]" /></div>
                       <div className="space-y-1.5">
-                         <div className="flex items-center justify-between"><label className="text-[10px] font-black text-slate-400 uppercase">Rate (Per MT)</label><div className="flex items-center gap-2 px-2 bg-slate-200/50"><Checkbox id="fix-rate" checked={assignData.isFixRate} onCheckedChange={(c) => setAssignData({...assignData, isFixRate: !!c})} className="h-3 <Check className="h-4 w-4" /></div><label htmlFor="fix-rate" className="text-[8px] font-black text-slate-600 uppercase cursor-pointer">Fix Rate</label></div></div>
+                         <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Rate (Per MT)</label>
+                            <div className="flex items-center gap-2 px-2 bg-slate-200/50">
+                               <Checkbox id="fix-rate" checked={assignData.isFixRate} onCheckedChange={(c) => setAssignData({...assignData, isFixRate: !!c})} className="h-3 w-3 rounded-none border-slate-400" />
+                               <label htmlFor="fix-rate" className="text-[8px] font-black text-slate-600 uppercase cursor-pointer">Fix Rate</label>
+                            </div>
+                         </div>
                          <input type="number" disabled={assignData.isFixRate} value={assignData.rate || ''} onChange={e => { const r = parseFloat(e.target.value) || 0; setAssignData({...assignData, rate: e.target.value, freight: (r * (parseFloat(assignData.assignWeight) || 0)).toFixed(2)}); }} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none disabled:bg-slate-100" />
                       </div>
                       <div className="space-y-1.5"><label className="text-[10px] font-black text-emerald-600 uppercase">Total Freight Amount</label><input type="number" value={assignData.freight || ''} onChange={e => setAssignData({...assignData, freight: e.target.value})} className="h-9 w-full border border-emerald-400 bg-emerald-50 px-3 text-xs font-black outline-none text-emerald-700" readOnly={!assignData.isFixRate} /></div>
