@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -176,7 +175,7 @@ export default function TR21Page() {
 
   const handlePostAssignment = () => {
     if (!assignData.vehicleNumber || !assignData.assignQty) return alert('Mandatory fields missing');
-    if (parseFloat(assignData.assignQty) > selectedOrder.balance + 0.001) return alert('Assign Qty exceeds balance');
+    if (parseFloat(assignData.assignQty) > (selectedOrder?.balance || 0) + 0.001) return alert('Assign Qty exceeds balance');
     
     const tripId = generateTripId();
     const selectedVendor = vendors?.find(v => v.id === assignData.vendorId);
@@ -185,31 +184,31 @@ export default function TR21Page() {
       id: crypto.randomUUID(),
       tripNo: tripId,
       tripId,
-      orderNo: selectedOrder.orderNo || selectedOrder.saleOrder,
-      saleOrderId: selectedOrder.id,
-      saleOrderNumber: selectedOrder.saleOrder || selectedOrder.orderNo,
-      plantCode: selectedOrder.plantCode,
-      consignor: selectedOrder.consignor,
-      consignorId: selectedOrder.consignorId,
-      consignee: selectedOrder.consignee,
-      consigneeId: selectedOrder.consigneeId,
-      shipToParty: selectedOrder.shipToParty,
-      shipToPartyId: selectedOrder.shipToPartyId,
-      destination: selectedOrder.destination,
-      from: selectedOrder.from,
+      orderNo: selectedOrder.orderNo || selectedOrder.saleOrder || '',
+      saleOrderId: selectedOrder.id || '',
+      saleOrderNumber: selectedOrder.saleOrder || selectedOrder.orderNo || '',
+      plantCode: selectedOrder.plantCode || '',
+      consignor: selectedOrder.consignor || '',
+      consignorId: selectedOrder.consignorId || '',
+      consignee: selectedOrder.consignee || '',
+      consigneeId: selectedOrder.consigneeId || '',
+      shipToParty: selectedOrder.shipToParty || '',
+      shipToPartyId: selectedOrder.shipToPartyId || '',
+      destination: selectedOrder.destination || '',
+      from: selectedOrder.from || '',
       vehicleNo: assignData.vehicleNumber.toUpperCase(),
       vehicleNumber: assignData.vehicleNumber.toUpperCase(),
       driverMobile: assignData.driverMobile || '',
-      assignDateTime: assignData.assignDateTime,
+      assignDateTime: assignData.assignDateTime || '',
       fleetType: assignData.fleetType || 'Own Vehicle',
-      assignWeight: assignData.assignQty,
+      assignWeight: assignData.assignQty || 0,
       transporterName: selectedVendor?.vendorName || assignData.vendorName || '',
       vendorName: selectedVendor?.vendorName || assignData.vendorName || '',
       vendorMobile: selectedVendor?.mobile || assignData.vendorMobile || '',
       arrangeBy: assignData.arrangeBy || '',
       rate: assignData.rate || 0,
       freightAmount: assignData.freightAmount || 0,
-      isFixRate: assignData.isFixRate || false,
+      isFixRate: !!assignData.isFixRate,
       status: 'LOADING',
       loadingStatus: 'ACTIVE',
       createdAt: new Date().toISOString(),
@@ -229,9 +228,9 @@ export default function TR21Page() {
     
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
       cnNumber: cnData.cnNo.toUpperCase(),
-      cnDate: cnData.cnDate,
-      paymentTerms: cnData.paymentTerms,
-      mode: cnData.mode,
+      cnDate: cnData.cnDate || '',
+      paymentTerms: cnData.paymentTerms || 'PAID',
+      mode: cnData.mode || 'Road',
       rakePoint: cnData.rakePoint || '',
       items: cnItems,
       updatedAt: new Date().toISOString()
@@ -244,7 +243,7 @@ export default function TR21Page() {
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), {
       vehicleNo: vehicleData.vehicleNumber.toUpperCase(),
       vehicleNumber: vehicleData.vehicleNumber.toUpperCase(),
-      driverMobile: vehicleData.driverMobile,
+      driverMobile: vehicleData.driverMobile || '',
       updatedAt: new Date().toISOString()
     }, { merge: true });
     setShowVehiclePortal(false);
