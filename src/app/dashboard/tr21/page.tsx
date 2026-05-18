@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Save, ChevronLeft, ChevronRight, Filter, Search, MapPin, Truck, Radar, 
-  CheckCircle, Loader2, X, Upload
+  CheckCircle, Loader2, X, Upload, Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -199,6 +199,8 @@ export default function TR21Page() {
 
   if (!mounted) return null;
 
+  const formatDate = (val: any) => val ? format(new Date(val), 'dd-MMM HH:mm') : '-';
+
   return (
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden text-[#333]">
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
@@ -236,26 +238,50 @@ export default function TR21Page() {
                {activeTab === 'Open Orders' ? (
                  <>
                    <div className="p-3 w-[4%] border-r text-center text-black">Plant</div>
-                   <div className="p-3 w-[15%] border-r text-black text-center">Sale Order</div>
+                   <div className="p-3 w-[20%] border-r text-black text-center">Sale Order Details</div>
                    <div className="p-3 w-[12%] border-r text-black">Consignor</div>
                    <div className="p-3 w-[12%] border-r text-black">Consignee</div>
                    <div className="p-3 w-[12%] border-r text-black">Ship to Party</div>
-                   <div className="p-3 w-[10%] border-r text-black">Route</div>
-                   <div className="p-3 w-[8%] border-r text-right text-black">Qty</div>
-                   <div className="p-3 w-[8%] border-r text-right text-emerald-600">Balance</div>
-                   <div className="p-3 flex-1 text-center">Action</div>
+                   <div className="p-3 w-[12%] border-r text-black">Route</div>
+                   <div className="p-3 w-[5%] border-r text-right text-black">Qty</div>
+                   <div className="p-3 w-[5%] border-r text-right text-emerald-600">Balance</div>
+                   <div className="p-3 w-[100px] text-center text-black">Action</div>
                  </>
-               ) : (
-                 <>
+               ) : activeTab === 'Reject' ? (
+                <>
                    <div className="p-3 w-[3%] border-r text-center text-black">Plant</div>
                    <div className="p-3 w-[15%] border-r text-black text-center">Sale Order</div>
                    <div className="p-3 w-[7%] border-r text-blue-700">Trip ID</div>
-                   <div className="p-3 w-[11%] border-r text-black">Consignee</div>
-                   <div className="p-3 w-[9%] border-r text-black">Ship To Party</div>
-                   <div className="p-3 w-[7%] border-r">Route</div>
                    <div className="p-3 w-[9%] border-r text-black">Vehicle</div>
+                   <div className="p-3 w-[11%] border-r text-black">Out Date time</div>
+                   <div className="p-3 w-[11%] border-r text-black">Arrived Date time</div>
+                   <div className="p-3 w-[11%] border-r text-red-600">Reject Date time</div>
+                   <div className="p-3 w-[15%] border-r text-black">Consignee</div>
+                   <div className="p-3 w-[100px] text-center text-black">Action</div>
+                </>
+               ) : (activeTab === 'POD Verify' || activeTab === 'Closed') ? (
+                <>
+                   <div className="p-3 w-[3%] border-r text-center text-black">Plant</div>
+                   <div className="p-3 w-[15%] border-r text-black text-center">Sale Order</div>
+                   <div className="p-3 w-[7%] border-r text-blue-700">Trip ID</div>
+                   <div className="p-3 w-[9%] border-r text-black">Vehicle</div>
+                   <div className="p-3 w-[11%] border-r text-black">Out Date time</div>
+                   <div className="p-3 w-[11%] border-r text-black">Arrived Date time</div>
+                   <div className="p-3 w-[11%] border-r text-emerald-600">Unload Date time</div>
+                   <div className="p-3 w-[15%] border-r text-black">Consignee</div>
+                   <div className="p-3 w-[100px] text-center text-black">Action</div>
+                </>
+               ) : (
+                 <>
+                   <div className="p-3 w-[3%] border-r text-center text-black">Plant</div>
+                   <div className="p-3 w-[18%] border-r text-black text-center">Sale Order</div>
+                   <div className="p-3 w-[7%] border-r text-blue-700">Trip ID</div>
+                   <div className="p-3 w-[14%] border-r text-black">Consignee</div>
+                   <div className="p-3 w-[14%] border-r text-black">Ship To Party</div>
+                   <div className="p-3 w-[10%] border-r">Route</div>
+                   <div className="p-3 w-[12%] border-r text-black">Vehicle</div>
                    <div className="p-3 w-[4%] border-r text-center">Qty</div>
-                   <div className="p-3 flex-1 text-center">Action</div>
+                   <div className="p-3 w-[100px] text-center text-black">Action</div>
                  </>
                )}
             </div>
@@ -264,41 +290,69 @@ export default function TR21Page() {
               const liveNode = gpsLive.find(n => n.vehicleNumber?.trim() === item.vehicleNo?.trim());
               return (
                 <div key={item.id} className="flex flex-col border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
-                  <div className="flex items-center text-[11px] font-black uppercase min-h-[70px] text-black">
+                  <div className="flex items-center text-[12px] font-black uppercase min-h-[70px] text-black">
                     {activeTab === 'Open Orders' ? (
                       <>
                         <div className="p-3 w-[4%] border-r text-center">{item.plantCode}</div>
-                        <div className="p-3 w-[15%] border-r flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5">
-                           <span className="text-blue-700">Order: {item.orderNo}</span>
+                        <div className="p-3 w-[20%] border-r flex items-center justify-center gap-4">
+                           <span className="text-blue-700 whitespace-nowrap">Order: {item.orderNo}</span>
                            <span className="text-[10px] text-slate-500 font-bold whitespace-nowrap">Order Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consignorName}>{item.consignorName}</div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.shipToParty}>{item.shipToParty}</div>
-                        <div className="p-3 w-[10%] border-r italic text-slate-500 text-[9px]">{item.from} → {item.destination}</div>
-                        <div className="p-3 w-[8%] border-r text-right">{item.quantity}</div>
-                        <div className="p-3 w-[8%] border-r text-right text-emerald-600">{item.balance?.toFixed(3)}</div>
-                        <div className="p-3 flex-1 flex justify-center">
+                        <div className="p-3 w-[12%] border-r italic text-slate-500 text-[10px] leading-tight">{item.from} → {item.destination}</div>
+                        <div className="p-3 w-[5%] border-r text-right">{item.quantity}</div>
+                        <div className="p-3 w-[5%] border-r text-right text-emerald-600 font-black">{item.balance?.toFixed(3)}</div>
+                        <div className="p-3 w-[100px] flex justify-center">
                            <Button onClick={() => { setSelectedOrder(item); setAssignData({assignWeight: item.balance.toFixed(3), paymentTerms: 'TO PAY'}); setShowAssign(true); }} className="h-7 text-[9px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-6">Assign</Button>
                         </div>
                       </>
+                    ) : activeTab === 'Reject' ? (
+                        <>
+                            <div className="p-3 w-[3%] border-r text-center">{item.plantCode}</div>
+                            <div className="p-3 w-[15%] border-r text-center text-slate-500">Order: {item.orderNo}</div>
+                            <div className="p-3 w-[7%] border-r text-blue-700 font-black">{item.tripNo}</div>
+                            <div className="p-3 w-[9%] border-r">{item.vehicleNo}</div>
+                            <div className="p-3 w-[11%] border-r text-slate-400 font-bold">{formatDate(item.dispatchDate)}</div>
+                            <div className="p-3 w-[11%] border-r text-slate-400 font-bold">{formatDate(item.arrivalDate)}</div>
+                            <div className="p-3 w-[11%] border-r text-red-600 font-black">{formatDate(item.rejectDate)}</div>
+                            <div className="p-3 w-[15%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
+                            <div className="p-3 w-[100px] flex justify-center">
+                                <Badge variant="outline" className="text-[8px] rounded-none border-red-200 text-red-500">REJECTED</Badge>
+                            </div>
+                        </>
+                    ) : (activeTab === 'POD Verify' || activeTab === 'Closed') ? (
+                        <>
+                            <div className="p-3 w-[3%] border-r text-center">{item.plantCode}</div>
+                            <div className="p-3 w-[15%] border-r text-center text-slate-500">Order: {item.orderNo}</div>
+                            <div className="p-3 w-[7%] border-r text-blue-700 font-black">{item.tripNo}</div>
+                            <div className="p-3 w-[9%] border-r">{item.vehicleNo}</div>
+                            <div className="p-3 w-[11%] border-r text-slate-400 font-bold">{formatDate(item.dispatchDate)}</div>
+                            <div className="p-3 w-[11%] border-r text-slate-400 font-bold">{formatDate(item.arrivalDate)}</div>
+                            <div className="p-3 w-[11%] border-r text-emerald-600 font-black">{formatDate(item.unloadDate)}</div>
+                            <div className="p-3 w-[15%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
+                            <div className="p-3 w-[100px] flex justify-center">
+                                <Badge variant="outline" className="text-[8px] rounded-none border-blue-200 text-blue-500">{activeTab}</Badge>
+                            </div>
+                        </>
                     ) : (
                       <>
                         <div className="p-3 w-[3%] border-r text-center">{item.plantCode}</div>
-                        <div className="p-3 w-[15%] border-r flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5">
+                        <div className="p-3 w-[18%] border-r flex items-center justify-center gap-3">
                            <span className="text-slate-800">Order: {item.orderNo}</span>
-                           <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap">Order Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
+                           <span className="text-[10px] text-slate-400 font-bold">Dt: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
-                        <div className="p-3 w-[7%] border-r text-blue-700">{item.tripNo}</div>
-                        <div className="p-3 w-[11%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
-                        <div className="p-3 w-[9%] border-r truncate" title={item.shipToParty}>{item.shipToParty}</div>
-                        <div className="p-3 w-[7%] border-r italic text-slate-500 text-[9px]">{item.from} → {item.destination}</div>
-                        <div className="p-3 w-[9%] border-r flex flex-col">
-                           <span>{item.vehicleNo}</span>
-                           <span className="text-[10px] text-slate-400">{item.driverMobile || '-'}</span>
+                        <div className="p-3 w-[7%] border-r text-blue-700 font-black">{item.tripNo}</div>
+                        <div className="p-3 w-[14%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
+                        <div className="p-3 w-[14%] border-r truncate" title={item.shipToParty}>{item.shipToParty}</div>
+                        <div className="p-3 w-[10%] border-r italic text-slate-500 text-[10px]">{item.from} → {item.destination}</div>
+                        <div className="p-3 w-[12%] border-r flex flex-col">
+                           <span className="font-black text-blue-800">{item.vehicleNo}</span>
+                           <span className="text-[10px] text-slate-500 font-bold">{item.driverMobile || '-'}</span>
                         </div>
-                        <div className="p-3 w-[4%] border-r text-center text-blue-600">{item.assignWeight}</div>
-                        <div className="p-3 flex-1 flex justify-center gap-2">
+                        <div className="p-3 w-[4%] border-r text-center text-blue-600 font-black">{item.assignWeight}</div>
+                        <div className="p-3 w-[100px] flex justify-center gap-2">
                            {activeTab === 'Loading' && (
                              <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} className="h-7 text-[9px] font-black bg-[#1e3a8a] text-white rounded-none px-4">OUT</Button>
                            )}
