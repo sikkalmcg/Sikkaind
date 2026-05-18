@@ -59,13 +59,13 @@ export default function TR21Page() {
   const reverseGeocode = React.useCallback((vehicleNo: string, lat: number, lng: number) => {
     if (!window.google) return;
     const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+    geocoder.geocode({ location: { lat, lng } }, (results: any, status: string) => {
       if (status === 'OK' && results?.[0]) {
         const components = results[0].address_components;
-        const street = components.find(c => c.types.includes('route'))?.long_name || 
-                       components.find(c => c.types.includes('sublocality_level_1'))?.long_name;
-        const city = components.find(c => c.types.includes('locality'))?.long_name || 
-                     components.find(c => c.types.includes('administrative_area_level_2'))?.long_name;
+        const street = components.find((c: any) => c.types.includes('route'))?.long_name || 
+                       components.find((c: any) => c.types.includes('sublocality_level_1'))?.long_name;
+        const city = components.find((c: any) => c.types.includes('locality'))?.long_name || 
+                     components.find((c: any) => c.types.includes('administrative_area_level_2'))?.long_name;
         
         let formatted = '';
         if (street && city) formatted = `${street}, ${city}`;
@@ -310,7 +310,7 @@ export default function TR21Page() {
                    <div className="p-3 w-[12%] border-r text-black">Route</div>
                    <div className="p-3 w-[5%] border-r text-right text-black">Qty</div>
                    <div className="p-3 w-[5%] border-r text-right text-emerald-600">Balance</div>
-                   <div className="p-3 w-[100px] text-center text-black">Action</div>
+                   <div className="p-1 w-[50px] text-center text-black">Action</div>
                  </>
                ) : (
                  <>
@@ -322,7 +322,7 @@ export default function TR21Page() {
                    <div className="p-3 w-[10%] border-r">Route</div>
                    <div className="p-3 w-[12%] border-r text-black">Vehicle</div>
                    <div className="p-3 w-[4%] border-r text-center">Qty</div>
-                   <div className="p-3 w-[100px] text-center text-black">Action</div>
+                   <div className="p-1 w-[50px] text-center text-black">Action</div>
                  </>
                )}
             </div>
@@ -345,8 +345,8 @@ export default function TR21Page() {
                         <div className="p-3 w-[12%] border-r italic text-slate-500 text-[10px] leading-tight">{item.from} → {item.destination}</div>
                         <div className="p-3 w-[5%] border-r text-right">{item.quantity}</div>
                         <div className="p-3 w-[5%] border-r text-right text-emerald-600 font-black">{item.balance?.toFixed(3)}</div>
-                        <div className="p-3 w-[100px] flex justify-center">
-                           <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }); setShowAssign(true); }} className="h-7 text-[9px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-6">Assign</Button>
+                        <div className="p-1 w-[50px] flex justify-center">
+                           <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }); setShowAssign(true); }} className="h-7 w-full text-[9px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-0">Assign</Button>
                         </div>
                       </>
                     ) : (
@@ -365,15 +365,15 @@ export default function TR21Page() {
                            <span className="text-[10px] text-slate-500 font-bold">{item.driverMobile || '-'}</span>
                         </div>
                         <div className="p-3 w-[4%] border-r text-center text-blue-600 font-black">{item.assignWeight}</div>
-                        <div className="p-3 w-[100px] flex flex-col gap-1 items-center px-1">
+                        <div className="p-1 w-[50px] flex flex-col gap-1 items-center">
                            {activeTab === 'Loading' && (
-                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} className="h-6 w-full text-[8px] font-black bg-[#1e3a8a] text-white rounded-none">OUT</Button>
+                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} className="h-6 w-full text-[8px] font-black bg-[#1e3a8a] text-white rounded-none px-0">OUT</Button>
                            )}
                            {activeTab === 'In-Transit' && (
-                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowArrivePortal(true); }} className="h-6 w-full text-[8px] font-black bg-emerald-600 text-white rounded-none">ARRIVE</Button>
+                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowArrivePortal(true); }} className="h-6 w-full text-[8px] font-black bg-emerald-600 text-white rounded-none px-0">ARRIVE</Button>
                            )}
                            {(activeTab === 'In-Transit' || activeTab === 'Arrived') && (
-                             <Button onClick={() => { setSelectedTrip(item); setShowMapPortal(true); }} variant="outline" className="h-6 w-full text-[8px] font-black border-blue-200 text-blue-600 rounded-none"><MapIcon className="h-3 w-3 mr-1" /> MAP</Button>
+                             <Button onClick={() => { setSelectedTrip(item); setShowMapPortal(true); }} variant="outline" className="h-6 w-full text-[8px] font-black border-blue-200 text-blue-600 rounded-none px-0">MAP</Button>
                            )}
                         </div>
                       </>
