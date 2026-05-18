@@ -26,7 +26,7 @@ export default function TR21Page() {
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
   
-  const [plantFilter, setPlantFilter] = React.setPlantFilter('ALL');
+  const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const [gpsLive, setGpsLive] = React.useState<any[]>([]);
