@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -419,6 +420,14 @@ export default function TR21Page() {
     </Dialog>
   );
 
+  const formatRegistryDateTime = (val: any) => {
+    if (!val) return '-';
+    try {
+      const d = new Date(val);
+      return format(d, 'dd-MM HH:mm');
+    } catch(e) { return '-'; }
+  };
+
   if (!mounted) return null;
 
   return (
@@ -489,13 +498,31 @@ export default function TR21Page() {
                    <div className="p-3 w-[3%] border-r text-center">Plant</div>
                    <div className="p-3 w-[7%] border-r">Sale Order</div>
                    <div className="p-3 w-[7%] border-r text-blue-700">Trip ID</div>
-                   <div className="p-3 w-[12%] border-r">Consignor / Consignee</div>
-                   <div className="p-3 w-[10%] border-r">Ship To Party</div>
-                   <div className="p-3 w-[8%] border-r">Route</div>
-                   <div className="p-3 w-[10%] border-r">Fleet / Vehicle</div>
+                   <div className="p-3 w-[11%] border-r">Consignor / Consignee</div>
+                   <div className="p-3 w-[9%] border-r">Ship To Party</div>
+                   <div className="p-3 w-[7%] border-r">Route</div>
+                   <div className="p-3 w-[9%] border-r">Fleet / Vehicle</div>
                    <div className="p-3 w-[4%] border-r text-center">Qty</div>
-                   <div className="p-3 w-[8%] border-r">Invoice / EWB</div>
-                   <div className="p-3 w-[12%] border-r">Carrier / Vendor</div>
+                   
+                   {activeTab === 'Reject' && (
+                     <>
+                        <div className="p-3 w-[6%] border-r">Out Date</div>
+                        <div className="p-3 w-[6%] border-r">Arrived Date</div>
+                        <div className="p-3 w-[6%] border-r">Reject Date</div>
+                     </>
+                   )}
+                   {(activeTab === 'POD Verify' || activeTab === 'Closed') && (
+                     <>
+                        <div className="p-3 w-[6%] border-r">Out Date</div>
+                        <div className="p-3 w-[6%] border-r">Arrived Date</div>
+                        <div className="p-3 w-[6%] border-r">Unload Date</div>
+                     </>
+                   )}
+                   {(activeTab !== 'Reject' && activeTab !== 'POD Verify' && activeTab !== 'Closed') && (
+                      <div className="p-3 w-[8%] border-r">Invoice / EWB</div>
+                   )}
+
+                   <div className="p-3 w-[11%] border-r">Carrier / Vendor</div>
                    <div className="p-3 w-[8%] border-r">CN No</div>
                    <div className="p-3 flex-1 text-center">Action</div>
                  </>
@@ -530,31 +557,48 @@ export default function TR21Page() {
                         <div className="p-3 w-[3%] border-r text-center text-black font-black text-[12px]">{item.plantCode}</div>
                         <div className="p-3 w-[7%] border-r flex flex-col">
                            <span className="text-black font-black text-[11px]">{item.orderNo}</span>
-                           <span className="text-[11px] text-black font-black lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
+                           <span className="text-[10px] text-slate-400 font-bold lowercase">{formatRegistryDateTime(item.orderDate)}</span>
                         </div>
                         <div className="p-3 w-[7%] border-r flex flex-col">
                            <span className="font-black text-blue-700 text-[11px]">{item.tripNo}</span>
-                           <span className="text-[11px] text-black font-black lowercase">{item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
+                           <span className="text-[10px] text-slate-400 font-bold lowercase">{formatRegistryDateTime(item.updatedAt)}</span>
                         </div>
-                        <div className="p-3 w-[12%] border-r flex flex-col gap-0.5">
+                        <div className="p-3 w-[11%] border-r flex flex-col gap-0.5">
                            <span className="truncate text-black font-black text-[11px]" title={item.consignorName}>{item.consignorName}</span>
                            <span className="truncate text-black text-[12px] font-black italic border-t border-slate-50 pt-0.5" title={`TO: ${item.consigneeName}`}>TO: {item.consigneeName}</span>
                         </div>
-                        <div className="p-3 w-[10%] border-r font-black text-black text-[11px] truncate" title={item.shipToParty}>{item.shipToParty}</div>
-                        <div className="p-3 w-[8%] border-r italic text-slate-500 text-[8px] leading-tight" title={`${item.from} to ${item.destination}`}>{item.from} → {item.destination}</div>
+                        <div className="p-3 w-[9%] border-r font-black text-black text-[11px] truncate" title={item.shipToParty}>{item.shipToParty}</div>
+                        <div className="p-3 w-[7%] border-r italic text-slate-500 text-[8px] leading-tight" title={`${item.from} to ${item.destination}`}>{item.from} → {item.destination}</div>
                         
-                        <div className="p-3 w-[10%] border-r flex flex-col gap-0.5 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedTrip(item); setVehicleEdit({vehicleNo: item.vehicleNo, mobile: item.driverMobile}); setShowVehiclePortal(true); }}>
+                        <div className="p-3 w-[9%] border-r flex flex-col gap-0.5 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedTrip(item); setVehicleEdit({vehicleNo: item.vehicleNo, mobile: item.driverMobile}); setShowVehiclePortal(true); }}>
                            <span className="text-black text-[12px] font-black uppercase">{item.fleetType}</span>
                            <span className="font-black text-black text-[12px]">{item.vehicleNo}</span>
                            <span className="text-[12px] font-black text-black">{item.driverMobile || '-'}</span>
                         </div>
 
                         <div className="p-3 w-[4%] border-r text-center font-black text-blue-600 text-[11px]">{item.assignWeight}</div>
-                        <div className="p-3 w-[8%] border-r truncate text-black text-[11px] font-black leading-tight" title={`INV: ${item.invoiceDisplay} | EWB: ${item.ewaybillDisplay}`}>
-                           INV: {item.invoiceDisplay}<br/>EWB: {item.ewaybillDisplay}
-                        </div>
+                        
+                        {activeTab === 'Reject' && (
+                          <>
+                             <div className="p-3 w-[6%] border-r text-[10px] font-black text-black">{formatRegistryDateTime(item.dispatchDate)}</div>
+                             <div className="p-3 w-[6%] border-r text-[10px] font-black text-black">{formatRegistryDateTime(item.arrivalDate)}</div>
+                             <div className="p-3 w-[6%] border-r text-[10px] font-black text-red-600">{formatRegistryDateTime(item.rejectDate)}</div>
+                          </>
+                        )}
+                        {(activeTab === 'POD Verify' || activeTab === 'Closed') && (
+                          <>
+                             <div className="p-3 w-[6%] border-r text-[10px] font-black text-black">{formatRegistryDateTime(item.dispatchDate)}</div>
+                             <div className="p-3 w-[6%] border-r text-[10px] font-black text-black">{formatRegistryDateTime(item.arrivalDate)}</div>
+                             <div className="p-3 w-[6%] border-r text-[10px] font-black text-emerald-600">{formatRegistryDateTime(item.unloadDate)}</div>
+                          </>
+                        )}
+                        {(activeTab !== 'Reject' && activeTab !== 'POD Verify' && activeTab !== 'Closed') && (
+                           <div className="p-3 w-[8%] border-r truncate text-black text-[11px] font-black leading-tight" title={`INV: ${item.invoiceDisplay} | EWB: ${item.ewaybillDisplay}`}>
+                              INV: {item.invoiceDisplay}<br/>EWB: {item.ewaybillDisplay}
+                           </div>
+                        )}
 
-                        <div className="p-3 w-[12%] border-r flex flex-col gap-0.5 overflow-hidden">
+                        <div className="p-3 w-[11%] border-r flex flex-col gap-0.5 overflow-hidden">
                            <span className="text-[11px] font-black text-black truncate" title={getCarrierForPlant(item.plantCode)}>{getCarrierForPlant(item.plantCode)}</span>
                            {item.transporterName && <span className="text-[10px] font-black text-slate-400 italic truncate" title={item.transporterName}>{item.transporterName}</span>}
                            <span className="text-[8px] font-black text-slate-300 uppercase truncate" title={item.arrangeBy}>{item.arrangeBy || '-'}</span>
@@ -630,7 +674,7 @@ export default function TR21Page() {
                   {activeTab !== 'Open Orders' && (
                     <div className="flex bg-slate-50/70 border-t border-slate-200 h-9 items-center px-4">
                        <div className="w-[30%] flex items-center gap-4 text-[9px] font-black text-black">
-                          <span className="flex items-center gap-1 uppercase">Trip Date Time: {item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
+                          <span className="flex items-center gap-1 uppercase">Trip Execution Synchronization: ACTIVE</span>
                        </div>
                        <div className="flex-1 flex items-center justify-end gap-6 overflow-hidden">
                           <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode?.latitude},${liveNode?.longitude}`, '_blank')} title={liveNode?.lastLocation || 'LOCATING SATELLITE NODE...'}>
