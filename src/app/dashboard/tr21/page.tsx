@@ -108,7 +108,6 @@ export default function TR21Page() {
 
     if (activeTab === 'Open Orders') {
       baseData = orders.filter(o => o.status === 'Open').filter(o => {
-        // Strict Integrity Filter
         const isValid = o.plantCode && o.orderNo && o.orderDate && o.consignorCode && o.consigneeCode && o.shipToPartyCode && o.quantity;
         if (!isValid) return false;
         
@@ -237,7 +236,7 @@ export default function TR21Page() {
                {activeTab === 'Open Orders' ? (
                  <>
                    <div className="p-3 w-[4%] border-r text-center text-black">Plant</div>
-                   <div className="p-3 w-[15%] border-r text-black">Order</div>
+                   <div className="p-3 w-[15%] border-r text-black text-center">Sale Order</div>
                    <div className="p-3 w-[12%] border-r text-black">Consignor</div>
                    <div className="p-3 w-[12%] border-r text-black">Consignee</div>
                    <div className="p-3 w-[12%] border-r text-black">Ship to Party</div>
@@ -249,7 +248,7 @@ export default function TR21Page() {
                ) : (
                  <>
                    <div className="p-3 w-[3%] border-r text-center text-black">Plant</div>
-                   <div className="p-3 w-[12%] border-r text-black">Order</div>
+                   <div className="p-3 w-[15%] border-r text-black text-center">Sale Order</div>
                    <div className="p-3 w-[7%] border-r text-blue-700">Trip ID</div>
                    <div className="p-3 w-[11%] border-r text-black">Consignee</div>
                    <div className="p-3 w-[9%] border-r text-black">Ship To Party</div>
@@ -269,9 +268,9 @@ export default function TR21Page() {
                     {activeTab === 'Open Orders' ? (
                       <>
                         <div className="p-3 w-[4%] border-r text-center">{item.plantCode}</div>
-                        <div className="p-3 w-[15%] border-r flex flex-col gap-0.5">
+                        <div className="p-3 w-[15%] border-r flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5">
                            <span className="text-blue-700">Order: {item.orderNo}</span>
-                           <span className="text-[10px] text-slate-500 font-bold">Order Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
+                           <span className="text-[10px] text-slate-500 font-bold whitespace-nowrap">Order Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consignorName}>{item.consignorName}</div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
@@ -286,9 +285,9 @@ export default function TR21Page() {
                     ) : (
                       <>
                         <div className="p-3 w-[3%] border-r text-center">{item.plantCode}</div>
-                        <div className="p-3 w-[12%] border-r flex flex-col gap-0.5">
-                           <span>Order: {item.orderNo}</span>
-                           <span className="text-[10px] text-slate-400 font-bold">Order Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
+                        <div className="p-3 w-[15%] border-r flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5">
+                           <span className="text-slate-800">Order: {item.orderNo}</span>
+                           <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap">Order Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
                         <div className="p-3 w-[7%] border-r text-blue-700">{item.tripNo}</div>
                         <div className="p-3 w-[11%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>

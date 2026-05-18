@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Download, Upload, Loader2, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -129,10 +129,16 @@ export default function VAPage() {
   const { data: orders } = useCollection(ordersQuery);
   const { data: customers } = useCollection(customersQuery);
 
+  const filteredCustomersForSelection = React.useMemo(() => {
+    if (!customers) return [];
+    if (!formData.plantCode) return customers;
+    // Filter customers that are linked to the selected plant to ensure correct code mapping (e.g. DID20)
+    return customers.filter(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(formData.plantCode));
+  }, [customers, formData.plantCode]);
+
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;
     
-    // 1. Mandatory Check
     const mandatory = ['plantCode', 'orderNo', 'orderDate', 'consignorCode', 'consigneeCode', 'shipToPartyCode', 'materialName', 'quantity'];
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
@@ -141,7 +147,6 @@ export default function VAPage() {
       return;
     }
 
-    // 2. Duplicate Check
     const isDuplicate = (orders || []).some(o => o.orderNo === formData.orderNo && o.id !== formData.id);
     if (isDuplicate) {
       alert(`Duplicate Sale Order not allowed`);
@@ -201,7 +206,6 @@ export default function VAPage() {
       const tempLog: typeof uploadLog = [];
       const fileOrderNos = new Set<string>();
 
-      // Mandatory columns definition
       const mandatoryCols = ['PLANT', 'SALE ORDER', 'ORDER DATE', 'CONSIGNOR CODE', 'CONSIGNEE CODE', 'SHIP TO PARTY CODE', 'MATERIAL', 'WEIGHT'];
       const headerIndices: Record<string, number> = {};
       mandatoryCols.forEach(col => {
@@ -229,27 +233,16 @@ export default function VAPage() {
         const rowId = orderNo || `Row ${i + 2}`;
         let errorReason = '';
 
-        // 1. Sequential Mandatory Validation
         if (!plant || !orderNo || !orderDate || !cnrCode || !cneCode || !stpCode || !material || !weight) {
-          if (!plant) errorReason = 'Plant Missing';
-          else if (!orderNo) errorReason = 'Sale Order Missing';
-          else if (!orderDate) errorReason = 'Order Date Missing';
-          else if (!cnrCode) errorReason = 'Consignor Code Missing';
-          else if (!cneCode) errorReason = 'Consignee Code Missing';
-          else if (!stpCode) errorReason = 'Ship To Party Code Missing';
-          else if (!material) errorReason = 'Material Missing';
-          else if (!weight) errorReason = 'Weight Missing';
+          errorReason = 'Mandatory column missing';
         } 
-        // 2. Duplicate Check (In File)
         else if (fileOrderNos.has(orderNo)) {
           errorReason = 'Duplicate Sale Order in File';
         }
-        // 3. Duplicate Check (In Registry)
         else if (orders?.some(o => o.orderNo === orderNo)) {
-          errorReason = 'Duplicate Sale Order';
+          errorReason = 'Duplicate Sale Order in Database';
         }
         else {
-          // 4. Customer Master Validation & Auto Mapping
           const cnr = customers?.find(c => c.customerCode === cnrCode);
           const cne = customers?.find(c => c.customerCode === cneCode);
           const stp = customers?.find(c => c.customerCode === stpCode);
@@ -298,13 +291,13 @@ export default function VAPage() {
   const filteredOrders = React.useMemo(() => {
     return (orders || [])
       .filter(o => {
-        // Strict Integrity Filter: Exclude incomplete records
-        const isValid = o.plantCode && o.orderNo && o.orderDate && o.consignorCode && o.consigneeCode && o.shipToPartyCode && o.quantity;
+        // Strict Integrity Filter
+        const isValid = o.plantCode && o.orderNo && o.orderDate && o.consignorCode && o.consigneeCode && o.shipToPartyCode && o.quantity && o.materialName;
         if (!isValid) return false;
         
         if (!searchId) return true;
         const term = searchId.toUpperCase();
-        return o.orderNo?.includes(term);
+        return o.orderNo?.includes(term) || (o.consigneeName || '').toUpperCase().includes(term);
       })
       .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   }, [orders, searchId, currentPage]);
@@ -344,33 +337,39 @@ export default function VAPage() {
         )}
 
         {!formData.id && activeTCode !== 'VA01' ? (
-          <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
+          <div className="bg-white border border-slate-300 shadow-sm overflow-x-auto custom-scrollbar">
              <div className="p-6 bg-slate-50 border-b flex items-center gap-6">
-                <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Order:</label>
-                <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:bg-yellow-50" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER SALE ORDER NO..." />
+                <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Registry:</label>
+                <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:bg-yellow-50" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER ORDER NO OR CUSTOMER..." />
              </div>
-             <table className="w-full text-left text-[11px]">
-                <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase">
+             <table className="w-full text-left text-[10px] min-w-[1500px]">
+                <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase text-slate-500">
                   <tr>
                     <th className="p-4 border-r">Plant</th>
-                    <th className="p-4 border-r">Order No</th>
+                    <th className="p-4 border-r">Sale Order</th>
                     <th className="p-4 border-r">Order Date</th>
-                    <th className="p-4 border-r">Consignor Code</th>
-                    <th className="p-4 border-r">Consignee Code</th>
-                    <th className="p-4 border-r text-right">Weight</th>
-                    <th className="p-4">Status</th>
+                    <th className="p-4 border-r">Consignor</th>
+                    <th className="p-4 border-r">From</th>
+                    <th className="p-4 border-r">Consignee</th>
+                    <th className="p-4 border-r">Ship to Party</th>
+                    <th className="p-4 border-r">Destination</th>
+                    <th className="p-4 border-r">Material</th>
+                    <th className="p-4 text-right">Weight</th>
                   </tr>
                 </thead>
-                <tbody className="font-bold uppercase">
+                <tbody className="font-bold uppercase text-black">
                   {filteredOrders.map(o => (
                     <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer">
                       <td className="p-4 border-r">{o.plantCode}</td>
                       <td className="p-4 border-r text-[#0056d2] font-black">{o.orderNo}</td>
-                      <td className="p-4 border-r">{o.orderDate ? format(new Date(o.orderDate), 'dd-MMM-yyyy') : '-'}</td>
-                      <td className="p-4 border-r">{o.consignorCode}</td>
-                      <td className="p-4 border-r">{o.consigneeCode}</td>
-                      <td className="p-4 border-r text-right">{o.quantity} MT</td>
-                      <td className="p-4"><span className={cn("px-2 py-0.5 text-[8px] font-black", o.status === 'Open' ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700")}>{o.status}</span></td>
+                      <td className="p-4 border-r whitespace-nowrap">{o.orderDate ? format(new Date(o.orderDate), 'dd-MMM-yyyy') : '-'}</td>
+                      <td className="p-4 border-r truncate max-w-[150px]" title={o.consignorName}>{o.consignorName}</td>
+                      <td className="p-4 border-r">{o.from}</td>
+                      <td className="p-4 border-r truncate max-w-[150px]" title={o.consigneeName}>{o.consigneeName}</td>
+                      <td className="p-4 border-r truncate max-w-[150px]" title={o.shipToParty}>{o.shipToParty}</td>
+                      <td className="p-4 border-r">{o.destination}</td>
+                      <td className="p-4 border-r">{o.materialName}</td>
+                      <td className="p-4 text-right">{o.quantity} MT</td>
                     </tr>
                   ))}
                 </tbody>
@@ -397,19 +396,19 @@ export default function VAPage() {
 
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Consignor Name:</label>
-                 <SAPAutocomplete value={formData.consignorName || ''} disabled={isReadOnly} options={customers || []} onSelect={c => setFormData({...formData, consignorName: c.customerName, consignorCode: c.customerCode, from: c.city || ''})} hasError={errors.includes('consignorCode')} />
+                 <SAPAutocomplete value={formData.consignorName || ''} disabled={isReadOnly} options={filteredCustomersForSelection} onSelect={c => setFormData({...formData, consignorName: c.customerName, consignorCode: c.customerCode, from: c.city || ''})} hasError={errors.includes('consignorCode')} />
                </div>
                <div className="flex items-center gap-8 italic"><label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase">Consignor Code:</label><input value={formData.consignorCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black text-[#0056d2]" /></div>
 
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Consignee Name:</label>
-                 <SAPAutocomplete value={formData.consigneeName || ''} disabled={isReadOnly} options={customers || []} onSelect={c => setFormData({...formData, consigneeName: c.customerName, consigneeCode: c.customerCode})} hasError={errors.includes('consigneeCode')} />
+                 <SAPAutocomplete value={formData.consigneeName || ''} disabled={isReadOnly} options={filteredCustomersForSelection} onSelect={c => setFormData({...formData, consigneeName: c.customerName, consigneeCode: c.customerCode})} hasError={errors.includes('consigneeCode')} />
                </div>
                <div className="flex items-center gap-8 italic"><label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase">Consignee Code:</label><input value={formData.consigneeCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black text-[#0056d2]" /></div>
 
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Ship to Party:</label>
-                 <SAPAutocomplete value={formData.shipToParty || ''} disabled={isReadOnly} options={customers || []} onSelect={c => setFormData({...formData, shipToParty: c.customerName, shipToPartyCode: c.customerCode, destination: c.city || ''})} hasError={errors.includes('shipToPartyCode')} />
+                 <SAPAutocomplete value={formData.shipToParty || ''} disabled={isReadOnly} options={filteredCustomersForSelection} onSelect={c => setFormData({...formData, shipToParty: c.customerName, shipToPartyCode: c.customerCode, destination: c.city || ''})} hasError={errors.includes('shipToPartyCode')} />
                </div>
                <div className="flex items-center gap-8 italic"><label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase">Ship to Code:</label><input value={formData.shipToPartyCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black text-[#0056d2]" /></div>
 
