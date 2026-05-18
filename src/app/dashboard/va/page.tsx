@@ -37,7 +37,8 @@ function SAPAutocomplete({ value, options, onSelect, disabled, hasError, placeho
     const term = inputValue.toUpperCase();
     return options.filter(opt => 
       (opt.customerName || '').toUpperCase().includes(term) || 
-      (opt.city || '').toUpperCase().includes(term)
+      (opt.city || '').toUpperCase().includes(term) ||
+      (opt.customerCode || '').toUpperCase().includes(term)
     ).slice(0, 10);
   }, [options, inputValue]);
 
@@ -109,7 +110,10 @@ function SAPAutocomplete({ value, options, onSelect, disabled, hasError, placeho
                 highlightedIndex === idx ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-blue-50"
               )}
             >
-              <span className="truncate">{opt.customerName}</span>
+              <div className="flex flex-col">
+                <span className="truncate">{opt.customerName}</span>
+                <span className="text-[8px] opacity-60">Code: {opt.customerCode}</span>
+              </div>
               <span className={cn("shrink-0 italic text-[9px]", highlightedIndex === idx ? "text-blue-100" : "text-slate-400")}>
                 {opt.city || 'NO CITY'}
               </span>
@@ -171,7 +175,6 @@ export default function VAPage() {
       return;
     }
 
-    // MANDATORY FIELD VALIDATION
     const mandatory = ['plantCode', 'orderNo', 'orderDate', 'consignorName', 'from', 'consigneeName', 'shipToParty', 'destination', 'quantity'];
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
@@ -180,10 +183,9 @@ export default function VAPage() {
       return;
     }
 
-    // DUPLICATE CHECK
     const isDuplicate = (orders || []).some(o => o.orderNo === formData.orderNo && o.id !== formData.id);
     if (isDuplicate) {
-      alert('Duplicate Sale Order not allowed');
+      alert(`Not Allow duplicate entry. Sale order ${formData.orderNo} is already exit.`);
       return;
     }
 
@@ -263,16 +265,13 @@ export default function VAPage() {
       const rows = lines.slice(1);
       const tempLog: { status: 'success' | 'failed', msg: string, id: string }[] = [];
       const fileOrderNos = new Set();
-      const fileCustomerIds = new Set();
 
       for (let i = 0; i < rows.length; i++) {
         const columns = rows[i].split(',').map(c => c.trim());
-        // Template: Plant, Sale Order, Customer ID, Order Date, Consignor, From, Consignee, Ship To Party, Destination, Weight
         const [plant, orderNo, custId, orderDate, cnr, from, cne, stp, dest, weight] = columns;
         const rowId = orderNo || `Row ${i + 2}`;
         let error = '';
 
-        // 1. Mandatory Field Validation
         if (!plant) error = 'Plant Missing';
         else if (!orderNo) error = 'Sale Order Missing';
         else if (!custId) error = 'Customer ID Missing';
@@ -284,31 +283,35 @@ export default function VAPage() {
         else if (!dest) error = 'Destination Missing';
         else if (!weight || isNaN(parseFloat(weight))) error = 'Invalid Weight';
 
-        // 2. Duplicate Validation (File & Database)
         if (!error) {
           if (fileOrderNos.has(orderNo)) error = 'Duplicate Sale Order in File';
-          else if (fileCustomerIds.has(custId)) error = 'Duplicate Customer ID in File';
-          else if (orders?.some(o => o.orderNo === orderNo)) error = 'Duplicate Sale Order';
-          // (Assuming Customer ID is the unique identifier for the transaction context requested)
+          else if (orders?.some(o => o.orderNo === orderNo)) error = 'Duplicate Sale Order in Database';
         }
 
         if (error) {
           tempLog.push({ status: 'failed', id: rowId, msg: `Failed – ${error}` });
         } else {
           fileOrderNos.add(orderNo);
-          fileCustomerIds.add(custId);
-          
           const docId = crypto.randomUUID();
+          
+          // Attempting to auto-resolve codes if they match names in database
+          const cnrFound = customers?.find(c => c.customerName === cnr);
+          const cneFound = customers?.find(c => c.customerName === cne);
+          const stpFound = customers?.find(c => c.customerName === stp);
+
           const payload = {
             id: docId,
             plantCode: plant,
             orderNo,
-            customerCode: custId, // Mapping Customer ID to customerCode
+            customerCode: custId,
             orderDate,
             consignorName: cnr,
+            consignorCode: cnrFound?.customerCode || '',
             from,
             consigneeName: cne,
+            consigneeCode: cneFound?.customerCode || '',
             shipToParty: stp,
+            shipToPartyCode: stpFound?.customerCode || '',
             destination: dest,
             quantity: parseFloat(weight),
             status: 'Open',
@@ -372,6 +375,12 @@ export default function VAPage() {
     });
   }, [customers, formData.plantCode]);
 
+  const handleDelete = (id: string) => {
+    if (confirm('SATELLITE WARNING: Permanently delete this sale order?')) {
+      deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', id));
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
@@ -423,12 +432,12 @@ export default function VAPage() {
                     <tr>
                       <th className="p-4 border-r">Plant</th>
                       <th className="p-4 border-r">Sale Order</th>
-                      <th className="p-4 border-r">Order Date</th>
+                      <th className="p-4 border-r">Consignor Code</th>
                       <th className="p-4 border-r">Consignor</th>
-                      <th className="p-4 border-r">From</th>
+                      <th className="p-4 border-r">Consignee Code</th>
                       <th className="p-4 border-r">Consignee</th>
+                      <th className="p-4 border-r">Ship to Code</th>
                       <th className="p-4 border-r">Ship to Party</th>
-                      <th className="p-4 border-r">Destination</th>
                       <th className="p-4 border-r text-right">Weight</th>
                       <th className="p-4">Action</th>
                     </tr>
@@ -438,12 +447,12 @@ export default function VAPage() {
                       <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer transition-colors">
                         <td className="p-4 border-r text-slate-500">{o.plantCode}</td>
                         <td className="p-4 border-r text-[#0056d2] font-black">{o.orderNo}</td>
-                        <td className="p-4 border-r">{formatDateDisplay(o.orderDate)}</td>
+                        <td className="p-4 border-r text-[9px] text-slate-400">{o.consignorCode || '-'}</td>
                         <td className="p-4 border-r">{o.consignorName}</td>
-                        <td className="p-4 border-r text-slate-400 italic">{o.from}</td>
+                        <td className="p-4 border-r text-[9px] text-slate-400">{o.consigneeCode || '-'}</td>
                         <td className="p-4 border-r">{o.consigneeName}</td>
+                        <td className="p-4 border-r text-[9px] text-slate-400">{o.shipToPartyCode || '-'}</td>
                         <td className="p-4 border-r">{o.shipToParty}</td>
-                        <td className="p-4 border-r text-slate-400 italic">{o.destination}</td>
                         <td className="p-4 border-r text-right font-black">{parseFloat(o.quantity).toFixed(3)}</td>
                         <td className="p-4">
                            {activeTCode === 'VA02' && <button onClick={(e) => { e.stopPropagation(); handleDelete(o.id); }} className="p-1 hover:bg-red-50 text-red-400 transition-colors"><Trash2 className="h-4 w-4" /></button>}
@@ -497,37 +506,55 @@ export default function VAPage() {
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Sale Order No:</label>
                  <input value={formData.orderNo || ''} onChange={e => setFormData({...formData, orderNo: e.target.value.toUpperCase()})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderNo') ? "border-red-500 bg-red-50" : "border-slate-400")} />
                </div>
-               <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Consignor Name:</label>
-                 <SAPAutocomplete value={formData.consignorName || ''} disabled={isReadOnly} options={filteredConsignors} onSelect={val => { const c = customers?.find(x => x.customerName === val); setFormData({...formData, consignorName: val, consignorCode: c?.customerCode || '', from: c?.city || ''}); }} hasError={errors.includes('consignorName')} />
-               </div>
+               
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Order Date:</label>
                  <input type="date" value={formData.orderDate || ''} onChange={e => setFormData({...formData, orderDate: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderDate') ? "border-red-500 bg-red-50" : "border-slate-400")} />
                </div>
                <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Weight (MT):</label>
+                 <input type="number" step="0.001" value={formData.quantity || ''} onChange={e => setFormData({...formData, quantity: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('quantity') ? "border-red-500 bg-red-50" : "border-slate-400")} />
+               </div>
+
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Consignor Name:</label>
+                 <SAPAutocomplete value={formData.consignorName || ''} disabled={isReadOnly} options={filteredConsignors} onSelect={val => { const c = customers?.find(x => x.customerName === val); setFormData({...formData, consignorName: val, consignorCode: c?.customerCode || '', from: c?.city || ''}); }} hasError={errors.includes('consignorName')} />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase italic">Consignor Code:</label>
+                 <input value={formData.consignorCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-100 px-2 text-[12px] font-black text-blue-800 outline-none" />
+               </div>
+
+               <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Consignee Name:</label>
                  <SAPAutocomplete value={formData.consigneeName || ''} disabled={isReadOnly} options={filteredParties} onSelect={val => { const c = customers?.find(x => x.customerName === val); setFormData({...formData, consigneeName: val, consigneeCode: c?.customerCode || ''}); }} hasError={errors.includes('consigneeName')} />
                </div>
-               <div className="flex items-center gap-8 italic">
-                 <label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase">From (Auto-Fill):</label>
-                 <input value={formData.from || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black" />
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase italic">Consignee Code:</label>
+                 <input value={formData.consigneeCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-100 px-2 text-[12px] font-black text-blue-800 outline-none" />
                </div>
+
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Ship to Party:</label>
                  <SAPAutocomplete value={formData.shipToParty || ''} disabled={isReadOnly} options={filteredParties} onSelect={val => { const c = customers?.find(x => x.customerName === val); setFormData({...formData, shipToParty: val, shipToPartyCode: c?.customerCode || '', destination: c?.city || ''}); }} hasError={errors.includes('shipToParty')} />
                </div>
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Weight (MT):</label>
-                 <input type="number" step="0.001" value={formData.quantity || ''} onChange={e => setFormData({...formData, quantity: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('quantity') ? "border-red-500 bg-red-50" : "border-slate-400")} />
+                 <label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase italic">Ship to Code:</label>
+                 <input value={formData.shipToPartyCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-100 px-2 text-[12px] font-black text-blue-800 outline-none" />
                </div>
-               <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Material Name:</label>
-                 <input value={formData.materialName || ''} onChange={e => setFormData({...formData, materialName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
+
+               <div className="flex items-center gap-8 italic">
+                 <label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase">From (Auto-Fill):</label>
+                 <input value={formData.from || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black" />
                </div>
                <div className="flex items-center gap-8 italic">
                  <label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase">Destination:</label>
                  <input value={formData.destination || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black" />
+               </div>
+
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Material Name:</label>
+                 <input value={formData.materialName || ''} onChange={e => setFormData({...formData, materialName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
                </div>
              </div>
           </div>
