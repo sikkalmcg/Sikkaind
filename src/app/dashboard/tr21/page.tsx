@@ -31,15 +31,12 @@ export default function TR21Page() {
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
   
-  // Filter States
   const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  // Live GPS State
   const [gpsLive, setGpsLive] = React.useState<any[]>([]);
   const [isGpsLoading, setIsGpsLoading] = React.useState(true);
 
-  // Dialog States
   const [showAssign, setShowAssign] = React.useState(false);
   const [showCNPortal, setShowCNPortal] = React.useState(false);
   const [showOutPortal, setShowOutPortal] = React.useState(false);
@@ -49,7 +46,6 @@ export default function TR21Page() {
   const [showVehiclePortal, setShowVehiclePortal] = React.useState(false);
   const [showPrintView, setShowPrintView] = React.useState(false);
 
-  // Form States
   const [assignData, setAssignData] = React.useState<any>({});
   const [cnData, setCnData] = React.useState<any>({});
   const [cnItems, setCnItems] = React.useState<any[]>([]);
@@ -60,7 +56,6 @@ export default function TR21Page() {
 
   React.useEffect(() => { setMounted(true); }, []);
 
-  // Fetch Live GPS data
   const fetchGps = React.useCallback(async () => {
     try {
       const res = await fetch('/api/gps');
@@ -340,7 +335,6 @@ export default function TR21Page() {
     const reader = new FileReader();
     reader.onload = async () => {
       let dataUrl = reader.result as string;
-      
       if (file.type.startsWith('image/')) {
         const img = document.createElement('img');
         img.src = dataUrl;
@@ -354,7 +348,6 @@ export default function TR21Page() {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         dataUrl = canvas.toDataURL('image/jpeg', 0.6); 
       }
-      
       setPodData({ ...podData, podFile: dataUrl });
     };
     reader.readAsDataURL(file);
@@ -393,7 +386,6 @@ export default function TR21Page() {
 
   return (
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden text-[#333]">
-      {/* Page Header */}
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
         <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD</h2>
         <div className="flex gap-4 items-center">
@@ -424,7 +416,6 @@ export default function TR21Page() {
       </div>
 
       <div className={cn("flex-1 flex flex-col p-8 transition-opacity duration-300", showPrintView ? "opacity-0 pointer-events-none" : "opacity-100")}>
-        {/* Dynamic Tab Navigation */}
         <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 mb-4 overflow-x-auto no-scrollbar">
           {TABS.map(t => (
             <button 
@@ -440,10 +431,8 @@ export default function TR21Page() {
           ))}
         </div>
 
-        {/* Grid Area */}
         <div className="flex-1 overflow-x-auto overflow-y-hidden flex flex-col bg-white border border-slate-300 shadow-inner green-scrollbar">
           <div className="min-w-[1550px] flex flex-col flex-1 overflow-y-auto green-scrollbar">
-            {/* Header */}
             <div className="flex bg-[#f8fafc] border-b border-slate-300 text-[9px] font-black uppercase text-slate-500 sticky top-0 z-20">
                {activeTab === 'Open Orders' ? (
                  <>
@@ -476,7 +465,6 @@ export default function TR21Page() {
                )}
             </div>
 
-            {/* List Rows */}
             {filteredData.map((item: any) => {
               const liveNode = gpsLive.find(n => n.vehicleNumber === item.vehicleNo);
               const consignorData = getPartyData(item.consignorCode);
@@ -495,7 +483,7 @@ export default function TR21Page() {
                         <div className="p-3 w-[4%] border-r text-center text-black font-black text-[12px]">{item.plantCode}</div>
                         <div className="p-3 w-[10%] border-r flex flex-col">
                            <span className="font-black text-blue-700 text-[11px]">{item.orderNo}</span>
-                           <span className="text-[9px] text-slate-400 lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
+                           <span className="text-[10px] text-slate-400 lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
                         </div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consignorName}>{item.consignorName}</div>
                         <div className="p-3 w-[12%] border-r truncate text-black text-[12px] font-black" title={item.consigneeName}>{item.consigneeName}</div>
@@ -513,11 +501,11 @@ export default function TR21Page() {
                         <div className="p-3 w-[3%] border-r text-center text-black font-black text-[12px]">{item.plantCode}</div>
                         <div className="p-3 w-[7%] border-r flex flex-col">
                            <span className="text-slate-700 font-bold text-[10px]">{item.orderNo}</span>
-                           <span className="text-[9px] text-slate-400 lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
+                           <span className="text-[10px] text-slate-400 font-black lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
                         </div>
                         <div className="p-3 w-[7%] border-r flex flex-col">
                            <span className="font-black text-blue-700 text-[11px]">{item.tripNo}</span>
-                           <span className="text-[9px] text-slate-400 lowercase">{item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
+                           <span className="text-[10px] text-slate-400 font-black lowercase">{item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
                         </div>
                         <div className="p-3 w-[12%] border-r flex flex-col gap-0.5">
                            <span className="truncate" title={item.consignorName}>{item.consignorName}</span>
@@ -527,9 +515,9 @@ export default function TR21Page() {
                         <div className="p-3 w-[8%] border-r italic text-slate-500 text-[8px] leading-tight" title={`${item.from} to ${item.destination}`}>{item.from} → {item.destination}</div>
                         
                         <div className="p-3 w-[10%] border-r flex flex-col gap-0.5 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedTrip(item); setVehicleEdit({vehicleNo: item.vehicleNo, mobile: item.driverMobile}); setShowVehiclePortal(true); }}>
-                           <span className="text-black text-[11px] font-black uppercase">{item.fleetType}</span>
-                           <span className="font-black text-black text-[11px]">{item.vehicleNo}</span>
-                           <span className="text-[11px] font-black text-black">{item.driverMobile || '-'}</span>
+                           <span className="text-black text-[12px] font-black uppercase">{item.fleetType}</span>
+                           <span className="font-black text-black text-[12px]">{item.vehicleNo}</span>
+                           <span className="text-[12px] font-black text-black">{item.driverMobile || '-'}</span>
                         </div>
 
                         <div className="p-3 w-[4%] border-r text-center font-black text-blue-600 text-[11px]">{item.assignWeight}</div>
@@ -544,34 +532,37 @@ export default function TR21Page() {
                         </div>
 
                         <div className="p-3 w-[8%] border-r">
-                           <button onClick={() => { 
-                             setSelectedTrip(item); 
-                             if(item.cnNumber) { 
-                               setCnData({cnNo: item.cnNumber, cnDate: item.cnDate, mode: item.mode, paymentTerms: item.paymentTerms, ratePoint: item.ratePoint});
-                               setCnItems(item.items || []);
-                               setShowCNPortal(true); 
-                             } else { 
-                               setCnData({mode: 'Road', paymentTerms: item.paymentTerms || 'TO PAY'}); 
-                               setCnItems([{invoiceNo: '', goodsDescription: item.materialName || '', weight: item.assignWeight, package: '', packageUom: 'Bag'}]); 
-                               fetchPreviousCN(item.plantCode, item.vehicleNo); 
-                               setShowCNPortal(true); 
-                             } 
-                           }} className="flex flex-col gap-0.5 hover:text-[#0056d2] transition-colors group w-full font-black text-left text-[11px] text-black">
+                           <div className="flex flex-col gap-0.5 w-full">
                               {item.cnNumber ? (
-                                <>
-                                  <div className="flex items-center gap-1 text-[#0056d2]">
-                                    <Edit className="h-3 w-3 shrink-0 text-slate-400 group-hover:text-[#0056d2]" />
-                                    <span>{item.cnNumber}</span>
+                                <div className="flex items-center gap-2">
+                                  <button onClick={() => {
+                                    setSelectedTrip(item);
+                                    setCnData({cnNo: item.cnNumber, cnDate: item.cnDate, mode: item.mode, paymentTerms: item.paymentTerms, ratePoint: item.ratePoint});
+                                    setCnItems(item.items || []);
+                                    setShowCNPortal(true);
+                                  }} className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors border border-slate-100">
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </button>
+                                  <div className="flex flex-col">
+                                    <button onClick={() => { setSelectedTrip(item); setShowPrintView(true); }} className="text-[#0056d2] font-black text-[12px] text-left hover:underline">
+                                      {item.cnNumber}
+                                    </button>
+                                    <span className="text-[11px] text-black font-black">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
                                   </div>
-                                  <span className="text-[11px] text-black font-black pl-4">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
-                                </>
+                                </div>
                               ) : (
-                                <div className="flex items-center gap-1 text-slate-300 italic">
+                                <button onClick={() => { 
+                                  setSelectedTrip(item); 
+                                  setCnData({mode: 'Road', paymentTerms: item.paymentTerms || 'TO PAY'}); 
+                                  setCnItems([{invoiceNo: '', goodsDescription: item.materialName || '', weight: item.assignWeight, package: '', packageUom: 'Bag'}]); 
+                                  fetchPreviousCN(item.plantCode, item.vehicleNo); 
+                                  setShowCNPortal(true); 
+                                }} className="flex items-center gap-1 text-slate-300 italic">
                                   <Plus className="h-3 w-3" />
                                   <span className="text-[9px]">Entry</span>
-                                </div>
+                                </button>
                               )}
-                           </button>
+                           </div>
                         </div>
                         <div className="p-3 flex-1 flex flex-col gap-2 items-center justify-center">
                            {activeTab === 'Loading' && (
@@ -612,14 +603,13 @@ export default function TR21Page() {
                   {activeTab !== 'Open Orders' && (
                     <div className="flex bg-slate-50/70 border-t border-slate-200 h-9 items-center px-4">
                        <div className="w-[30%] flex items-center gap-4 text-[8px] font-black text-slate-400">
-                          <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> Trip Date Time: {item.createdAt ? format(new Date(item.createdAt), 'dd-MM HH:mm') : '-'}</span>
-                          <span className="flex items-center gap-1"><RefreshCw className="h-2.5 w-2.5" /> RE-SYNCED: {item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
+                          <span className="flex items-center gap-1 uppercase">Trip Date Time: {item.createdAt ? format(new Date(item.createdAt), 'dd-MM HH:mm') : '-'}</span>
                        </div>
                        <div className="flex-1 flex items-center justify-end gap-6 overflow-hidden">
                           <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(mapsUrl, '_blank')} title={liveNode?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}>
                              <MapPin className="h-3 w-3 text-red-500 shrink-0" />
-                             <span className="text-[9px] font-black text-black uppercase truncate group-hover:underline italic tracking-tight max-w-[400px]">
-                                {liveNode?.lastLocation || 'SYNCHRONIZING LOCATION...'}
+                             <span className="text-[10px] font-black text-black uppercase truncate group-hover:underline italic tracking-tight max-w-[600px]">
+                                {liveNode?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}
                              </span>
                           </div>
                           <button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} className="flex items-center gap-1.5 h-6 bg-white border border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all text-[8px] font-black uppercase rounded-full px-3 shrink-0 shadow-sm">
@@ -636,7 +626,6 @@ export default function TR21Page() {
         </div>
       </div>
 
-      {/* CN Copy Overlay */}
       {showPrintView && selectedTrip && (
         <div className="fixed inset-0 z-[100] bg-slate-100 flex flex-col overflow-hidden animate-fade-in">
            <div className="bg-white border-b border-slate-300 px-8 py-2 flex items-center justify-between shadow-sm shrink-0 z-10">
@@ -659,7 +648,6 @@ export default function TR21Page() {
         </div>
       )}
 
-      {/* Dialogs */}
       <Dialog open={showAssign} onOpenChange={setShowAssign}>
         <DialogContent className="max-w-[800px] max-h-[95vh] rounded-none border-[3px] border-[#0056d2] font-mono p-0 flex flex-col text-slate-900">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0">
@@ -843,8 +831,8 @@ export default function TR21Page() {
                     <MapPin className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                     <div className="space-y-1">
                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Sync Location</span>
-                       <p className="text-sm font-black text-slate-800 leading-relaxed uppercase italic" title={gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'SYNCHRONIZING LOCATION...'}>
-                          {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'SYNCHRONIZING LOCATION...'}
+                       <p className="text-sm font-black text-slate-800 leading-relaxed uppercase italic" title={gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}>
+                          {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}
                        </p>
                     </div>
                  </div>
@@ -1036,7 +1024,6 @@ const CNPrintView = ({ trip }: { trip: any }) => {
         </tfoot>
       </table>
 
-      {/* POD / STAMP SPACE */}
       <div className="h-10 w-full mb-3" />
 
       <div className="flex justify-between items-end mt-4 font-normal uppercase">
