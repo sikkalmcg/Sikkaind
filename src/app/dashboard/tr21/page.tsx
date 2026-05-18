@@ -57,7 +57,6 @@ export default function TR21Page() {
   const [outData, setOutData] = React.useState({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   const [actionData, setActionData] = React.useState({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   const [vehicleEdit, setVehicleEdit] = React.useState({ vehicleNo: '', mobile: '' });
-  const [previousCN, setPreviousCN] = React.useState('');
 
   React.useEffect(() => { setMounted(true); }, []);
 
@@ -120,21 +119,24 @@ export default function TR21Page() {
   const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: vendors } = useCollection(vendorsQuery);
   const { data: customers } = useCollection(customersQuery);
   const { data: plants } = useCollection(plantsQuery);
-  const { data: companies } = useCollection(companiesQuery);
 
   const counts = React.useMemo(() => {
     if (!orders || !trips) return { open: 0, loading: 0, transit: 0, arrived: 0, pod: 0, reject: 0, closed: 0 };
     
+    // Seen sets for duplicate blocking/filtering
+    const seenOrders = new Set();
+    const seenTrips = new Set();
+
     return {
       open: orders.filter(o => o.status === 'Open').filter(o => {
-        // STRICT FILTER: Only show valid orders in the board
+        if (seenOrders.has(o.orderNo)) return false;
+        seenOrders.add(o.orderNo);
         if (!o.plantCode || !o.orderNo || !o.orderDate || !o.consignorName || !o.from || 
             !o.consigneeName || !o.shipToParty || !o.destination || !o.quantity) return false;
 
@@ -142,12 +144,30 @@ export default function TR21Page() {
                                 .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
         return (parseFloat(o.quantity) || 0) - dispatched > 0.001;
       }).length,
-      loading: trips.filter(t => t.status === 'LOADING').length,
-      transit: trips.filter(t => t.status === 'IN-TRANSIT').length,
-      arrived: trips.filter(t => t.status === 'ARRIVED').length,
-      reject: trips.filter(t => t.status === 'REJECTION').length,
-      pod: trips.filter(t => t.status === 'POD').length,
-      closed: trips.filter(t => t.status === 'CLOSED').length
+      loading: trips.filter(t => {
+        if (t.status !== 'LOADING' || seenTrips.has(t.tripNo)) return false;
+        seenTrips.add(t.tripNo); return true;
+      }).length,
+      transit: trips.filter(t => {
+        if (t.status !== 'IN-TRANSIT' || seenTrips.has(t.tripNo)) return false;
+        seenTrips.add(t.tripNo); return true;
+      }).length,
+      arrived: trips.filter(t => {
+        if (t.status !== 'ARRIVED' || seenTrips.has(t.tripNo)) return false;
+        seenTrips.add(t.tripNo); return true;
+      }).length,
+      reject: trips.filter(t => {
+        if (t.status !== 'REJECTION' || seenTrips.has(t.tripNo)) return false;
+        seenTrips.add(t.tripNo); return true;
+      }).length,
+      pod: trips.filter(t => {
+        if (t.status !== 'POD' || seenTrips.has(t.tripNo)) return false;
+        seenTrips.add(t.tripNo); return true;
+      }).length,
+      closed: trips.filter(t => {
+        if (t.status !== 'CLOSED' || seenTrips.has(t.tripNo)) return false;
+        seenTrips.add(t.tripNo); return true;
+      }).length
     };
   }, [orders, trips]);
 
@@ -179,10 +199,12 @@ export default function TR21Page() {
     };
 
     let baseData: any[] = [];
+    const seenNos = new Set();
 
     if (activeTab === 'Open Orders') {
       baseData = orders.filter(o => o.status === 'Open').filter(o => {
-        // STRICT FILTER: Only process valid orders
+        if (seenNos.has(o.orderNo)) return false;
+        seenNos.add(o.orderNo);
         return o.plantCode && o.orderNo && o.orderDate && o.consignorName && o.from && 
                o.consigneeName && o.shipToParty && o.destination && o.quantity;
       }).map(o => {
@@ -208,7 +230,11 @@ export default function TR21Page() {
         'Closed': 'CLOSED' 
       };
 
-      baseData = trips.filter(t => t.status === statusMap[activeTab]).map(t => {
+      baseData = trips.filter(t => t.status === statusMap[activeTab]).filter(t => {
+        if (seenNos.has(t.tripNo)) return false;
+        seenNos.add(t.tripNo);
+        return true;
+      }).map(t => {
         const invoices = (t.items || []).map((it: any) => it.invoiceNo).filter(Boolean).join(', ');
         const ewaybills = (t.items || []).map((it: any) => it.ewaybillNo).filter(Boolean).join(', ');
         return {
@@ -230,9 +256,6 @@ export default function TR21Page() {
         (d.orderNo || '').toUpperCase().includes(query) ||
         (d.tripNo || '').toUpperCase().includes(query) ||
         (d.vehicleNo || '').toUpperCase().includes(query) ||
-        (d.consignorName || '').toUpperCase().includes(query) ||
-        (d.consigneeName || '').toUpperCase().includes(query) ||
-        (d.shipToParty || '').toUpperCase().includes(query) ||
         (d.cnNumber || '').toUpperCase().includes(query)
       );
     }
@@ -240,17 +263,23 @@ export default function TR21Page() {
     return baseData;
   }, [orders, trips, customers, activeTab, mounted, plantFilter, searchQuery]);
 
+  const generateUniqueTripId = React.useCallback((): string => {
+    const id = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
+    if (trips?.some(t => t.tripNo === id)) return generateUniqueTripId();
+    return id;
+  }, [trips]);
+
   const handlePostAssignment = () => {
     if (!assignData.vehicleNo || !assignData.assignWeight) return alert('Mandatory fields missing');
     const assignWgt = parseFloat(assignData.assignWeight) || 0;
     const balanceWgt = parseFloat(selectedOrder.balance) || 0;
     
     if (assignWgt > balanceWgt) {
-      alert(`VALIDATION ERROR: Assigned weight (${assignWgt} MT) cannot exceed Sale Order Balance (${balanceWgt.toFixed(3)} MT).`);
+      alert(`VALIDATION ERROR: Assigned weight (${assignWgt} MT) cannot exceed Sale Order Balance.`);
       return;
     }
 
-    const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
+    const tripId = generateUniqueTripId();
     const now = new Date().toISOString();
     const newTrip = {
       id: crypto.randomUUID(),
@@ -283,16 +312,78 @@ export default function TR21Page() {
     setAssignData({});
   };
 
+  const handlePostCN = () => {
+    if (!cnData.cnNo) return alert('CN No mandatory');
+    
+    // DUPLICATE CN CHECK
+    const isDuplicate = (trips || []).some(t => t.cnNumber === cnData.cnNo && t.id !== selectedTrip.id);
+    if (isDuplicate) {
+      alert('Duplicate CN Number not allowed');
+      return;
+    }
+
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), {
+      cnNumber: cnData.cnNo,
+      cnDate: cnData.cnDate || new Date().toISOString(),
+      mode: cnData.mode,
+      paymentTerms: cnData.paymentTerms,
+      ratePoint: cnData.ratePoint,
+      items: cnItems,
+      updatedAt: new Date().toISOString()
+    });
+    setShowCNPortal(false);
+  };
+
+  const handlePostOut = () => {
+    const ts = `${outData.date}T${outData.time}:00`;
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), {
+      status: 'IN-TRANSIT',
+      dispatchDate: ts,
+      updatedAt: new Date().toISOString()
+    });
+    setShowOutPortal(false);
+  };
+
+  const handlePostArrive = () => {
+    const ts = `${actionData.date}T${actionData.time}:00`;
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), {
+      status: 'ARRIVED',
+      arrivalDate: ts,
+      updatedAt: new Date().toISOString()
+    });
+    setShowArrivePortal(false);
+  };
+
+  const handlePostUnload = () => {
+    const ts = `${actionData.date}T${actionData.time}:00`;
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), {
+      status: 'POD',
+      unloadDate: ts,
+      updatedAt: new Date().toISOString()
+    });
+    setShowUnloadPortal(false);
+  };
+
+  const handlePostReject = () => {
+    const ts = `${actionData.date}T${actionData.time}:00`;
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), {
+      status: 'REJECTION',
+      rejectDate: ts,
+      updatedAt: new Date().toISOString()
+    });
+    setShowRejectPortal(false);
+  };
+
   const ActionPortal = ({ open, onOpenChange, title, onPost, trip }: { open: boolean, onOpenChange: (v: boolean) => void, title: string, onPost: () => void, trip: any }) => (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden text-slate-900">
         <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
            <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2] mb-4">{title}</DialogTitle>
            <div className="grid grid-cols-2 gap-4 text-[10px] font-black uppercase bg-white border border-slate-200 p-4 shadow-inner">
-              <div className="space-y-1"><span className="text-slate-400 text-[8px]">SHIP TO PARTY</span><p className="truncate" title={trip?.shipToParty}>{trip?.shipToParty}</p></div>
+              <div className="space-y-1"><span className="text-slate-400 text-[8px]">SHIP TO PARTY</span><p className="truncate">{trip?.shipToParty}</p></div>
               <div className="space-y-1"><span className="text-slate-400 text-[8px]">VEHICLE NUMBER</span><p className="text-blue-700">{trip?.vehicleNo}</p></div>
               <div className="space-y-1"><span className="text-slate-400 text-[8px]">ROUTE</span><p className="truncate italic text-emerald-700">{trip?.from} → {trip?.destination}</p></div>
-              <div className="space-y-1"><span className="text-slate-400 text-[8px]">CN NO / DATE</span><p>{trip?.cnNumber || '-'} / {trip?.cnDate ? format(new Date(trip.cnDate), 'dd-MMM-yy') : '-'}</p></div>
+              <div className="space-y-1"><span className="text-slate-400 text-[8px]">CN NO / DATE</span><p>{trip?.cnNumber || '-'} / {trip?.cnDate ? formatDateDisplay(trip.cnDate) : '-'}</p></div>
            </div>
         </DialogHeader>
         <div className="p-8 space-y-6">
@@ -426,15 +517,14 @@ export default function TR21Page() {
                     {activeTab === 'Open Orders' ? (
                       <>
                         <div className="p-3 w-[4%] border-r text-center text-black font-black text-[12px]">{item.plantCode}</div>
-                        {/* Order: {no} Order Date: {date} Format Example implemented below */}
                         <div className="p-3 w-[15%] border-r flex flex-col gap-0.5">
                            <span className="font-black text-blue-700 text-[11px]">Order: {item.orderNo}</span>
                            <span className="text-[10px] text-slate-500 font-black italic">Order Date: {formatDateDisplay(item.orderDate)}</span>
                         </div>
-                        <div className="p-3 w-[12%] border-r truncate text-black font-black text-[11px]" title={item.consignorName}>{item.consignorName}</div>
-                        <div className="p-3 w-[12%] border-r truncate text-black text-[12px] font-black" title={item.consigneeName}>{item.consigneeName}</div>
-                        <div className="p-3 w-[12%] border-r truncate font-black text-black text-[11px]" title={item.shipToParty}>{item.shipToParty}</div>
-                        <div className="p-3 w-[10%] border-r italic text-slate-500 leading-tight" title={`${item.from} to ${item.destination}`}>{item.from} → {item.destination}</div>
+                        <div className="p-3 w-[12%] border-r truncate text-black font-black text-[11px]">{item.consignorName}</div>
+                        <div className="p-3 w-[12%] border-r truncate text-black text-[12px] font-black">{item.consigneeName}</div>
+                        <div className="p-3 w-[12%] border-r truncate font-black text-black text-[11px]">{item.shipToParty}</div>
+                        <div className="p-3 w-[10%] border-r italic text-slate-500 leading-tight">{item.from} → {item.destination}</div>
                         <div className="p-3 w-[8%] border-r text-right font-black text-black text-[11px]">{parseFloat(item.quantity).toFixed(3)}</div>
                         <div className="p-3 w-[8%] border-r text-right font-black text-slate-400">{item.dispatched?.toFixed(3)}</div>
                         <div className="p-3 w-[8%] border-r text-right font-black text-emerald-600">{item.balance?.toFixed(3)}</div>
@@ -454,11 +544,11 @@ export default function TR21Page() {
                            <span className="text-[10px] text-slate-400 font-bold lowercase">{formatRegistryDateTime(item.updatedAt)}</span>
                         </div>
                         <div className="p-3 w-[11%] border-r flex flex-col gap-0.5">
-                           <span className="truncate text-black font-black text-[11px]" title={item.consignorName}>{item.consignorName}</span>
-                           <span className="truncate text-black text-[12px] font-black italic border-t border-slate-50 pt-0.5" title={`TO: ${item.consigneeName}`}>TO: {item.consigneeName}</span>
+                           <span className="truncate text-black font-black text-[11px]">{item.consignorName}</span>
+                           <span className="truncate text-black text-[12px] font-black italic border-t border-slate-50 pt-0.5">TO: {item.consigneeName}</span>
                         </div>
-                        <div className="p-3 w-[9%] border-r font-black text-black text-[11px] truncate" title={item.shipToParty}>{item.shipToParty}</div>
-                        <div className="p-3 w-[7%] border-r italic text-slate-500 text-[8px] leading-tight" title={`${item.from} to ${item.destination}`}>{item.from} → {item.destination}</div>
+                        <div className="p-3 w-[9%] border-r font-black text-black text-[11px] truncate">{item.shipToParty}</div>
+                        <div className="p-3 w-[7%] border-r italic text-slate-500 text-[8px] leading-tight">{item.from} → {item.destination}</div>
                         
                         <div className="p-3 w-[9%] border-r flex flex-col gap-0.5 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedTrip(item); setVehicleEdit({vehicleNo: item.vehicleNo, mobile: item.driverMobile}); setShowVehiclePortal(true); }}>
                            <span className="text-black text-[12px] font-black uppercase">{item.fleetType}</span>
@@ -483,22 +573,21 @@ export default function TR21Page() {
                           </>
                         )}
                         {(activeTab !== 'Reject' && activeTab !== 'POD Verify' && activeTab !== 'Closed') && (
-                           <div className="p-3 w-[8%] border-r truncate text-black text-[11px] font-black leading-tight" title={`INV: ${item.invoiceDisplay} | EWB: ${item.ewaybillDisplay}`}>
+                           <div className="p-3 w-[8%] border-r truncate text-black text-[11px] font-black leading-tight">
                               INV: {item.invoiceDisplay}<br/>EWB: {item.ewaybillDisplay}
                            </div>
                         )}
 
-                        <div className="p-3 w-[11%] border-r flex flex-col gap-0.5 overflow-hidden">
-                           <span className="text-[11px] font-black text-black truncate" title={getCarrierForPlant(item.plantCode)}>{getCarrierForPlant(item.plantCode)}</span>
-                           {item.transporterName && <span className="text-[10px] font-black text-slate-400 italic truncate" title={item.transporterName}>{item.transporterName}</span>}
-                           <span className="text-[8px] font-black text-slate-300 uppercase truncate" title={item.arrangeBy}>{item.arrangeBy || '-'}</span>
+                        <div className="p-3 w-[11%] border-r flex flex-col gap-0.5 overflow-hidden text-black font-black">
+                           <span className="text-[11px] truncate">{item.transporterName || 'OWN FLEET'}</span>
+                           <span className="text-[9px] text-slate-400 italic truncate">{item.carrierPan || '-'}</span>
                         </div>
 
                         <div className="p-3 w-[8%] border-r">
                            <div className="flex items-center gap-2 w-full">
                               <button onClick={() => {
                                 setSelectedTrip(item);
-                                setCnData({cnNo: item.cnNumber, cnDate: item.cnDate, mode: item.mode, paymentTerms: item.paymentTerms, ratePoint: item.ratePoint});
+                                setCnData({cnNo: item.cnNumber, cnDate: item.cnDate, mode: item.mode, paymentTerms: item.paymentTerms});
                                 setCnItems(item.items || []);
                                 setShowCNPortal(true);
                               }} className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors border border-slate-100">
@@ -543,18 +632,6 @@ export default function TR21Page() {
                            {activeTab === 'POD Verify' && (
                              <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className="h-7 text-[10px] font-black bg-purple-600 text-white rounded-none text-[10px] uppercase px-8">UPLOAD POD</Button>
                            )}
-                           {activeTab === 'Reject' && (
-                             <div className="flex gap-2">
-                               <Button onClick={() => handleResent(item.id)} className="h-7 text-[10px] font-black bg-[#1e3a8a] text-white rounded-none px-6">RESENT</Button>
-                               <Button onClick={() => handleSRN(item.id)} variant="outline" className="h-7 text-[10px] font-black border-slate-300 rounded-none px-6">SRN</Button>
-                             </div>
-                           )}
-                           {activeTab === 'Closed' && (
-                             <div className="flex gap-2">
-                               <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} variant="outline" className="h-7 text-[9px] font-black border-slate-300 rounded-none px-4 text-slate-600 hover:text-blue-600">UPDATE POD</Button>
-                               {item.podUrl && <Button onClick={() => window.open(item.podUrl, '_blank')} variant="ghost" className="h-7 text-blue-600 p-1"><Download className="h-4 w-4" /></Button>}
-                             </div>
-                           )}
                         </div>
                       </>
                     )}
@@ -566,10 +643,10 @@ export default function TR21Page() {
                           <span className="flex items-center gap-1 uppercase">Trip Execution Synchronization: ACTIVE</span>
                        </div>
                        <div className="flex-1 flex items-center justify-end gap-6 overflow-hidden">
-                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode?.latitude},${liveNode?.longitude}`, '_blank')} title={locationMap[item.vehicleNo?.trim()] || 'Location unavailable'}>
+                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode?.latitude},${liveNode?.longitude}`, '_blank')}>
                              <MapPin className="h-3 w-3 text-red-500 shrink-0" />
                              <span className="text-[11px] font-black text-black uppercase truncate group-hover:underline italic tracking-tight max-w-[600px]">
-                                {locationMap[item.vehicleNo?.trim()] || (liveNode ? '' : 'Location unavailable')}
+                                {locationMap[item.vehicleNo?.trim()] || 'Location unavailable'}
                              </span>
                           </div>
                           <button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} className="flex items-center gap-1.5 h-6 bg-white border border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all text-[8px] font-black uppercase rounded-full px-3 shrink-0 shadow-sm">
@@ -655,7 +732,47 @@ export default function TR21Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Portals omitted for brevity - no changes requested in portals besides layout headers above */}
+
+      <Dialog open={showCNPortal} onOpenChange={setShowCNPortal}>
+        <DialogContent className="max-w-[950px] max-h-[90vh] rounded-none border-[3px] border-[#0056d2] font-mono p-0 flex flex-col">
+           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0">
+              <DialogTitle className="text-sm font-black uppercase text-[#0056d2] italic">CN Assignment Protocol</DialogTitle>
+           </DialogHeader>
+           <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+              <div className="grid grid-cols-3 gap-6 bg-slate-50 p-6 border border-slate-200 shadow-inner">
+                 <div className="space-y-1.5"><label className="text-[10px] font-black text-[#0056d2] uppercase underline">Consignment No *</label><input value={cnData.cnNo || ''} onChange={e => setCnData({...cnData, cnNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-[#0056d2] px-3 text-xs font-black outline-none focus:bg-blue-50" placeholder="ENTER CN NO..." /></div>
+                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">CN Date</label><input type="date" value={cnData.cnDate ? cnData.cnDate.split('T')[0] : ''} onChange={e => setCnData({...cnData, cnDate: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none" /></div>
+                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Mode</label><select value={cnData.mode || 'Road'} onChange={e => setCnData({...cnData, mode: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-bold uppercase"><option value="Road">Road</option><option value="Road from Rail">Road from Rail</option></select></div>
+              </div>
+              <div className="space-y-4">
+                 <div className="flex justify-between items-center"><h4 className="text-[10px] font-black uppercase italic text-slate-500 underline underline-offset-4">Registry Items</h4><Button onClick={() => setCnItems([...cnItems, {invoiceNo: '', ewaybillNo: '', goodsDescription: selectedTrip?.materialName || '', weight: '', package: '', packageUom: 'Bag'}])} variant="outline" className="h-6 text-[8px] font-black uppercase px-4 border-dashed border-blue-400 text-blue-600">+ Add Row</Button></div>
+                 <table className="w-full text-left text-[10px] border-collapse border border-slate-200">
+                    <thead className="bg-[#f8fafc] font-black uppercase text-slate-400"><tr><th className="p-2 border border-slate-200">Invoice No</th><th className="p-2 border border-slate-200">EWB No</th><th className="p-2 border border-slate-200">Goods Description</th><th className="p-2 border border-slate-200 w-20">Weight</th><th className="p-2 border border-slate-200 w-20">Pkg</th><th className="p-2 border border-slate-200 text-center">X</th></tr></thead>
+                    <tbody>{cnItems.map((item, i) => (
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="p-1 border border-slate-200"><input value={item.invoiceNo} onChange={e => { const ni = [...cnItems]; ni[i].invoiceNo = e.target.value.toUpperCase(); setCnItems(ni); }} className="w-full h-8 px-2 outline-none uppercase font-bold" /></td>
+                        <td className="p-1 border border-slate-200"><input value={item.ewaybillNo} onChange={e => { const ni = [...cnItems]; ni[i].ewaybillNo = e.target.value.toUpperCase(); setCnItems(ni); }} className="w-full h-8 px-2 outline-none uppercase font-bold" /></td>
+                        <td className="p-1 border border-slate-200"><input value={item.goodsDescription} onChange={e => { const ni = [...cnItems]; ni[i].goodsDescription = e.target.value.toUpperCase(); setCnItems(ni); }} className="w-full h-8 px-2 outline-none uppercase font-bold" /></td>
+                        <td className="p-1 border border-slate-200"><input value={item.weight} onChange={e => { const ni = [...cnItems]; ni[i].weight = e.target.value; setCnItems(ni); }} className="w-full h-8 px-2 outline-none text-right font-black" /></td>
+                        <td className="p-1 border border-slate-200"><input value={item.package} onChange={e => { const ni = [...cnItems]; ni[i].package = e.target.value; setCnItems(ni); }} className="w-full h-8 px-2 outline-none text-right" /></td>
+                        <td className="p-1 border border-slate-200 text-center"><button onClick={() => setCnItems(cnItems.filter((_, idx) => idx !== i))} className="text-red-300 hover:text-red-600"><Trash className="h-3 w-3" /></button></td>
+                      </tr>
+                    ))}</tbody>
+                 </table>
+              </div>
+           </div>
+           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2 shrink-0">
+              <Button onClick={() => setShowCNPortal(false)} variant="outline" className="h-10 rounded-none text-[10px] font-black uppercase px-8 border-slate-300">Cancel</Button>
+              <Button onClick={handlePostCN} className="h-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase px-16 shadow-lg">Commit CN</Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ActionPortal open={showOutPortal} onOpenChange={setShowOutPortal} title="Dispatch Node Synchronization (OUT)" trip={selectedTrip} onPost={handlePostOut} />
+      <ActionPortal open={showArrivePortal} onOpenChange={setShowArrivePortal} title="Arrival Node Synchronization" trip={selectedTrip} onPost={handlePostArrive} />
+      <ActionPortal open={showUnloadPortal} onOpenChange={setShowUnloadPortal} title="Unloading Registry Update" trip={selectedTrip} onPost={handlePostUnload} />
+      <ActionPortal open={showRejectPortal} onOpenChange={setShowRejectPortal} title="Rejection Registry Entry" trip={selectedTrip} onPost={handlePostReject} />
+
     </div>
   );
 }

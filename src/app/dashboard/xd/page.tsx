@@ -32,6 +32,13 @@ export default function XDPage() {
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;
 
+    // DUPLICATE CUSTOMER ID CONTROL
+    const isDuplicate = (customers || []).some(c => c.customerCode === formData.customerCode && c.id !== formData.id);
+    if (isDuplicate) {
+      alert('Duplicate Customer ID not allowed');
+      return;
+    }
+
     const mandatory = ['plantCodes', 'customerCode', 'customerName', 'address', 'city'];
     const missing = mandatory.filter(key => {
       const val = formData[key];
@@ -42,13 +49,6 @@ export default function XDPage() {
       setErrors(missing);
       alert('Error: Mandatory columns cannot be blank.');
       return;
-    }
-
-    if (activeTCode === 'XD01') {
-      const exists = customers?.find(c => c.customerCode === formData.customerCode);
-      if (exists) {
-        return alert(`Not Allow duplicate entry Customer ID ${formData.customerCode}/ Sale order N/A is already exit.`);
-      }
     }
 
     const docId = formData.id || crypto.randomUUID();
@@ -69,13 +69,21 @@ export default function XDPage() {
     return () => window.removeEventListener('sap-save-triggered', handleGlobalSave);
   }, [handleSave]);
 
-  const filteredCustomers = (customers || []).filter(c => {
-    if (!searchId) return true;
-    const term = searchId.toUpperCase();
-    return c.customerCode?.includes(term) || 
-           c.customerName?.toUpperCase().includes(term) ||
-           c.city?.toUpperCase().includes(term);
-  });
+  const filteredCustomers = React.useMemo(() => {
+    const seen = new Set();
+    return (customers || [])
+      .filter(c => {
+        // ACCESS DENIED: Block duplicates from view
+        if (seen.has(c.customerCode)) return false;
+        seen.add(c.customerCode);
+
+        if (!searchId) return true;
+        const term = searchId.toUpperCase();
+        return c.customerCode?.includes(term) || 
+               c.customerName?.toUpperCase().includes(term) ||
+               c.city?.toUpperCase().includes(term);
+      });
+  }, [customers, searchId]);
 
   const paginated = filteredCustomers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const totalPages = Math.ceil(filteredCustomers.length / PAGE_SIZE);

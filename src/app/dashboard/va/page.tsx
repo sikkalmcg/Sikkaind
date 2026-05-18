@@ -150,6 +150,13 @@ export default function VAPage() {
   const handleSave = React.useCallback(() => {
     if (activeTCode === 'VA03') return;
 
+    // DUPLICATE SALE ORDER CONTROL
+    const isDuplicate = (orders || []).some(o => o.orderNo === formData.orderNo && o.id !== formData.id);
+    if (isDuplicate) {
+      alert('Duplicate Sale Order not allowed');
+      return;
+    }
+
     if (activeTCode === 'VA04') {
       const orderToShortClose = (orders || []).find(o => o.orderNo === formData.orderNo);
       if (!orderToShortClose) return alert('Error: Sale Order not found');
@@ -182,10 +189,6 @@ export default function VAPage() {
       setErrors(missing);
       alert('STRICT SYSTEM ERROR: All mandatory fields (Plant, Order, Date, Consignor, From, Consignee, Ship To, Destination, Weight) must be completed before synchronization.');
       return;
-    }
-
-    if (activeTCode === 'VA01' && orders?.some(o => o.orderNo === formData.orderNo)) {
-      return alert(`Not Allow duplicate entry Customer ID ${formData.shipToPartyCode || 'N/A'}/ Sale order ${formData.orderNo} is already exit.`);
     }
 
     const docId = formData.id || crypto.randomUUID();
@@ -291,6 +294,7 @@ export default function VAPage() {
       
       const failed: { row: number; msg: string }[] = [];
       const validRows: any[] = [];
+      const incomingNos = new Set();
 
       rows.forEach((r, idx) => {
         const [orderNo, plant, orderDate, cnrCode, cnrName, cneCode, cneName, stpCode, stpName, material, weight] = r;
@@ -301,6 +305,13 @@ export default function VAPage() {
           return;
         }
 
+        // DUPLICATE SALE ORDER CHECK (INCOMING AND DB)
+        if (incomingNos.has(orderNo) || orders?.some(o => o.orderNo === orderNo)) {
+          failed.push({ row: rowNum, msg: 'Duplicate Sale Order not allowed' });
+          return;
+        }
+        incomingNos.add(orderNo);
+
         const plantExists = plants?.some(p => p.plantCode === plant);
         if (!plantExists) { failed.push({ row: rowNum, msg: `Invalid Plant: ${plant}` }); return; }
 
@@ -309,12 +320,6 @@ export default function VAPage() {
 
         if (!cnr) { failed.push({ row: rowNum, msg: `Consignor Mismatch: ${cnrCode}/${cnrName}` }); return; }
         if (!stp) { failed.push({ row: rowNum, msg: `Ship-To Mismatch: ${stpCode}/${stpName}` }); return; }
-
-        const isDuplicateInDB = orders?.some(o => o.orderNo === orderNo);
-        if (isDuplicateInDB) { 
-          failed.push({ row: rowNum, msg: `Not Allow duplicate entry Customer ID ${stpCode}/ Sale order ${orderNo} is already exit.` }); 
-          return; 
-        }
 
         validRows.push({
           orderNo, plantCode: plant, orderDate, consignorCode: cnrCode, consignorName: cnrName,
@@ -358,10 +363,14 @@ export default function VAPage() {
     }
   };
 
-  // REMOVE INVALID EXISTING ORDERS - Logic to only show strictly valid orders
   const validAndPaginated = React.useMemo(() => {
+    const seen = new Set();
     const filtered = (orders || [])
       .filter(o => {
+        // ACCESS DENIED: Filter out duplicates and invalid entries
+        if (seen.has(o.orderNo)) return false;
+        seen.add(o.orderNo);
+
         const hasMandatory = o.plantCode && o.orderNo && o.orderDate && o.consignorName && o.from && 
                            o.consigneeName && o.shipToParty && o.destination && o.quantity;
         const matchesSearch = !searchId || o.orderNo?.includes(searchId.toUpperCase());
@@ -378,11 +387,19 @@ export default function VAPage() {
   const formatDateDisplay = (dateStr: string) => {
     if (!dateStr) return '-';
     try {
-      // If it contains a T, it might be a timestamp, strip it
       const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
       return format(new Date(cleanDate), 'dd-MMM-yyyy');
     } catch(e) { return '-'; }
   };
+
+  const matchedOrder = React.useMemo(() => {
+    if (activeTCode !== 'VA04' || !formData.orderNo) return null;
+    const ord = orders?.find(o => o.orderNo === formData.orderNo);
+    if (!ord) return null;
+    const dispatched = trips?.filter(t => t.orderNo === ord.orderNo && t.status !== 'REJECTION')
+                             .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0) || 0;
+    return { ...ord, balance: parseFloat(ord.quantity) - dispatched };
+  }, [activeTCode, formData.orderNo, orders, trips]);
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
@@ -512,7 +529,6 @@ export default function VAPage() {
         ) : (
           <div className="animate-slide-up space-y-12 bg-white p-12 border border-slate-300 shadow-inner">
              <div className="grid grid-cols-2 gap-y-6 gap-x-24">
-               {/* ROW 1: Plant Code (L), Sale Order No (R) */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">PLANT CODE:</label>
                  <select 
@@ -549,7 +565,6 @@ export default function VAPage() {
                  />
                </div>
                
-               {/* ROW 2: Consignor Name (L), Order Date (R) - Reordered as per task */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR NAME:</label>
                  <SAPAutocomplete
@@ -575,7 +590,6 @@ export default function VAPage() {
                  />
                </div>
 
-               {/* ROW 3: Consignee Name (L), Consignor Code (R) */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNEE NAME:</label>
                  <SAPAutocomplete
@@ -595,7 +609,6 @@ export default function VAPage() {
                  <input value={formData.from || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black outline-none" />
                </div>
 
-               {/* ROW 4: Quantity (L), Ship To Party (R) */}
                <div className="flex items-center gap-8">
                   <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">WEIGHT (MT):</label>
                   <input type="number" step="0.001" value={formData.quantity || ''} onChange={e => setFormData({...formData, quantity: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('quantity') ? "border-red-500 bg-red-50" : "border-slate-400")} />
@@ -615,7 +628,6 @@ export default function VAPage() {
                  />
                </div>
 
-               {/* ROW 5: Material Name (L), Destination (R) */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">MATERIAL NAME:</label>
                  <input value={formData.materialName || ''} onChange={e => setFormData({...formData, materialName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
@@ -623,12 +635,6 @@ export default function VAPage() {
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase italic">DESTINATION:</label>
                  <input value={formData.destination || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black outline-none" />
-               </div>
-
-               {/* Hidden field for system code linking */}
-               <div className="flex items-center gap-8 col-span-2 hidden">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase italic">CONSIGNOR CODE:</label>
-                 <input value={formData.consignorCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black outline-none" />
                </div>
              </div>
           </div>
