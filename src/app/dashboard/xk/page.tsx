@@ -25,7 +25,8 @@ export default function XKPage() {
   const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
   const { data: vendors } = useCollection(vendorsQuery);
 
-  const handleSave = () => {
+  const handleSave = React.useCallback(() => {
+    if (isReadOnly) return;
     if (!formData.id) {
        const char = formData.vendorName?.[0]?.toUpperCase() || 'V';
        formData.vendorCode = `${char}${Math.floor(10000 + Math.random() * 90000)}`;
@@ -34,7 +35,13 @@ export default function XKPage() {
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'vendors', docId), { ...formData, id: docId, updatedAt: new Date().toISOString() }, { merge: true });
     setFormData({});
     alert('Synchronized');
-  };
+  }, [db, formData, isReadOnly]);
+
+  React.useEffect(() => {
+    const handleGlobalSave = () => handleSave();
+    window.addEventListener('sap-save-triggered', handleGlobalSave);
+    return () => window.removeEventListener('sap-save-triggered', handleGlobalSave);
+  }, [handleSave]);
 
   const filteredVendors = (vendors || []).filter(v => {
     if (!searchId) return true;
@@ -49,10 +56,6 @@ export default function XKPage() {
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
         <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">XK01/02/03 - Vendor Master</h2>
-        <div className="flex items-center gap-3">
-          <Button onClick={handleSave} disabled={isReadOnly} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"><Save className="h-3.5 w-3.5 mr-2" /> Save (F8)</Button>
-          <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
-        </div>
       </div>
 
       <div className="px-2">
@@ -74,7 +77,7 @@ export default function XKPage() {
                         <td className="p-4 border-r">{v.vendorName}</td>
                         <td className="p-4 border-r">{v.vendorFirmName || '-'}</td>
                         <td className="p-4 border-r text-slate-400 italic">{v.route || '-'}</td>
-                        <td className="p-4 text-slate-300">{format(new Date(v.updatedAt || new Date()), 'dd/MM HH:mm')}</td>
+                        <td className="p-4 text-slate-300">{v.updatedAt ? format(new Date(v.updatedAt), 'dd/MM HH:mm') : '-'}</td>
                       </tr>
                     ))}
                   </tbody>

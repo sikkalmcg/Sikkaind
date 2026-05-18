@@ -29,7 +29,7 @@ export default function XDPage() {
   const { data: customers } = useCollection(customersQuery);
   const { data: plants } = useCollection(plantsQuery);
 
-  const handleSave = () => {
+  const handleSave = React.useCallback(() => {
     if (isReadOnly) return;
 
     const mandatory = ['plantCodes', 'customerCode', 'customerName', 'address', 'city'];
@@ -44,7 +44,6 @@ export default function XDPage() {
       return;
     }
 
-    // DUPLICATE VERIFICATION
     if (activeTCode === 'XD01') {
       const exists = customers?.find(c => c.customerCode === formData.customerCode);
       if (exists) {
@@ -62,13 +61,13 @@ export default function XDPage() {
     setFormData({});
     setErrors([]);
     alert('Synchronized');
-  };
+  }, [activeTCode, customers, db, formData, isReadOnly]);
 
   React.useEffect(() => {
     const handleGlobalSave = () => handleSave();
     window.addEventListener('sap-save-triggered', handleGlobalSave);
     return () => window.removeEventListener('sap-save-triggered', handleGlobalSave);
-  }, [formData, customers]);
+  }, [handleSave]);
 
   const filteredCustomers = (customers || []).filter(c => {
     if (!searchId) return true;
@@ -85,10 +84,6 @@ export default function XDPage() {
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
         <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - Customer Master</h2>
-        <div className="flex items-center gap-3">
-          <Button onClick={handleSave} disabled={isReadOnly} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"><Save className="h-3.5 w-3.5 mr-2" /> Save (F8)</Button>
-          <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
-        </div>
       </div>
 
       <div className="px-2">
@@ -118,7 +113,7 @@ export default function XDPage() {
                         <td className="p-4 border-r">{c.customerName}</td>
                         <td className="p-4 border-r">{c.city}</td>
                         <td className="p-4 border-r text-slate-400">{c.gstNo || c.gstin}</td>
-                        <td className="p-4 text-slate-300">{format(new Date(c.updatedAt || new Date()), 'dd/MM HH:mm')}</td>
+                        <td className="p-4 text-slate-300">{c.updatedAt ? format(new Date(c.updatedAt), 'dd/MM HH:mm') : '-'}</td>
                       </tr>
                     ))}
                   </tbody>

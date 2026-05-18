@@ -12,10 +12,6 @@ import { cn } from '@/lib/utils';
 const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
 
-/**
- * SAPAutocomplete Component
- * Handles manual text entry with a custom dropdown for party selection.
- */
 interface SAPAutocompleteProps {
   value: string;
   options: any[];
@@ -137,7 +133,6 @@ export default function VAPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [errors, setErrors] = React.useState<string[]>([]);
   
-  // Bulk Upload States
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadResults, setUploadResults] = React.useState<{ success: number; failed: { row: number; msg: string }[] } | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -151,6 +146,65 @@ export default function VAPage() {
   const { data: orders } = useCollection(ordersQuery);
   const { data: customers } = useCollection(customersQuery);
   const { data: trips } = useCollection(tripsQuery);
+
+  const handleSave = React.useCallback(() => {
+    if (activeTCode === 'VA03') return;
+
+    if (activeTCode === 'VA04') {
+      const orderToShortClose = (orders || []).find(o => o.orderNo === formData.orderNo);
+      if (!orderToShortClose) return alert('Error: Sale Order not found');
+      
+      const dispatched = (trips || [])
+        .filter(t => t.orderNo === orderToShortClose.orderNo && t.status !== 'REJECTION')
+        .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
+      const balance = (parseFloat(orderToShortClose.quantity) || 0) - dispatched;
+
+      if (balance <= 0.001) return alert('VALIDATION ERROR: Sale Order fully assigned. Short close protocol blocked.');
+
+      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', orderToShortClose.id), { 
+        status: 'Short closed',
+        shortCloseReason: formData.shortCloseReason || 'Manual Termination',
+        updatedAt: serverTimestamp() 
+      }, { merge: true });
+      alert('Order Status Updated: Short Closed');
+      setFormData({});
+      return;
+    }
+
+    const mandatory = [
+      'plantCode', 'orderNo', 'consignorName', 'consignorCode', 'consigneeName', 
+      'consigneeCode', 'shipToParty', 'shipToPartyCode', 'orderDate', 
+      'quantity', 'destination', 'from'
+    ];
+    const missing = mandatory.filter(key => !formData[key]);
+    if (missing.length > 0) {
+      setErrors(missing);
+      alert('Error: Mandatory columns cannot be blank.');
+      return;
+    }
+
+    if (activeTCode === 'VA01' && orders?.some(o => o.orderNo === formData.orderNo)) {
+      return alert(`Not Allow duplicate entry Customer ID ${formData.shipToPartyCode || 'N/A'}/ Sale order ${formData.orderNo} is already exit.`);
+    }
+
+    const docId = formData.id || crypto.randomUUID();
+    let status = formData.status || 'Open';
+    if (activeTCode === 'VA02' && status === 'Short closed') status = 'Open';
+
+    const savePayload = { 
+      ...formData, 
+      id: docId, 
+      status, 
+      updatedAt: serverTimestamp(),
+      createdAt: formData.createdAt || serverTimestamp(),
+      updatedBy: 'Sikkaind_System'
+    };
+
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), savePayload, { merge: true });
+    setFormData({});
+    setErrors([]);
+    alert('Synchronized');
+  }, [activeTCode, db, formData, orders, trips]);
 
   React.useEffect(() => {
     if (activeTCode === 'VA01' && !formData.id) {
@@ -171,6 +225,12 @@ export default function VAPage() {
       });
     }
   }, [activeTCode, formData.id]);
+
+  React.useEffect(() => {
+    const handleGlobalSave = () => handleSave();
+    window.addEventListener('sap-save-triggered', handleGlobalSave);
+    return () => window.removeEventListener('sap-save-triggered', handleGlobalSave);
+  }, [handleSave]);
 
   const matchedOrder = React.useMemo(() => {
     if (activeTCode !== 'VA04' || !formData.orderNo) return null;
@@ -208,7 +268,7 @@ export default function VAPage() {
       if (type === 'consignor') { clearUpdates.consignorCode = ''; clearUpdates.from = ''; }
       if (type === 'consignee') { clearUpdates.consigneeCode = ''; }
       if (type === 'shipTo') { clearUpdates.shipToPartyCode = ''; clearUpdates.destination = ''; }
-      setFormData(prev => ({ ...prev, ...clearUpdates }));
+      setFormData((prev: any) => ({ ...prev, ...clearUpdates }));
       return;
     }
 
@@ -217,60 +277,7 @@ export default function VAPage() {
     if (type === 'consignee') { updates.consigneeCode = party.customerCode; }
     if (type === 'shipTo') { updates.shipToPartyCode = party.customerCode; updates.destination = party.city || ''; }
     
-    setFormData(prev => ({ ...prev, ...updates }));
-  };
-
-  const handleSave = () => {
-    if (activeTCode === 'VA03') return;
-
-    if (activeTCode === 'VA04') {
-      if (!matchedOrder) return alert('Error: Sale Order not found');
-      if (matchedOrder.balance <= 0.001) return alert('VALIDATION ERROR: Sale Order fully assigned. Short close protocol blocked.');
-
-      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', matchedOrder.id), { 
-        status: 'Short closed',
-        shortCloseReason: formData.shortCloseReason || 'Manual Termination',
-        updatedAt: serverTimestamp() 
-      }, { merge: true });
-      alert('Order Status Updated: Short Closed');
-      setFormData({});
-      return;
-    }
-
-    const mandatory = [
-      'plantCode', 'orderNo', 'consignorName', 'consignorCode', 'consigneeName', 
-      'consigneeCode', 'shipToParty', 'shipToPartyCode', 'orderDate', 
-      'quantity', 'destination', 'from'
-    ];
-    const missing = mandatory.filter(key => !formData[key]);
-    if (missing.length > 0) {
-      setErrors(missing);
-      alert('Error: Mandatory columns cannot be blank.');
-      return;
-    }
-
-    // DUPLICATE VERIFICATION
-    if (activeTCode === 'VA01' && orders?.some(o => o.orderNo === formData.orderNo)) {
-      return alert(`Not Allow duplicate entry Customer ID ${formData.shipToPartyCode || 'N/A'}/ Sale order ${formData.orderNo} is already exit.`);
-    }
-
-    const docId = formData.id || crypto.randomUUID();
-    let status = formData.status || 'Open';
-    if (activeTCode === 'VA02' && status === 'Short closed') status = 'Open';
-
-    const savePayload = { 
-      ...formData, 
-      id: docId, 
-      status, 
-      updatedAt: serverTimestamp(),
-      createdAt: formData.createdAt || serverTimestamp(),
-      updatedBy: 'Sikkaind_System'
-    };
-
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), savePayload, { merge: true });
-    setFormData({});
-    setErrors([]);
-    alert('Synchronized');
+    setFormData((prev: any) => ({ ...prev, ...updates }));
   };
 
   const handleDownloadTemplate = () => {
@@ -319,7 +326,6 @@ export default function VAPage() {
         if (!cne) { failed.push({ row: rowNum, msg: `Consignee Mismatch: ${cneCode}/${cneName}` }); return; }
         if (!stp) { failed.push({ row: rowNum, msg: `Ship-To Mismatch: ${stpCode}/${stpName}` }); return; }
 
-        // DUPLICATE VERIFICATION IN BULK
         const isDuplicateInDB = orders?.some(o => o.orderNo === orderNo);
         if (isDuplicateInDB) { 
           failed.push({ row: rowNum, msg: `Not Allow duplicate entry Customer ID ${stpCode}/ Sale order ${orderNo} is already exit.` }); 
@@ -402,18 +408,9 @@ export default function VAPage() {
                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-[#0056d2] text-[#0056d2] hover:bg-blue-50">
                   <Upload className="h-3.5 w-3.5 mr-2" /> Bulk Upload
                </Button>
-               <div className="w-[1px] h-6 bg-slate-200 mx-1" />
             </>
           )}
-          <Button 
-            onClick={handleSave} 
-            disabled={isUploading || (isReadOnly && activeTCode !== 'VA04') || (activeTCode === 'VA04' && (!matchedOrder || matchedOrder.balance <= 0.001))} 
-            className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"
-          >
-            {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Save className="h-3.5 w-3.5 mr-2" />}
-            {activeTCode === 'VA04' ? 'Execute Short Close' : 'Save (F8)'}
-          </Button>
-          <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
+          {isUploading && <Loader2 className="h-4 w-4 animate-spin text-blue-600" />}
         </div>
       </div>
 
@@ -565,7 +562,7 @@ export default function VAPage() {
                    disabled={isReadOnly}
                    options={filteredConsignors || []}
                    onSelect={(name) => {
-                     setFormData({...formData, consignorName: name});
+                     setFormData((prev: any) => ({...prev, consignorName: name}));
                      handleLookupPartyId(name, 'consignor');
                    }}
                    hasError={errors.includes('consignorName')}
@@ -584,7 +581,7 @@ export default function VAPage() {
                    disabled={isReadOnly}
                    options={filteredCustomers || []}
                    onSelect={(name) => {
-                     setFormData({...formData, consigneeName: name});
+                     setFormData((prev: any) => ({...prev, consigneeName: name}));
                      handleLookupPartyId(name, 'consignee');
                    }}
                    hasError={errors.includes('consigneeName')}
@@ -598,7 +595,7 @@ export default function VAPage() {
                    disabled={isReadOnly}
                    options={filteredCustomers || []}
                    onSelect={(name) => {
-                     setFormData({...formData, shipToParty: name});
+                     setFormData((prev: any) => ({...prev, shipToParty: name}));
                      handleLookupPartyId(name, 'shipTo');
                    }}
                    hasError={errors.includes('shipToParty')}

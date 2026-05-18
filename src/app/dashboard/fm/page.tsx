@@ -29,10 +29,9 @@ export default function FMPage() {
   const { data: companies } = useCollection(companiesQuery);
   const { data: plants } = useCollection(plantsQuery);
 
-  const handleSave = () => {
+  const handleSave = React.useCallback(() => {
     if (isReadOnly) return;
     
-    // Mandatory Validations
     const mandatory = ['companyCode', 'companyName', 'address', 'city', 'gstNo', 'panNo', 'mobile', 'email'];
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
@@ -57,13 +56,13 @@ export default function FMPage() {
     setFormData({});
     setErrors([]);
     alert('Synchronized');
-  };
+  }, [activeTCode, companies, db, formData, isReadOnly]);
 
   React.useEffect(() => {
     const handleGlobalSave = () => handleSave();
     window.addEventListener('sap-save-triggered', handleGlobalSave);
     return () => window.removeEventListener('sap-save-triggered', handleGlobalSave);
-  }, [formData, companies]);
+  }, [handleSave]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,10 +82,6 @@ export default function FMPage() {
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
         <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">FM01/02/03 - Company Master</h2>
-        <div className="flex items-center gap-3">
-          <Button onClick={handleSave} disabled={isReadOnly} className="h-8 bg-[#0056d2] text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm transition-all active:scale-95"><Save className="h-3.5 w-3.5 mr-2" /> Save (F8)</Button>
-          <Button onClick={() => { if(formData.id) setFormData({}); else router.back(); }} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit (F3)</Button>
-        </div>
       </div>
 
       <div className="px-2">

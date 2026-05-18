@@ -73,7 +73,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
   const [registryId, setRegistryId] = React.useState<string | null>(null);
 
-  // Favorite States
   const [userFavorites, setUserFavorites] = React.useState<any[]>([]);
   const [showAddFav, setShowAddFav] = React.useState(false);
   const [newFavCode, setNewFavCode] = React.useState('');
@@ -82,13 +81,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
 
+  const triggerGlobalSave = React.useCallback(() => {
+    window.dispatchEvent(new CustomEvent('sap-save-triggered'));
+  }, []);
+
   React.useEffect(() => {
     setMounted(true);
     const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true';
     setIsBootstrapAdmin(isAdmin);
     setRegistryId(localStorage.getItem('sap_registry_id'));
 
-    // Initialize Favorites
     const saved = localStorage.getItem('sap_user_favorites');
     if (saved) {
       try {
@@ -104,7 +106,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     } else {
       setUserFavorites(INITIAL_FAVORITES.map(f => ({ ...f, icon: MASTER_TCODES.find(m => m.code === f.code)?.icon || Grid2X2 })));
     }
-  }, []);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        triggerGlobalSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [triggerGlobalSave]);
 
   const profileRef = useMemoFirebase(() => {
     if (!user || !registryId) return null;
@@ -210,13 +221,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setSelectedFavCode(null);
   };
 
-  const triggerGlobalSave = () => {
-    window.dispatchEvent(new CustomEvent('sap-save-triggered'));
-  };
-
   return (
     <div className="flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden flex">
-      {/* Top Menu Bar */}
       <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden">
         <div className="flex items-center gap-6">
           {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => (
@@ -227,7 +233,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white transition-all"><X className="h-3.5 w-3.5" /></button>
       </div>
 
-      {/* Navigation & T-Code Bar */}
       <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden">
         <div className="flex items-center px-2 py-1 gap-4 h-10">
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300 h-full">
@@ -253,7 +258,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </div>
           <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-full">
-            <button onClick={triggerGlobalSave} className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Save (F8)"><Save className="h-4 w-4" /></button>
+            <button onClick={triggerGlobalSave} className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Save (F8 / Ctrl+S)"><Save className="h-4 w-4" /></button>
             <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Back (F3)" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></button>
             <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Exit (Shift+F3)" onClick={() => router.push('/dashboard')}><ExitIcon className="h-4 w-4" /></button>
             <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Cancel (F12)" onClick={() => setTCode('')}><XCircle className="h-4 w-4" /></button>
@@ -269,7 +274,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Desktop Persistent Sidebar */}
         <aside className="w-80 bg-white border-r border-slate-300 lg:flex flex-col overflow-hidden shadow-sm shrink-0 flex hidden">
           <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50 flex items-center justify-between">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2">
@@ -325,13 +329,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </aside>
 
-        {/* Main Content Area */}
         <main className="flex-1 overflow-hidden flex flex-col">
           {children}
         </main>
       </div>
 
-      {/* Status Bar */}
       <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] shrink-0 z-50 print:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.2)]">
         <div className="flex items-center gap-8 overflow-hidden flex-1">
           <span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span>
@@ -341,7 +343,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="shrink-0 ml-4 hidden sm:block text-blue-400 font-bold italic tracking-wider">SIKKA INDUSTRIES & LOGISTICS</div>
       </div>
 
-      {/* Add Favorite Dialog */}
       <Dialog open={showAddFav} onOpenChange={setShowAddFav}>
         <DialogContent className="max-w-md rounded-none border-[3px] border-[#0056d2] font-mono">
           <DialogHeader>

@@ -37,7 +37,7 @@ export default function TR21Page() {
   const [locationMap, setLocationMap] = React.useState<Record<string, string>>({});
   const [isGpsLoading, setIsGpsLoading] = React.useState(true);
 
-  // Portal States
+  // Portals
   const [showAssign, setShowAssign] = React.useState(false);
   const [showCNPortal, setShowCNPortal] = React.useState(false);
   const [showOutPortal, setShowOutPortal] = React.useState(false);
@@ -46,7 +46,6 @@ export default function TR21Page() {
   const [showTrackPortal, setShowTrackPortal] = React.useState(false);
   const [showVehiclePortal, setShowVehiclePortal] = React.useState(false);
   const [showPrintView, setShowPrintView] = React.useState(false);
-
   const [showArrivePortal, setShowArrivePortal] = React.useState(false);
   const [showUnloadPortal, setShowUnloadPortal] = React.useState(false);
   const [showRejectPortal, setShowRejectPortal] = React.useState(false);
@@ -681,14 +680,14 @@ export default function TR21Page() {
                            )}
                            {activeTab === 'Reject' && (
                              <div className="flex gap-2">
-                                <Button onClick={() => handleResent(item.id)} className="h-7 text-[10px] font-black bg-[#1e3a8a] text-white rounded-none px-6">RESENT</Button>
-                                <Button onClick={() => handleSRN(item.id)} variant="outline" className="h-7 text-[10px] font-black border-slate-300 rounded-none px-6">SRN</Button>
+                               <Button onClick={() => handleResent(item.id)} className="h-7 text-[10px] font-black bg-[#1e3a8a] text-white rounded-none px-6">RESENT</Button>
+                               <Button onClick={() => handleSRN(item.id)} variant="outline" className="h-7 text-[10px] font-black border-slate-300 rounded-none px-6">SRN</Button>
                              </div>
                            )}
                            {activeTab === 'Closed' && (
                              <div className="flex gap-2">
-                                <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} variant="outline" className="h-7 text-[9px] font-black border-slate-300 rounded-none px-4 text-slate-600 hover:text-blue-600">UPDATE POD</Button>
-                                {item.podUrl && <Button onClick={() => window.open(item.podUrl, '_blank')} variant="ghost" className="h-7 text-blue-600 p-1"><Download className="h-4 w-4" /></Button>}
+                               <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} variant="outline" className="h-7 text-[9px] font-black border-slate-300 rounded-none px-4 text-slate-600 hover:text-blue-600">UPDATE POD</Button>
+                               {item.podUrl && <Button onClick={() => window.open(item.podUrl, '_blank')} variant="ghost" className="h-7 text-blue-600 p-1"><Download className="h-4 w-4" /></Button>}
                              </div>
                            )}
                         </div>
@@ -744,7 +743,6 @@ export default function TR21Page() {
         </div>
       )}
 
-      {/* Portals */}
       <ActionPortal open={showArrivePortal} onOpenChange={setShowArrivePortal} title="Arrival Entry" onPost={handlePostArrival} trip={selectedTrip} />
       <ActionPortal open={showUnloadPortal} onOpenChange={setShowUnloadPortal} title="Unload Verification" onPost={handlePostUnload} trip={selectedTrip} />
       <ActionPortal open={showRejectPortal} onOpenChange={setShowRejectPortal} title="Rejection Workflow" onPost={handlePostReject} trip={selectedTrip} />
@@ -798,7 +796,7 @@ export default function TR21Page() {
                                  id="fix-rate" 
                                  checked={assignData.isFixRate} 
                                  onCheckedChange={(checked) => setAssignData({ ...assignData, isFixRate: !!checked })} 
-                                 className="h-4 w-4 rounded-none border-slate-400" 
+                                 className="h-4 w-4 rounded-sm border-slate-400" 
                                />
                                <label htmlFor="fix-rate" className="text-[8px] font-black text-slate-600 uppercase cursor-pointer">Fix Rate</label>
                             </div>
