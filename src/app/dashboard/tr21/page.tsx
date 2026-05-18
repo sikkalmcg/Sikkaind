@@ -1,10 +1,12 @@
+
 'use client';
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Save, ChevronLeft, ChevronRight, Filter, Search, MapPin, Truck, Radar, 
-  CheckCircle, Loader2, X, Upload, Info, Map as MapIcon, RefreshCw
+  CheckCircle, Loader2, X, Upload, Info, Map as MapIcon, RefreshCw,
+  User, Phone, Calculator, CheckSquare, Square
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +38,13 @@ export default function TR21Page() {
   const [showOutPortal, setShowOutPortal] = React.useState(false);
   const [showArrivePortal, setShowArrivePortal] = React.useState(false);
   const [showMapPortal, setShowMapPortal] = React.useState(false);
-  const [assignData, setAssignData] = React.useState<any>({});
+  
+  const [assignData, setAssignData] = React.useState<any>({
+    fleetType: 'Own Vehicle',
+    assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+    fixRate: false
+  });
+  
   const [actionData, setActionData] = React.useState({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
 
   // Persistent Settings for Icons
@@ -104,10 +112,12 @@ export default function TR21Page() {
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: plants } = useCollection(plantsQuery);
+  const { data: vendors } = useCollection(vendorsQuery);
 
   const filteredData = React.useMemo(() => {
     if (!orders || !trips || !mounted) return [];
@@ -149,10 +159,12 @@ export default function TR21Page() {
 
   const handlePostAssignment = () => {
     if (!assignData.vehicleNo || !assignData.assignWeight) return alert('Mandatory fields missing');
-    if (parseFloat(assignData.assignWeight) > selectedOrder.balance) return alert('Weight exceeds balance');
+    if (parseFloat(assignData.assignWeight) > selectedOrder.balance + 0.001) return alert('Weight exceeds balance');
 
+    // System auto create a Trip ID – First alfabate “T” and after 9 digit a Unique Number.
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
     const now = new Date().toISOString();
+    
     const payload = {
       id: crypto.randomUUID(),
       tripNo: tripId,
@@ -165,19 +177,40 @@ export default function TR21Page() {
       destination: selectedOrder.destination,
       vehicleNo: assignData.vehicleNo.toUpperCase(),
       driverMobile: assignData.driverMobile || '',
-      assignWeight: assignData.assignWeight,
+      assignWeight: parseFloat(assignData.assignWeight),
       status: 'LOADING',
+      assignDate: assignData.assignDate,
+      fleetType: assignData.fleetType,
       createdAt: now,
       updatedAt: now,
       consignorName: selectedOrder.consignorName,
       consignorCode: selectedOrder.consignorCode,
       from: selectedOrder.from,
       materialName: selectedOrder.materialName,
-      paymentTerms: assignData.paymentTerms || 'TO PAY'
+      paymentTerms: assignData.paymentTerms || 'TO PAY',
+      vendorName: assignData.vendorName || '',
+      vendorMobile: assignData.vendorMobile || '',
+      arrangeBy: assignData.arrangeBy || '',
+      rate: parseFloat(assignData.rate) || 0,
+      freightAmount: parseFloat(assignData.freightAmount) || 0,
+      fixRate: assignData.fixRate || false
     };
+
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', payload.id), payload, { merge: true });
     setShowAssign(false);
-    setAssignData({});
+    setAssignData({
+      fleetType: 'Own Vehicle',
+      assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      fixRate: false
+    });
+    alert(`Protocol Post: Trip ID ${tripId} registered.`);
+  };
+
+  const handleRateCalculation = (rate: string, qty: string) => {
+    if (assignData.fixRate) return;
+    const r = parseFloat(rate) || 0;
+    const q = parseFloat(qty) || 0;
+    setAssignData(prev => ({ ...prev, rate, freightAmount: (r * q).toFixed(2) }));
   };
 
   // Map Dialog Logic
@@ -209,7 +242,7 @@ export default function TR21Page() {
   const ActionPortal = ({ open, onOpenChange, title, onPost, trip }: { open: boolean, onOpenChange: (v: boolean) => void, title: string, onPost: () => void, trip: any }) => (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden text-slate-900 text-left">
-        <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
+        <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
            <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2] mb-4">{title}</DialogTitle>
            <div className="grid grid-cols-2 gap-4 text-[10px] font-black uppercase bg-white border border-slate-200 p-4 shadow-inner">
               <div className="space-y-1"><span className="text-slate-400 text-[8px]">SHIP TO PARTY</span><p className="truncate">{trip?.shipToParty}</p></div>
@@ -233,8 +266,6 @@ export default function TR21Page() {
   );
 
   if (!mounted) return null;
-
-  const formatDate = (val: any) => val ? format(new Date(val), 'dd-MMM HH:mm') : '-';
 
   return (
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden text-black">
@@ -316,7 +347,7 @@ export default function TR21Page() {
                         <div className="p-3 w-[5%] border-r text-right">{item.quantity}</div>
                         <div className="p-3 w-[5%] border-r text-right text-emerald-600 font-black">{item.balance?.toFixed(3)}</div>
                         <div className="p-3 w-[100px] flex justify-center">
-                           <Button onClick={() => { setSelectedOrder(item); setAssignData({assignWeight: item.balance.toFixed(3), paymentTerms: 'TO PAY'}); setShowAssign(true); }} className="h-7 text-[9px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-6">Assign</Button>
+                           <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }); setShowAssign(true); }} className="h-7 text-[9px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-6">Assign</Button>
                         </div>
                       </>
                     ) : (
@@ -370,21 +401,147 @@ export default function TR21Page() {
       </div>
 
       <Dialog open={showAssign} onOpenChange={setShowAssign}>
-        <DialogContent className="max-w-[800px] rounded-none border-[3px] border-[#0056d2] font-mono p-0 flex flex-col text-slate-900 text-left">
-          <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0">
-             <DialogTitle className="text-sm font-black uppercase text-[#1e3a8a] italic">Vehicle Assignment Protocol</DialogTitle>
+        <DialogContent className="max-w-[900px] rounded-none border-[3px] border-[#0056d2] font-mono p-0 flex flex-col text-slate-900 text-left overflow-hidden">
+          <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0 text-left">
+             <DialogTitle className="text-[14px] font-black uppercase text-[#1e3a8a] italic mb-4">Vehicle Assignment Protocol</DialogTitle>
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-white border border-slate-200 p-4 shadow-inner text-[10px] font-black uppercase">
+                <div className="flex flex-col gap-1.5"><span className="text-slate-400 text-[8px]">Consignee</span><p className="truncate">{selectedOrder?.consigneeName}</p></div>
+                <div className="flex flex-col gap-1.5"><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedOrder?.shipToParty}</p></div>
+                <div className="flex flex-col gap-1.5"><span className="text-slate-400 text-[8px]">Route</span><p className="truncate text-emerald-600 italic">{selectedOrder?.from} → {selectedOrder?.destination}</p></div>
+                <div className="flex flex-col gap-1.5"><span className="text-slate-400 text-[8px]">Order Qty</span><p className="text-blue-700">{selectedOrder?.quantity} MT</p></div>
+             </div>
           </DialogHeader>
-          <div className="p-8 space-y-8 text-left">
-             <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Vehicle Number *</label><input value={assignData.vehicleNo || ''} onChange={e => setAssignData({...assignData, vehicleNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-yellow-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Driver Mobile</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-[#0056d2] uppercase">Assign Qty (MT) *</label><input type="number" step="0.001" value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-9 w-full border border-[#0056d2] px-3 text-xs font-black outline-none text-blue-700" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Arrange By</label><input value={assignData.arrangeBy || ''} onChange={e => setAssignData({...assignData, arrangeBy: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-[11px]" /></div>
+          
+          <div className="p-8 space-y-8 flex-1 overflow-y-auto green-scrollbar text-left">
+             <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-slate-400 uppercase">Vehicle Number *</label>
+                   <input 
+                     autoFocus
+                     value={assignData.vehicleNo || ''} 
+                     onChange={e => setAssignData({...assignData, vehicleNo: e.target.value.toUpperCase()})} 
+                     className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-yellow-50" 
+                   />
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-slate-400 uppercase">Driver Mobile</label>
+                   <div className="relative">
+                      <Phone className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-300" />
+                      <input 
+                        value={assignData.driverMobile || ''} 
+                        onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} 
+                        className="h-9 w-full border border-slate-400 pl-8 pr-3 text-xs font-bold" 
+                      />
+                   </div>
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-slate-400 uppercase">Assign Date Time *</label>
+                   <input 
+                     type="datetime-local"
+                     value={assignData.assignDate} 
+                     onChange={e => setAssignData({...assignData, assignDate: e.target.value})} 
+                     className="h-9 w-full border border-slate-400 px-3 text-xs font-bold" 
+                   />
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-slate-400 uppercase">Fleet Type *</label>
+                   <select 
+                     value={assignData.fleetType} 
+                     onChange={e => setAssignData({...assignData, fleetType: e.target.value, vendorName: '', vendorMobile: '', rate: '', freightAmount: ''})}
+                     className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-black uppercase outline-none"
+                   >
+                     <option value="Own Vehicle">Own Vehicle</option>
+                     <option value="Market Vehicle">Market Vehicle</option>
+                   </select>
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-[#0056d2] uppercase">Assign Qty (MT) *</label>
+                   <input 
+                     type="number" 
+                     step="0.001" 
+                     value={assignData.assignWeight || ''} 
+                     onChange={e => {
+                        const val = e.target.value;
+                        setAssignData({...assignData, assignWeight: val});
+                        if (assignData.fleetType === 'Market Vehicle') handleRateCalculation(assignData.rate || '0', val);
+                     }} 
+                     className="h-9 w-full border border-[#0056d2] px-3 text-xs font-black outline-none text-blue-700 focus:bg-blue-50/30 shadow-inner" 
+                   />
+                   <span className="text-[8px] text-slate-400 italic">Available Balance: {selectedOrder?.balance?.toFixed(3)} MT</span>
+                </div>
+
+                {assignData.fleetType === 'Market Vehicle' && (
+                  <>
+                    <div className="space-y-1.5">
+                       <label className="text-[10px] font-black text-slate-400 uppercase">Vendor Name *</label>
+                       <select 
+                         value={assignData.vendorName || ''}
+                         onChange={e => {
+                           const v = vendors?.find(vend => vend.vendorName === e.target.value);
+                           setAssignData({...assignData, vendorName: e.target.value, vendorMobile: v?.mobile || ''});
+                         }}
+                         className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-black uppercase outline-none"
+                       >
+                         <option value="">Select Vendor...</option>
+                         {vendors?.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
+                       </select>
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className="text-[10px] font-black text-slate-400 uppercase">Vendor Mobile (Auto)</label>
+                       <input 
+                         value={assignData.vendorMobile || ''} 
+                         readOnly
+                         className="h-9 w-full border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-500" 
+                       />
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className="text-[10px] font-black text-slate-400 uppercase">Arrange By</label>
+                       <input 
+                         value={assignData.arrangeBy || ''} 
+                         onChange={e => setAssignData({...assignData, arrangeBy: e.target.value.toUpperCase()})} 
+                         className="h-9 w-full border border-slate-400 px-3 text-[11px]" 
+                       />
+                    </div>
+                    <div className="space-y-1.5 relative">
+                       <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black text-slate-400 uppercase">Rate</label>
+                          <button 
+                            onClick={() => setAssignData({...assignData, fixRate: !assignData.fixRate, rate: assignData.fixRate ? assignData.rate : ''})}
+                            className="flex items-center gap-1.5 text-[8px] font-black text-blue-700 uppercase"
+                          >
+                             {assignData.fixRate ? <CheckSquare className="h-3 w-3" /> : <Square className="h-3 w-3" />} Fix Rate
+                          </button>
+                       </div>
+                       <div className="relative">
+                          <input 
+                            type="number"
+                            value={assignData.rate || ''} 
+                            disabled={assignData.fixRate}
+                            onChange={e => handleRateCalculation(e.target.value, assignData.assignWeight)}
+                            className={cn("h-9 w-full border px-3 text-xs font-black outline-none", assignData.fixRate ? "bg-slate-100 border-slate-200 text-slate-400" : "border-slate-400 focus:bg-yellow-50")} 
+                          />
+                       </div>
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-2">
+                          <Calculator className="h-3 w-3" /> Freight Amount
+                       </label>
+                       <input 
+                         type="number"
+                         value={assignData.freightAmount || ''} 
+                         readOnly={!assignData.fixRate}
+                         onChange={e => assignData.fixRate && setAssignData({...assignData, freightAmount: e.target.value})}
+                         className={cn("h-9 w-full border px-3 text-xs font-black outline-none", !assignData.fixRate ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "border-[#0056d2] focus:bg-blue-50")} 
+                       />
+                    </div>
+                  </>
+                )}
              </div>
           </div>
-          <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 shrink-0">
+
+          <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 shrink-0 text-left">
              <Button onClick={() => setShowAssign(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-black border-slate-300 px-10">Exit</Button>
-             <Button onClick={handlePostAssignment} className="bg-[#0056d2] text-white rounded-none h-10 uppercase text-[10px] font-black px-20 shadow-lg">Post</Button>
+             <Button onClick={handlePostAssignment} className="bg-[#0056d2] text-white rounded-none h-10 uppercase text-[10px] font-black px-24 shadow-lg active:scale-95 transition-all">Post Protocol</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -407,7 +564,7 @@ export default function TR21Page() {
              <Button variant="ghost" onClick={() => setShowMapPortal(false)} className="h-8 w-8 p-0"><X className="h-4 w-4" /></Button>
           </DialogHeader>
           <div ref={mapRef} className="flex-1 bg-slate-100" />
-          <div className="p-3 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase">
+          <div className="p-3 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase text-left">
              <span className="flex items-center gap-2"><MapPin className="h-3 w-3 text-red-500" /> {locationMap[selectedTrip?.vehicleNo?.trim()] || 'LOCATING...'}</span>
              <span className="text-blue-700 italic">Sikka Satellite Gateway Active</span>
           </div>
@@ -416,3 +573,4 @@ export default function TR21Page() {
     </div>
   );
 }
+
