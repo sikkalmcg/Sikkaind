@@ -78,7 +78,8 @@ export default function WGPS24Page() {
 
   React.useEffect(() => {
     fetchGps();
-    const interval = setInterval(fetchGps, 30000);
+    // 15 Minute Location Update Interval
+    const interval = setInterval(fetchGps, 900000);
     return () => clearInterval(interval);
   }, [fetchGps]);
 
@@ -206,7 +207,7 @@ export default function WGPS24Page() {
                       </div>
                     </div>
                     <div className="text-[9px] font-bold text-slate-400 uppercase truncate mb-1">
-                      {v.lastLocation || 'SYNCING...'}
+                      {v.lastLocation || 'LOCATING SATELLITE NODE...'}
                     </div>
                     <div className="text-[8px] font-black text-slate-300 flex justify-between">
                       <span>SPEED: {v.speed || 0} KM/H</span>

@@ -80,7 +80,8 @@ export default function TR21Page() {
 
   React.useEffect(() => {
     fetchGps();
-    const interval = setInterval(fetchGps, 60000);
+    // 15 Minute Location Update Interval (900,000 ms)
+    const interval = setInterval(fetchGps, 900000);
     return () => clearInterval(interval);
   }, [fetchGps]);
 
@@ -502,7 +503,7 @@ export default function TR21Page() {
             </div>
 
             {filteredData.map((item: any) => {
-              const liveNode = gpsLive.find(n => n.vehicleNumber === item.vehicleNo);
+              const liveNode = gpsLive.find(n => n.vehicleNumber?.trim() === item.vehicleNo?.trim());
               return (
                 <div key={item.id} className="flex flex-col border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
                   <div className="flex items-center text-[10px] font-bold uppercase min-h-[85px]">
@@ -529,11 +530,11 @@ export default function TR21Page() {
                         <div className="p-3 w-[3%] border-r text-center text-black font-black text-[12px]">{item.plantCode}</div>
                         <div className="p-3 w-[7%] border-r flex flex-col">
                            <span className="text-black font-black text-[11px]">{item.orderNo}</span>
-                           <span className="text-[10px] text-slate-400 font-bold lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
+                           <span className="text-[11px] text-black font-black lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
                         </div>
                         <div className="p-3 w-[7%] border-r flex flex-col">
                            <span className="font-black text-blue-700 text-[11px]">{item.tripNo}</span>
-                           <span className="text-[10px] text-slate-400 font-bold lowercase">{item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
+                           <span className="text-[11px] text-black font-black lowercase">{item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
                         </div>
                         <div className="p-3 w-[12%] border-r flex flex-col gap-0.5">
                            <span className="truncate text-black font-black text-[11px]" title={item.consignorName}>{item.consignorName}</span>
@@ -629,13 +630,13 @@ export default function TR21Page() {
                   {activeTab !== 'Open Orders' && (
                     <div className="flex bg-slate-50/70 border-t border-slate-200 h-9 items-center px-4">
                        <div className="w-[30%] flex items-center gap-4 text-[9px] font-black text-black">
-                          <span className="flex items-center gap-1 uppercase">Trip Date Time: {item.createdAt ? format(new Date(item.createdAt), 'dd-MM HH:mm') : '-'}</span>
+                          <span className="flex items-center gap-1 uppercase">Trip Date Time: {item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
                        </div>
                        <div className="flex-1 flex items-center justify-end gap-6 overflow-hidden">
-                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode?.latitude},${liveNode?.longitude}`, '_blank')} title={liveNode?.lastLocation || 'FETCHING LIVE SATELLITE POSITION...'}>
+                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode?.latitude},${liveNode?.longitude}`, '_blank')} title={liveNode?.lastLocation || 'LOCATING SATELLITE NODE...'}>
                              <MapPin className="h-3 w-3 text-red-500 shrink-0" />
                              <span className="text-[11px] font-black text-black uppercase truncate group-hover:underline italic tracking-tight max-w-[600px]">
-                                {liveNode?.lastLocation || 'FETCHING LIVE SATELLITE POSITION...'}
+                                {liveNode?.lastLocation || 'LOCATING SATELLITE NODE...'}
                              </span>
                           </div>
                           <button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} className="flex items-center gap-1.5 h-6 bg-white border border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all text-[8px] font-black uppercase rounded-full px-3 shrink-0 shadow-sm">
@@ -863,7 +864,7 @@ export default function TR21Page() {
                     <div className="space-y-1">
                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Location</span>
                        <p className="text-sm font-black text-slate-800 leading-relaxed uppercase italic">
-                          {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}
+                          {gpsLive?.find(n => n.vehicleNumber?.trim() === selectedTrip?.vehicleNo?.trim())?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}
                        </p>
                     </div>
                  </div>
