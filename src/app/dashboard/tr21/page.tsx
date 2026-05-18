@@ -46,7 +46,7 @@ export default function TR21Page() {
   const [showVehiclePortal, setShowVehiclePortal] = React.useState(false);
   const [showPrintView, setShowPrintView] = React.useState(false);
 
-  // New Workflow Portals
+  // Workflow Portals
   const [showArrivePortal, setShowArrivePortal] = React.useState(false);
   const [showUnloadPortal, setShowUnloadPortal] = React.useState(false);
   const [showRejectPortal, setShowRejectPortal] = React.useState(false);
@@ -72,7 +72,7 @@ export default function TR21Page() {
         }
       }
     } catch (e) {
-      console.error("GPS Sync Error:", e);
+      console.error("GPS Sync Failure:", e);
     } finally {
       setIsGpsLoading(false);
     }
@@ -511,7 +511,7 @@ export default function TR21Page() {
                         <div className="p-3 w-[4%] border-r text-center text-black font-black text-[12px]">{item.plantCode}</div>
                         <div className="p-3 w-[10%] border-r flex flex-col">
                            <span className="font-black text-blue-700 text-[11px]">{item.orderNo}</span>
-                           <span className="text-[10px] text-slate-400 lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
+                           <span className="text-[10px] text-slate-400 font-bold lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
                         </div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consignorName}>{item.consignorName}</div>
                         <div className="p-3 w-[12%] border-r truncate text-black text-[12px] font-black" title={item.consigneeName}>{item.consigneeName}</div>
@@ -529,11 +529,11 @@ export default function TR21Page() {
                         <div className="p-3 w-[3%] border-r text-center text-black font-black text-[12px]">{item.plantCode}</div>
                         <div className="p-3 w-[7%] border-r flex flex-col">
                            <span className="text-slate-700 font-bold text-[10px]">{item.orderNo}</span>
-                           <span className="text-[10px] text-slate-400 font-black lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
+                           <span className="text-[10px] text-slate-400 font-bold lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
                         </div>
                         <div className="p-3 w-[7%] border-r flex flex-col">
                            <span className="font-black text-blue-700 text-[11px]">{item.tripNo}</span>
-                           <span className="text-[10px] text-slate-400 font-black lowercase">{item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
+                           <span className="text-[10px] text-slate-400 font-bold lowercase">{item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
                         </div>
                         <div className="p-3 w-[12%] border-r flex flex-col gap-0.5">
                            <span className="truncate" title={item.consignorName}>{item.consignorName}</span>
@@ -607,7 +607,7 @@ export default function TR21Page() {
                              </div>
                            )}
                            {activeTab === 'POD Verify' && (
-                             <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className="h-7 text-[10px] font-black bg-purple-600 text-white rounded-none px-8">UPLOAD POD</Button>
+                             <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className="h-7 text-[10px] font-black bg-purple-600 text-white rounded-none text-[10px] uppercase px-8">UPLOAD POD</Button>
                            )}
                            {activeTab === 'Reject' && (
                              <div className="flex gap-2">
@@ -719,7 +719,7 @@ export default function TR21Page() {
                             {vendors?.map(v => <option key={v.id} value={v.id}>{v.vendorName} ({v.vendorCode})</option>)}
                          </select>
                       </div>
-                      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Arrange By</label><input value={assignData.arrangeBy || ''} onChange={e => setAssignData({...assignBy: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-[11px]" /></div>
+                      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Arrange By</label><input value={assignData.arrangeBy || ''} onChange={e => setAssignData({...assignData, arrangeBy: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-[11px]" /></div>
                       <div className="space-y-1.5">
                          <div className="flex items-center justify-between">
                             <label className="text-[10px] font-black text-slate-400 uppercase">Rate (Per MT)</label>
@@ -752,7 +752,7 @@ export default function TR21Page() {
       <Dialog open={showPODPortal} onOpenChange={setShowPODPortal}>
         <DialogContent className="max-w-md rounded-none border-[3px] border-purple-600 font-mono text-slate-900 shadow-2xl">
            <DialogHeader>
-             <DialogTitle className="text-sm font-black uppercase italic text-purple-600">POD Upload Workflow</DialogTitle>
+             <DialogTitle className="text-sm font-black uppercase italic text-purple-600">POD Upload</DialogTitle>
            </DialogHeader>
            <div className="py-6 space-y-6 text-slate-800">
               <div className="space-y-1.5">
@@ -817,7 +817,7 @@ export default function TR21Page() {
 
       <Dialog open={showCNPortal} onOpenChange={setShowCNPortal}>
         <DialogContent className="max-w-[950px] max-h-[95vh] rounded-none border-[3px] border-[#0056d2] font-mono p-0 flex flex-col text-slate-900">
-           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0"><DialogTitle className="text-sm font-black uppercase text-[#0056d2]">CN Entry</DialogTitle></DialogHeader>
+           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0"><DialogTitle className="text-sm font-black uppercase text-[#0056d2]">CN Details</DialogTitle></DialogHeader>
            <div className="p-8 space-y-8 flex-1 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-3 gap-8">
                  <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase italic">Previous CN</label><input readOnly value={previousCN} className="h-9 w-full border border-slate-200 bg-slate-50 px-3 text-[11px] font-black outline-none" /></div>
@@ -838,11 +838,11 @@ export default function TR21Page() {
       <Dialog open={showTrackPortal} onOpenChange={setShowTrackPortal}>
         <DialogContent className="max-w-[700px] rounded-none border-[3px] border-[#0056d2] font-mono text-slate-900 p-0 overflow-hidden">
            <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
-             <DialogTitle className="sr-only">Tracking Mapping</DialogTitle>
+             <DialogTitle className="sr-only">Tracking</DialogTitle>
              <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-start">
                    <div className="space-y-1">
-                      <h3 className="text-sm font-black uppercase italic text-[#0056d2] tracking-tighter">Tracking Mapping</h3>
+                      <h3 className="text-sm font-black uppercase italic text-[#0056d2] tracking-tighter">Live Tracking</h3>
                       <div className="flex flex-wrap gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                          <span className="flex items-center gap-1.5"><Truck className="h-3 w-3 text-blue-500" /> VEH: {selectedTrip?.vehicleNo}</span>
                          <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3 text-slate-400" /> MOBILE: {selectedTrip?.driverMobile || '-'}</span>
@@ -861,7 +861,7 @@ export default function TR21Page() {
                  <div className="flex items-start gap-3">
                     <MapPin className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                     <div className="space-y-1">
-                       <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Sync Location</span>
+                       <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Location</span>
                        <p className="text-sm font-black text-slate-800 leading-relaxed uppercase italic">
                           {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}
                        </p>
@@ -971,7 +971,7 @@ const CNPrintView = ({ trip }: { trip: any }) => {
           </div>
         </div>
         <div className="flex flex-col items-end">
-          <div className={cn("border border-black px-3 py-0.5 text-[16px] mb-1 font-normal tracking-wider text-black", label !== 'CONSIGNEE COPY' && "bg-black text-white")}>{label}</div>
+          <div className={cn("border border-black px-3 py-0.5 text-[16px] mb-1 font-normal tracking-wider text-black", label === 'CONSIGNEE COPY' ? "" : "bg-black text-white")}>{label}</div>
           <div className="text-right space-y-0 font-normal uppercase">
             <div className="flex justify-end gap-1.5 text-[16px] tracking-tighter font-normal leading-tight"><span>CN:</span><span>{trip.cnNumber || 'DRAFT'}</span></div>
             <div className="flex justify-end items-center gap-1.5 text-[16px] tracking-tighter font-normal leading-tight"><span>DATE:</span><span>{formattedDate}</span></div>

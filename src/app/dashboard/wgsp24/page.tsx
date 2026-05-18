@@ -35,7 +35,7 @@ export default function WGPS24Page() {
     if (!file) return;
     
     if (file.size > 500 * 1024) {
-      alert("SATELLITE REGISTRY ERROR: FILE EXCEEDS 500KB LIMIT");
+      alert("SATELLITE ERROR: FILE EXCEEDS 500KB LIMIT");
       return;
     }
 
@@ -172,7 +172,7 @@ export default function WGPS24Page() {
       <div className="flex-1 flex overflow-hidden">
         {view === 'MAP' ? (
           <>
-            {/* Vehicle Registry Sidebar */}
+            {/* Vehicle List Sidebar */}
             <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-lg z-10">
               <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
                  <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
@@ -299,7 +299,7 @@ export default function WGPS24Page() {
                             ) : (
                                <Truck className="h-10 w-10 mx-auto text-emerald-500 mb-4 group-hover:scale-110 transition-transform" />
                             )}
-                            <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-600">Upload Icon Registry</span>
+                            <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-600">Upload Icon</span>
                          </div>
                       </div>
                       <div className="space-y-4">
@@ -325,7 +325,7 @@ export default function WGPS24Page() {
                             ) : (
                                <Truck className="h-10 w-10 mx-auto text-red-500 mb-4 group-hover:scale-110 transition-transform" />
                             )}
-                            <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-600">Upload Icon Registry</span>
+                            <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-600">Upload Icon</span>
                          </div>
                       </div>
                    </div>
