@@ -216,7 +216,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden flex">
-      {/* SAP Top Menu Bar */}
+      {/* Top Menu Bar */}
       <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden">
         <div className="flex items-center gap-6">
           {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => (
@@ -227,7 +227,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white transition-all"><X className="h-3.5 w-3.5" /></button>
       </div>
 
-      {/* SAP Navigation & T-Code Bar */}
+      {/* Navigation & T-Code Bar */}
       <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden">
         <div className="flex items-center px-2 py-1 gap-4 h-10">
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300 h-full">
@@ -269,8 +269,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Desktop Persistent Sidebar (Page Bar) */}
-        <aside className="w-72 bg-white border-r border-slate-300 lg:flex flex-col overflow-hidden shadow-sm shrink-0 flex hidden">
+        {/* Desktop Persistent Sidebar */}
+        <aside className="w-80 bg-white border-r border-slate-300 lg:flex flex-col overflow-hidden shadow-sm shrink-0 flex hidden">
           <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50 flex items-center justify-between">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2">
               <Grid2X2 className="h-3.5 w-3.5" /> Quick Access
@@ -305,13 +305,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   executeTCode(t.code);
                 }} 
                 className={cn(
-                  "flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all",
+                  "flex items-center gap-3 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all",
                   (searchParams.get('tcode') === t.code || selectedFavCode === t.code) && "bg-blue-50 border-l-4 border-l-[#0056d2]"
                 )}
               >
-                <div className="flex items-baseline gap-2 overflow-hidden flex-1">
-                  <span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a] shrink-0">{t.code}</span>
-                  <span className="text-[8px] font-bold text-slate-400 uppercase truncate" title={t.description}>{t.description}</span>
+                <div className="flex items-center gap-3 overflow-hidden flex-1">
+                  <span className="text-[11px] font-black text-[#1e3a8a] uppercase shrink-0 w-12">{t.code}</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase truncate" title={t.description}>{t.description}</span>
                 </div>
                 <t.icon className={cn(
                   "h-3.5 w-3.5 text-slate-300 group-hover:text-blue-600 transition-colors shrink-0",
@@ -331,7 +331,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
 
-      {/* SAP Status Bar */}
+      {/* Status Bar */}
       <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] shrink-0 z-50 print:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.2)]">
         <div className="flex items-center gap-8 overflow-hidden flex-1">
           <span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span>

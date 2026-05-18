@@ -249,8 +249,9 @@ export default function VAPage() {
       return;
     }
 
+    // DUPLICATE VERIFICATION
     if (activeTCode === 'VA01' && orders?.some(o => o.orderNo === formData.orderNo)) {
-      return alert(`System Error: Duplicate Order No ${formData.orderNo} found`);
+      return alert(`Not Allow duplicate entry Customer ID ${formData.shipToPartyCode || 'N/A'}/ Sale order ${formData.orderNo} is already exit.`);
     }
 
     const docId = formData.id || crypto.randomUUID();
@@ -272,7 +273,6 @@ export default function VAPage() {
     alert('Synchronized');
   };
 
-  // Bulk Upload Implementation
   const handleDownloadTemplate = () => {
     const headers = ['Order No', 'Plant', 'Consignor Code', 'Consignor Name', 'Consignee Code', 'Consignee Name', 'Ship to Party Code', 'Ship to Party Name', 'Material', 'Weight'];
     const csv = headers.join(',') + '\n';
@@ -299,7 +299,6 @@ export default function VAPage() {
       const failed: { row: number; msg: string }[] = [];
       const validRows: any[] = [];
 
-      // 1. Mandatory & Master Data Validation
       rows.forEach((r, idx) => {
         const [orderNo, plant, cnrCode, cnrName, cneCode, cneName, stpCode, stpName, material, weight] = r;
         const rowNum = idx + 2;
@@ -320,8 +319,12 @@ export default function VAPage() {
         if (!cne) { failed.push({ row: rowNum, msg: `Consignee Mismatch: ${cneCode}/${cneName}` }); return; }
         if (!stp) { failed.push({ row: rowNum, msg: `Ship-To Mismatch: ${stpCode}/${stpName}` }); return; }
 
-        const isDuplicate = orders?.some(o => o.orderNo === orderNo);
-        if (isDuplicate) { failed.push({ row: rowNum, msg: `Duplicate Order No: ${orderNo}` }); return; }
+        // DUPLICATE VERIFICATION IN BULK
+        const isDuplicateInDB = orders?.some(o => o.orderNo === orderNo);
+        if (isDuplicateInDB) { 
+          failed.push({ row: rowNum, msg: `Not Allow duplicate entry Customer ID ${stpCode}/ Sale order ${orderNo} is already exit.` }); 
+          return; 
+        }
 
         validRows.push({
           orderNo, plantCode: plant, consignorCode: cnrCode, consignorName: cnrName,
@@ -336,7 +339,6 @@ export default function VAPage() {
         return;
       }
 
-      // 2. Multi-Material Aggregation Logic
       const aggregated: Record<string, any> = {};
       validRows.forEach(row => {
         if (!aggregated[row.orderNo]) {
@@ -349,7 +351,6 @@ export default function VAPage() {
         }
       });
 
-      // 3. Document Creation
       let successCount = 0;
       Object.values(aggregated).forEach(order => {
         const docId = crypto.randomUUID();
@@ -417,7 +418,6 @@ export default function VAPage() {
       </div>
 
       <div className="px-2">
-        {/* Upload Summary Display */}
         {activeTCode === 'VA01' && uploadResults && (
           <div className={cn("mb-8 p-6 border-l-4 shadow-sm animate-fade-in", uploadResults.failed.length > 0 ? "bg-red-50 border-red-500" : "bg-emerald-50 border-emerald-500")}>
              <div className="flex items-center justify-between mb-4">

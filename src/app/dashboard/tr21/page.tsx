@@ -47,7 +47,6 @@ export default function TR21Page() {
   const [showVehiclePortal, setShowVehiclePortal] = React.useState(false);
   const [showPrintView, setShowPrintView] = React.useState(false);
 
-  // Workflow Portals
   const [showArrivePortal, setShowArrivePortal] = React.useState(false);
   const [showUnloadPortal, setShowUnloadPortal] = React.useState(false);
   const [showRejectPortal, setShowRejectPortal] = React.useState(false);
@@ -420,11 +419,6 @@ export default function TR21Page() {
     document.title = originalTitle;
   };
 
-  const getPartyData = React.useCallback((idOrCode: string) => {
-    if (!customers || !idOrCode) return {};
-    return customers.find(c => c.customerCode === idOrCode || c.id === idOrCode) || {};
-  }, [customers]);
-
   const ActionPortal = ({ open, onOpenChange, title, onPost, trip }: { open: boolean, onOpenChange: (v: boolean) => void, title: string, onPost: () => void, trip: any }) => (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden text-slate-900">
@@ -750,7 +744,7 @@ export default function TR21Page() {
         </div>
       )}
 
-      {/* Action Portals */}
+      {/* Portals */}
       <ActionPortal open={showArrivePortal} onOpenChange={setShowArrivePortal} title="Arrival Entry" onPost={handlePostArrival} trip={selectedTrip} />
       <ActionPortal open={showUnloadPortal} onOpenChange={setShowUnloadPortal} title="Unload Verification" onPost={handlePostUnload} trip={selectedTrip} />
       <ActionPortal open={showRejectPortal} onOpenChange={setShowRejectPortal} title="Rejection Workflow" onPost={handlePostReject} trip={selectedTrip} />

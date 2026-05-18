@@ -32,7 +32,6 @@ export default function XDPage() {
   const handleSave = () => {
     if (isReadOnly) return;
 
-    // Mandatory Validations
     const mandatory = ['plantCodes', 'customerCode', 'customerName', 'address', 'city'];
     const missing = mandatory.filter(key => {
       const val = formData[key];
@@ -45,9 +44,12 @@ export default function XDPage() {
       return;
     }
 
+    // DUPLICATE VERIFICATION
     if (activeTCode === 'XD01') {
       const exists = customers?.find(c => c.customerCode === formData.customerCode);
-      if (exists) return alert(`Duplicate Customer ID ${formData.customerCode} Error`);
+      if (exists) {
+        return alert(`Not Allow duplicate entry Customer ID ${formData.customerCode}/ Sale order N/A is already exit.`);
+      }
     }
 
     const docId = formData.id || crypto.randomUUID();
@@ -193,6 +195,10 @@ export default function XDPage() {
                    disabled={isReadOnly} 
                    className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('city') ? "border-red-500 bg-red-50" : "border-slate-400")} 
                  />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Pincode:</label>
+                 <input value={formData.pincode || ''} onChange={e => setFormData({...formData, pincode: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
                </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">GSTIN:</label>
