@@ -108,10 +108,13 @@ export default function TR21Page() {
 
     if (activeTab === 'Open Orders') {
       baseData = orders.filter(o => o.status === 'Open').filter(o => {
+        // Strict Integrity Filter
+        const isValid = o.plantCode && o.orderNo && o.orderDate && o.consignorCode && o.consigneeCode && o.shipToPartyCode && o.quantity;
+        if (!isValid) return false;
+        
         if (seenNos.has(o.orderNo)) return false;
         seenNos.add(o.orderNo);
-        return o.plantCode && o.orderNo && o.orderDate && o.consignorName && o.from && 
-               o.consigneeName && o.shipToParty && o.destination && o.quantity;
+        return true;
       }).map(o => {
         const dispatched = trips.filter(t => t.orderNo === o.orderNo && t.status !== 'REJECTION')
                                 .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
@@ -148,7 +151,9 @@ export default function TR21Page() {
       orderNo: selectedOrder.orderNo,
       plantCode: selectedOrder.plantCode,
       consigneeName: selectedOrder.consigneeName,
+      consigneeCode: selectedOrder.consigneeCode,
       shipToParty: selectedOrder.shipToParty,
+      shipToPartyCode: selectedOrder.shipToPartyCode,
       destination: selectedOrder.destination,
       vehicleNo: assignData.vehicleNo.toUpperCase(),
       driverMobile: assignData.driverMobile || '',
@@ -157,6 +162,7 @@ export default function TR21Page() {
       createdAt: now,
       updatedAt: now,
       consignorName: selectedOrder.consignorName,
+      consignorCode: selectedOrder.consignorCode,
       from: selectedOrder.from,
       materialName: selectedOrder.materialName,
       paymentTerms: assignData.paymentTerms || 'TO PAY'
@@ -265,7 +271,7 @@ export default function TR21Page() {
                         <div className="p-3 w-[4%] border-r text-center">{item.plantCode}</div>
                         <div className="p-3 w-[15%] border-r flex flex-col gap-0.5">
                            <span className="text-blue-700">Order: {item.orderNo}</span>
-                           <span className="text-[10px] text-slate-500 font-bold">Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
+                           <span className="text-[10px] text-slate-500 font-bold">Order Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consignorName}>{item.consignorName}</div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
@@ -282,7 +288,7 @@ export default function TR21Page() {
                         <div className="p-3 w-[3%] border-r text-center">{item.plantCode}</div>
                         <div className="p-3 w-[12%] border-r flex flex-col gap-0.5">
                            <span>Order: {item.orderNo}</span>
-                           <span className="text-[10px] text-slate-400 font-bold">Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
+                           <span className="text-[10px] text-slate-400 font-bold">Order Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
                         <div className="p-3 w-[7%] border-r text-blue-700">{item.tripNo}</div>
                         <div className="p-3 w-[11%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>

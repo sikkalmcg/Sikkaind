@@ -2,10 +2,10 @@
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Save, ChevronLeft, ChevronRight, Download, Upload, Loader2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Upload, Loader2, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -132,7 +132,8 @@ export default function VAPage() {
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;
     
-    const mandatory = ['plantCode', 'orderNo', 'orderDate', 'consignorName', 'consignorCode', 'consigneeName', 'consigneeCode', 'shipToParty', 'shipToPartyCode', 'quantity'];
+    // 1. Mandatory Check
+    const mandatory = ['plantCode', 'orderNo', 'orderDate', 'consignorCode', 'consigneeCode', 'shipToPartyCode', 'materialName', 'quantity'];
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
       setErrors(missing);
@@ -140,9 +141,10 @@ export default function VAPage() {
       return;
     }
 
+    // 2. Duplicate Check
     const isDuplicate = (orders || []).some(o => o.orderNo === formData.orderNo && o.id !== formData.id);
     if (isDuplicate) {
-      alert(`Duplicate Sale Order ${formData.orderNo} not allowed.`);
+      alert(`Duplicate Sale Order not allowed`);
       return;
     }
 
@@ -158,7 +160,7 @@ export default function VAPage() {
     
     setFormData({});
     setErrors([]);
-    alert('Synchronized');
+    alert('Successfully Saved');
   }, [db, formData, isReadOnly, orders]);
 
   React.useEffect(() => {
@@ -168,13 +170,13 @@ export default function VAPage() {
   }, [handleSave]);
 
   const handleDownloadTemplate = () => {
-    const headers = ['Plant', 'Sale Order', 'Order Date', 'Consignor Code', 'Consignee Code', 'Ship to Party Code', 'Material', 'Weight'];
+    const headers = ['Plant', 'Sale Order', 'Order Date', 'Consignor Code', 'Consignee Code', 'Ship To Party Code', 'Material', 'Weight'];
     const csv = headers.join(',') + '\n';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `VA01_Template.csv`;
+    a.download = `VA01_Bulk_Template.csv`;
     a.click();
   };
 
@@ -188,32 +190,73 @@ export default function VAPage() {
     reader.onload = async (event) => {
       const text = event.target?.result as string;
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      if (lines.length <= 1) { alert("File empty or missing headers"); setIsUploading(false); return; }
+      if (lines.length <= 1) { 
+        alert("File empty or missing headers"); 
+        setIsUploading(false); 
+        return; 
+      }
 
+      const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
       const rows = lines.slice(1);
       const tempLog: typeof uploadLog = [];
-      const fileOrderNos = new Set();
+      const fileOrderNos = new Set<string>();
+
+      // Mandatory columns definition
+      const mandatoryCols = ['PLANT', 'SALE ORDER', 'ORDER DATE', 'CONSIGNOR CODE', 'CONSIGNEE CODE', 'SHIP TO PARTY CODE', 'MATERIAL', 'WEIGHT'];
+      const headerIndices: Record<string, number> = {};
+      mandatoryCols.forEach(col => {
+        headerIndices[col] = headers.indexOf(col);
+      });
+
+      const missingCols = mandatoryCols.filter(col => headerIndices[col] === -1);
+      if (missingCols.length > 0) {
+        alert(`Invalid CSV. Missing required columns: ${missingCols.join(', ')}`);
+        setIsUploading(false);
+        return;
+      }
 
       for (let i = 0; i < rows.length; i++) {
         const columns = rows[i].split(',').map(c => c.trim());
-        const [plant, orderNo, orderDate, cnrCode, cneCode, stpCode, material, weight] = columns;
-        const rowId = orderNo || `Row ${i+2}`;
-        let error = '';
+        const plant = columns[headerIndices['PLANT']];
+        const orderNo = columns[headerIndices['SALE ORDER']];
+        const orderDate = columns[headerIndices['ORDER DATE']];
+        const cnrCode = columns[headerIndices['CONSIGNOR CODE']];
+        const cneCode = columns[headerIndices['CONSIGNEE CODE']];
+        const stpCode = columns[headerIndices['SHIP TO PARTY CODE']];
+        const material = columns[headerIndices['MATERIAL']];
+        const weight = columns[headerIndices['WEIGHT']];
 
+        const rowId = orderNo || `Row ${i + 2}`;
+        let errorReason = '';
+
+        // 1. Sequential Mandatory Validation
         if (!plant || !orderNo || !orderDate || !cnrCode || !cneCode || !stpCode || !material || !weight) {
-          error = 'Missing Mandatory Columns';
-        } else if (fileOrderNos.has(orderNo)) {
-          error = 'Duplicate Sale Order in File';
-        } else if (orders?.some(o => o.orderNo === orderNo)) {
-          error = 'Duplicate Sale Order in Registry';
-        } else {
+          if (!plant) errorReason = 'Plant Missing';
+          else if (!orderNo) errorReason = 'Sale Order Missing';
+          else if (!orderDate) errorReason = 'Order Date Missing';
+          else if (!cnrCode) errorReason = 'Consignor Code Missing';
+          else if (!cneCode) errorReason = 'Consignee Code Missing';
+          else if (!stpCode) errorReason = 'Ship To Party Code Missing';
+          else if (!material) errorReason = 'Material Missing';
+          else if (!weight) errorReason = 'Weight Missing';
+        } 
+        // 2. Duplicate Check (In File)
+        else if (fileOrderNos.has(orderNo)) {
+          errorReason = 'Duplicate Sale Order in File';
+        }
+        // 3. Duplicate Check (In Registry)
+        else if (orders?.some(o => o.orderNo === orderNo)) {
+          errorReason = 'Duplicate Sale Order';
+        }
+        else {
+          // 4. Customer Master Validation & Auto Mapping
           const cnr = customers?.find(c => c.customerCode === cnrCode);
           const cne = customers?.find(c => c.customerCode === cneCode);
           const stp = customers?.find(c => c.customerCode === stpCode);
 
-          if (!cnr) error = 'Consignor Code Not Found';
-          else if (!cne) error = 'Consignee Code Not Found';
-          else if (!stp) error = 'Ship To Party Code Not Found';
+          if (!cnr) errorReason = 'Consignor Code Not Found';
+          else if (!cne) errorReason = 'Consignee Code Not Found';
+          else if (!stp) errorReason = 'Ship To Party Code Not Found';
           else {
             fileOrderNos.add(orderNo);
             const docId = crypto.randomUUID();
@@ -240,7 +283,11 @@ export default function VAPage() {
             setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), payload, { merge: true });
           }
         }
-        tempLog.push({ status: error ? 'failed' : 'success', id: rowId, msg: error || 'Successfully Saved' });
+        tempLog.push({ 
+          status: errorReason ? 'failed' : 'success', 
+          id: rowId, 
+          msg: errorReason || 'Successfully Saved' 
+        });
       }
       setUploadLog(tempLog);
       setIsUploading(false);
@@ -248,10 +295,21 @@ export default function VAPage() {
     reader.readAsText(file);
   };
 
-  const paginated = (orders || [])
-    .filter(o => !searchId || o.orderNo?.includes(searchId.toUpperCase()))
-    .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const totalPages = Math.ceil((orders || []).length / PAGE_SIZE);
+  const filteredOrders = React.useMemo(() => {
+    return (orders || [])
+      .filter(o => {
+        // Strict Integrity Filter: Exclude incomplete records
+        const isValid = o.plantCode && o.orderNo && o.orderDate && o.consignorCode && o.consigneeCode && o.shipToPartyCode && o.quantity;
+        if (!isValid) return false;
+        
+        if (!searchId) return true;
+        const term = searchId.toUpperCase();
+        return o.orderNo?.includes(term);
+      })
+      .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  }, [orders, searchId, currentPage]);
+
+  const totalPages = Math.ceil((orders || []).filter(o => o.plantCode && o.orderNo).length / PAGE_SIZE);
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
@@ -260,7 +318,7 @@ export default function VAPage() {
         <div className="flex gap-4">
            {activeTCode === 'VA01' && !formData.id && (
              <>
-               <Button onClick={handleDownloadTemplate} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 border-slate-300 rounded-none"><Download className="h-3 w-3 mr-2" /> Template</Button>
+               <Button onClick={handleDownloadTemplate} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 border-slate-300 rounded-none"><Download className="h-3 w-3 mr-2" /> Download Template</Button>
                <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleBulkUpload} />
                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 border-[#0056d2] text-[#0056d2] rounded-none"><Upload className="h-3 w-3 mr-2" /> Bulk Upload</Button>
              </>
@@ -272,12 +330,12 @@ export default function VAPage() {
       <div className="px-2">
         {uploadLog.length > 0 && (
           <div className="mb-10 bg-white border border-slate-300 shadow-md animate-fade-in max-h-60 overflow-y-auto">
-             <div className="bg-slate-50 p-2 border-b border-slate-200 flex justify-between sticky top-0"><span className="text-[10px] font-black uppercase text-blue-800">Processing Log</span><button onClick={() => setUploadLog([])}><X className="h-4 w-4 text-slate-400" /></button></div>
+             <div className="bg-slate-50 p-2 border-b border-slate-200 flex justify-between sticky top-0 z-10"><span className="text-[10px] font-black uppercase text-blue-800">Processing Log</span><button onClick={() => setUploadLog([])}><X className="h-4 w-4 text-slate-400" /></button></div>
              <div className="p-4 space-y-1.5 text-[10px] font-bold uppercase">
                 {uploadLog.map((log, i) => (
                   <div key={i} className={cn("flex items-center gap-3", log.status === 'success' ? "text-emerald-600" : "text-red-500")}>
                     <span>{log.status === 'success' ? '✔' : '✘'}</span>
-                    <span className="w-40 shrink-0">Sale Order {log.id}</span>
+                    <span className="w-48 shrink-0">Sale Order {log.id}</span>
                     <span className="italic">— {log.msg}</span>
                   </div>
                 ))}
@@ -293,16 +351,24 @@ export default function VAPage() {
              </div>
              <table className="w-full text-left text-[11px]">
                 <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase">
-                  <tr><th className="p-4 border-r">Plant</th><th className="p-4 border-r">Order No</th><th className="p-4 border-r">Date</th><th className="p-4 border-r">Consignor</th><th className="p-4 border-r">Consignee</th><th className="p-4 border-r text-right">Weight</th><th className="p-4">Status</th></tr>
+                  <tr>
+                    <th className="p-4 border-r">Plant</th>
+                    <th className="p-4 border-r">Order No</th>
+                    <th className="p-4 border-r">Order Date</th>
+                    <th className="p-4 border-r">Consignor Code</th>
+                    <th className="p-4 border-r">Consignee Code</th>
+                    <th className="p-4 border-r text-right">Weight</th>
+                    <th className="p-4">Status</th>
+                  </tr>
                 </thead>
                 <tbody className="font-bold uppercase">
-                  {paginated.map(o => (
+                  {filteredOrders.map(o => (
                     <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer">
                       <td className="p-4 border-r">{o.plantCode}</td>
                       <td className="p-4 border-r text-[#0056d2] font-black">{o.orderNo}</td>
-                      <td className="p-4 border-r">{o.orderDate}</td>
-                      <td className="p-4 border-r truncate max-w-[150px]">{o.consignorName}</td>
-                      <td className="p-4 border-r truncate max-w-[150px]">{o.consigneeName}</td>
+                      <td className="p-4 border-r">{o.orderDate ? format(new Date(o.orderDate), 'dd-MMM-yyyy') : '-'}</td>
+                      <td className="p-4 border-r">{o.consignorCode}</td>
+                      <td className="p-4 border-r">{o.consigneeCode}</td>
                       <td className="p-4 border-r text-right">{o.quantity} MT</td>
                       <td className="p-4"><span className={cn("px-2 py-0.5 text-[8px] font-black", o.status === 'Open' ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700")}>{o.status}</span></td>
                     </tr>
@@ -321,25 +387,29 @@ export default function VAPage() {
           <div className="animate-slide-up space-y-10 bg-white p-12 border border-slate-300 shadow-inner">
              <div className="grid grid-cols-2 gap-x-24 gap-y-6">
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Plant Code:</label><select value={formData.plantCode || ''} onChange={e => setFormData({...formData, plantCode: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border bg-white px-2 text-[12px] font-black outline-none", errors.includes('plantCode') ? "border-red-500 bg-red-50" : "border-slate-400")}>{plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Sale Order No:</label><input value={formData.orderNo || ''} onChange={e => setFormData({...formData, orderNo: e.target.value.toUpperCase()})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderNo') ? "border-red-500 bg-red-50" : "border-slate-400")} /></div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Sale Order No:</label>
+                 <input value={formData.orderNo || ''} onChange={e => setFormData({...formData, orderNo: e.target.value.toUpperCase()})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderNo') ? "border-red-500 bg-red-50" : "border-slate-400")} />
+               </div>
+               
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Order Date:</label><input type="date" value={formData.orderDate || ''} onChange={e => setFormData({...formData, orderDate: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderDate') ? "border-red-500 bg-red-50" : "border-slate-400")} /></div>
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Weight (MT):</label><input type="number" step="0.001" value={formData.quantity || ''} onChange={e => setFormData({...formData, quantity: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('quantity') ? "border-red-500 bg-red-50" : "border-slate-400")} /></div>
 
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Consignor Name:</label>
-                 <SAPAutocomplete value={formData.consignorName || ''} disabled={isReadOnly} options={customers || []} onSelect={c => setFormData({...formData, consignorName: c.customerName, consignorCode: c.customerCode, from: c.city || ''})} hasError={errors.includes('consignorName')} />
+                 <SAPAutocomplete value={formData.consignorName || ''} disabled={isReadOnly} options={customers || []} onSelect={c => setFormData({...formData, consignorName: c.customerName, consignorCode: c.customerCode, from: c.city || ''})} hasError={errors.includes('consignorCode')} />
                </div>
                <div className="flex items-center gap-8 italic"><label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase">Consignor Code:</label><input value={formData.consignorCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black text-[#0056d2]" /></div>
 
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Consignee Name:</label>
-                 <SAPAutocomplete value={formData.consigneeName || ''} disabled={isReadOnly} options={customers || []} onSelect={c => setFormData({...formData, consigneeName: c.customerName, consigneeCode: c.customerCode})} hasError={errors.includes('consigneeName')} />
+                 <SAPAutocomplete value={formData.consigneeName || ''} disabled={isReadOnly} options={customers || []} onSelect={c => setFormData({...formData, consigneeName: c.customerName, consigneeCode: c.customerCode})} hasError={errors.includes('consigneeCode')} />
                </div>
                <div className="flex items-center gap-8 italic"><label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase">Consignee Code:</label><input value={formData.consigneeCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black text-[#0056d2]" /></div>
 
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Ship to Party:</label>
-                 <SAPAutocomplete value={formData.shipToParty || ''} disabled={isReadOnly} options={customers || []} onSelect={c => setFormData({...formData, shipToParty: c.customerName, shipToPartyCode: c.customerCode, destination: c.city || ''})} hasError={errors.includes('shipToParty')} />
+                 <SAPAutocomplete value={formData.shipToParty || ''} disabled={isReadOnly} options={customers || []} onSelect={c => setFormData({...formData, shipToParty: c.customerName, shipToPartyCode: c.customerCode, destination: c.city || ''})} hasError={errors.includes('shipToPartyCode')} />
                </div>
                <div className="flex items-center gap-8 italic"><label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase">Ship to Code:</label><input value={formData.shipToPartyCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black text-[#0056d2]" /></div>
 
