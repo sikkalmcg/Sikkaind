@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -27,7 +26,7 @@ export default function TR21Page() {
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
   
-  const [plantFilter, setPlantFilter] = React.useState('ALL');
+  const [plantFilter, setPlantFilter] = React.setPlantFilter('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const [gpsLive, setGpsLive] = React.useState<any[]>([]);
@@ -304,7 +303,7 @@ export default function TR21Page() {
                {activeTab === 'Open Orders' ? (
                  <>
                    <div className="p-3 w-[4%] border-r text-center text-black">Plant</div>
-                   <div className="p-3 w-[20%] border-r text-black text-center">Sale Order Details</div>
+                   <div className="p-3 w-[10%] border-r text-black text-center">Sale Order Details</div>
                    <div className="p-3 w-[12%] border-r text-black">Consignor</div>
                    <div className="p-3 w-[12%] border-r text-black">Consignee</div>
                    <div className="p-3 w-[12%] border-r text-black">Ship to Party</div>
@@ -316,7 +315,7 @@ export default function TR21Page() {
                ) : (
                  <>
                    <div className="p-3 w-[3%] border-r text-center text-black">Plant</div>
-                   <div className="p-3 w-[18%] border-r text-black text-center">Sale Order</div>
+                   <div className="p-3 w-[9%] border-r text-black text-center">Sale Order</div>
                    <div className="p-3 w-[7%] border-r text-blue-700">Trip ID</div>
                    <div className="p-3 w-[14%] border-r text-black">Consignee</div>
                    <div className="p-3 w-[14%] border-r text-black">Ship To Party</div>
@@ -336,9 +335,9 @@ export default function TR21Page() {
                     {activeTab === 'Open Orders' ? (
                       <>
                         <div className="p-3 w-[4%] border-r text-center">{item.plantCode}</div>
-                        <div className="p-3 w-[20%] border-r flex flex-col justify-center">
-                           <span className="text-blue-700">Order: {item.orderNo}</span>
-                           <span className="text-[10px] text-slate-500 font-bold">Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
+                        <div className="p-3 w-[10%] border-r flex flex-col justify-center">
+                           <span className="text-blue-700">{item.orderNo}</span>
+                           <span className="text-[10px] text-slate-500 font-bold">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consignorName}>{item.consignorName}</div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
@@ -353,9 +352,9 @@ export default function TR21Page() {
                     ) : (
                       <>
                         <div className="p-3 w-[3%] border-r text-center">{item.plantCode}</div>
-                        <div className="p-3 w-[18%] border-r flex flex-col justify-center">
-                           <span className="text-slate-800">Order: {item.orderNo}</span>
-                           <span className="text-[10px] text-slate-400 font-bold">Dt: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
+                        <div className="p-3 w-[9%] border-r flex flex-col justify-center">
+                           <span className="text-slate-800">{item.orderNo}</span>
+                           <span className="text-[10px] text-slate-400 font-bold">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
                         <div className="p-3 w-[7%] border-r text-blue-700 font-black">{item.tripNo}</div>
                         <div className="p-3 w-[14%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
@@ -573,4 +572,3 @@ export default function TR21Page() {
     </div>
   );
 }
-
