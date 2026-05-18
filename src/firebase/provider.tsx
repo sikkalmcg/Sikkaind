@@ -173,7 +173,7 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
   return useMemo(() => {
     const memoized = factory();
     if (typeof memoized === 'object' && memoized !== null) {
-      (memoized as MemoFirebase<T>).__memo = true;
+      Object.defineProperty(memoized, '__memo', { value: true, enumerable: false, configurable: true });
     }
     return memoized;
   }, deps);
