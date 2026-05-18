@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -35,6 +34,7 @@ export default function TR21Page() {
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const [gpsLive, setGpsLive] = React.useState<any[]>([]);
+  const [locationMap, setLocationMap] = React.useState<Record<string, string>>({});
   const [isGpsLoading, setIsGpsLoading] = React.useState(true);
 
   // Portal States
@@ -63,6 +63,29 @@ export default function TR21Page() {
 
   React.useEffect(() => { setMounted(true); }, []);
 
+  const reverseGeocode = React.useCallback((vehicleNo: string, lat: number, lng: number) => {
+    if (!window.google) return;
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+      if (status === 'OK' && results?.[0]) {
+        const components = results[0].address_components;
+        const street = components.find(c => c.types.includes('route'))?.long_name || 
+                       components.find(c => c.types.includes('sublocality_level_1'))?.long_name;
+        const city = components.find(c => c.types.includes('locality'))?.long_name || 
+                     components.find(c => c.types.includes('administrative_area_level_2'))?.long_name;
+        
+        let formatted = '';
+        if (street && city) formatted = `${street}, ${city}`;
+        else if (city) formatted = city;
+        else formatted = results[0].formatted_address.split(',')[0];
+
+        setLocationMap(prev => ({ ...prev, [vehicleNo.trim()]: formatted }));
+      } else {
+        setLocationMap(prev => ({ ...prev, [vehicleNo.trim()]: 'Location unavailable' }));
+      }
+    });
+  }, []);
+
   const fetchGps = React.useCallback(async () => {
     try {
       const res = await fetch('/api/gps');
@@ -81,10 +104,18 @@ export default function TR21Page() {
 
   React.useEffect(() => {
     fetchGps();
-    // 15 Minute Location Update Interval (900,000 ms)
     const interval = setInterval(fetchGps, 900000);
     return () => clearInterval(interval);
   }, [fetchGps]);
+
+  React.useEffect(() => {
+    gpsLive.forEach(node => {
+      const vNo = node.vehicleNumber?.trim();
+      if (vNo && node.latitude && node.longitude) {
+        reverseGeocode(vNo, parseFloat(node.latitude), parseFloat(node.longitude));
+      }
+    });
+  }, [gpsLive, reverseGeocode]);
 
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
@@ -677,10 +708,10 @@ export default function TR21Page() {
                           <span className="flex items-center gap-1 uppercase">Trip Execution Synchronization: ACTIVE</span>
                        </div>
                        <div className="flex-1 flex items-center justify-end gap-6 overflow-hidden">
-                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode?.latitude},${liveNode?.longitude}`, '_blank')} title={liveNode?.lastLocation || 'LOCATING SATELLITE NODE...'}>
+                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode?.latitude},${liveNode?.longitude}`, '_blank')} title={locationMap[item.vehicleNo?.trim()] || 'Location unavailable'}>
                              <MapPin className="h-3 w-3 text-red-500 shrink-0" />
                              <span className="text-[11px] font-black text-black uppercase truncate group-hover:underline italic tracking-tight max-w-[600px]">
-                                {liveNode?.lastLocation || 'LOCATING SATELLITE NODE...'}
+                                {locationMap[item.vehicleNo?.trim()] || (liveNode ? '' : 'Location unavailable')}
                              </span>
                           </div>
                           <button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} className="flex items-center gap-1.5 h-6 bg-white border border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all text-[8px] font-black uppercase rounded-full px-3 shrink-0 shadow-sm">
@@ -908,7 +939,7 @@ export default function TR21Page() {
                     <div className="space-y-1">
                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Location</span>
                        <p className="text-sm font-black text-slate-800 leading-relaxed uppercase italic">
-                          {gpsLive?.find(n => n.vehicleNumber?.trim() === selectedTrip?.vehicleNo?.trim())?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}
+                          {locationMap[selectedTrip?.vehicleNo?.trim()] || 'Location unavailable'}
                        </p>
                     </div>
                  </div>
