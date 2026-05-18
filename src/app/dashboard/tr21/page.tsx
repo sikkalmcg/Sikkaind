@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -37,6 +36,7 @@ export default function TR21Page() {
   const [gpsLive, setGpsLive] = React.useState<any[]>([]);
   const [isGpsLoading, setIsGpsLoading] = React.useState(true);
 
+  // Portal States
   const [showAssign, setShowAssign] = React.useState(false);
   const [showCNPortal, setShowCNPortal] = React.useState(false);
   const [showOutPortal, setShowOutPortal] = React.useState(false);
@@ -46,11 +46,17 @@ export default function TR21Page() {
   const [showVehiclePortal, setShowVehiclePortal] = React.useState(false);
   const [showPrintView, setShowPrintView] = React.useState(false);
 
+  // New Workflow Portals
+  const [showArrivePortal, setShowArrivePortal] = React.useState(false);
+  const [showUnloadPortal, setShowUnloadPortal] = React.useState(false);
+  const [showRejectPortal, setShowRejectPortal] = React.useState(false);
+
   const [assignData, setAssignData] = React.useState<any>({});
   const [cnData, setCnData] = React.useState<any>({});
   const [cnItems, setCnItems] = React.useState<any[]>([]);
   const [podData, setPodData] = React.useState({ receivedBy: '', receivedDate: format(new Date(), 'yyyy-MM-dd'), remarks: '', podFile: null as string | null });
   const [outData, setOutData] = React.useState({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
+  const [actionData, setActionData] = React.useState({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   const [vehicleEdit, setVehicleEdit] = React.useState({ vehicleNo: '', mobile: '' });
   const [previousCN, setPreviousCN] = React.useState('');
 
@@ -288,21 +294,23 @@ export default function TR21Page() {
     setShowOutPortal(false);
   };
 
-  const handleArrival = (tripId: string) => {
-    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', tripId), { 
+  const handlePostArrival = () => {
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
       status: 'ARRIVED',
       arrivalStatus: 'ARRIVED',
-      arrivalDate: new Date().toISOString(),
+      arrivalDate: `${actionData.date}T${actionData.time}`,
       updatedAt: new Date().toISOString()
     });
+    setShowArrivePortal(false);
   };
 
-  const handleReject = (tripId: string) => {
-    if (!confirm('REJECT WARNING: Move trip to Reject?')) return;
-    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', tripId), { 
+  const handlePostReject = () => {
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
       status: 'REJECTION',
+      rejectDate: `${actionData.date}T${actionData.time}`,
       updatedAt: new Date().toISOString()
     });
+    setShowRejectPortal(false);
   };
 
   const handleResent = (tripId: string) => {
@@ -320,11 +328,13 @@ export default function TR21Page() {
     });
   };
 
-  const handleUnload = (tripId: string) => {
-    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', tripId), { 
+  const handlePostUnload = () => {
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
       status: 'POD',
+      unloadDate: `${actionData.date}T${actionData.time}`,
       updatedAt: new Date().toISOString()
     });
+    setShowUnloadPortal(false);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -381,6 +391,32 @@ export default function TR21Page() {
     if (!customers || !idOrCode) return {};
     return customers.find(c => c.customerCode === idOrCode || c.id === idOrCode) || {};
   }, [customers]);
+
+  const ActionPortal = ({ open, onOpenChange, title, onPost, trip }: { open: boolean, onOpenChange: (v: boolean) => void, title: string, onPost: () => void, trip: any }) => (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden text-slate-900">
+        <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
+           <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2] mb-4">{title}</DialogTitle>
+           <div className="grid grid-cols-2 gap-4 text-[10px] font-black uppercase bg-white border border-slate-200 p-4 shadow-inner">
+              <div className="space-y-1"><span className="text-slate-400 text-[8px]">SHIP TO PARTY</span><p className="truncate" title={trip?.shipToParty}>{trip?.shipToParty}</p></div>
+              <div className="space-y-1"><span className="text-slate-400 text-[8px]">VEHICLE NUMBER</span><p className="text-blue-700">{trip?.vehicleNo}</p></div>
+              <div className="space-y-1"><span className="text-slate-400 text-[8px]">ROUTE</span><p className="truncate italic text-emerald-700">{trip?.from} → {trip?.destination}</p></div>
+              <div className="space-y-1"><span className="text-slate-400 text-[8px]">CN NO / DATE</span><p>{trip?.cnNumber || '-'} / {trip?.cnDate ? format(new Date(trip.cnDate), 'dd-MMM-yy') : '-'}</p></div>
+           </div>
+        </DialogHeader>
+        <div className="p-8 space-y-6">
+           <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Date</label><input type="date" value={actionData.date} onChange={e => setActionData({...actionData, date: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-[11px] font-bold" /></div>
+              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Time</label><input type="time" value={actionData.time} onChange={e => setActionData({...actionData, time: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-[11px] font-bold" /></div>
+           </div>
+        </div>
+        <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
+           <Button onClick={() => onOpenChange(false)} variant="outline" className="h-10 rounded-none text-[10px] font-black uppercase px-8 border-slate-300">Exit</Button>
+           <Button onClick={onPost} className="h-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase px-16 shadow-lg hover:scale-105 transition-all">Post</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   if (!mounted) return null;
 
@@ -467,14 +503,6 @@ export default function TR21Page() {
 
             {filteredData.map((item: any) => {
               const liveNode = gpsLive.find(n => n.vehicleNumber === item.vehicleNo);
-              const consignorData = getPartyData(item.consignorCode);
-              const shipToData = getPartyData(item.shipToPartyCode);
-              
-              const origin = encodeURIComponent(consignorData.pincode || item.from || '');
-              const destination = encodeURIComponent(shipToData.pincode || item.destination || '');
-              const waypoints = liveNode ? `${liveNode.latitude},${liveNode.longitude}` : '';
-              const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}`;
-
               return (
                 <div key={item.id} className="flex flex-col border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
                   <div className="flex items-center text-[10px] font-bold uppercase min-h-[85px]">
@@ -532,23 +560,21 @@ export default function TR21Page() {
                         </div>
 
                         <div className="p-3 w-[8%] border-r">
-                           <div className="flex flex-col gap-0.5 w-full">
+                           <div className="flex items-center gap-2 w-full">
+                              <button onClick={() => {
+                                setSelectedTrip(item);
+                                setCnData({cnNo: item.cnNumber, cnDate: item.cnDate, mode: item.mode, paymentTerms: item.paymentTerms, ratePoint: item.ratePoint});
+                                setCnItems(item.items || []);
+                                setShowCNPortal(true);
+                              }} className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors border border-slate-100">
+                                <Edit className="h-3.5 w-3.5" />
+                              </button>
                               {item.cnNumber ? (
-                                <div className="flex items-center gap-2">
-                                  <button onClick={() => {
-                                    setSelectedTrip(item);
-                                    setCnData({cnNo: item.cnNumber, cnDate: item.cnDate, mode: item.mode, paymentTerms: item.paymentTerms, ratePoint: item.ratePoint});
-                                    setCnItems(item.items || []);
-                                    setShowCNPortal(true);
-                                  }} className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors border border-slate-100">
-                                    <Edit className="h-3.5 w-3.5" />
+                                <div className="flex flex-col">
+                                  <button onClick={() => { setSelectedTrip(item); setShowPrintView(true); }} className="text-[#0056d2] font-black text-[12px] text-left hover:underline">
+                                    {item.cnNumber}
                                   </button>
-                                  <div className="flex flex-col">
-                                    <button onClick={() => { setSelectedTrip(item); setShowPrintView(true); }} className="text-[#0056d2] font-black text-[12px] text-left hover:underline">
-                                      {item.cnNumber}
-                                    </button>
-                                    <span className="text-[11px] text-black font-black">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
-                                  </div>
+                                  <span className="text-[11px] text-black font-black">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
                                 </div>
                               ) : (
                                 <button onClick={() => { 
@@ -572,12 +598,12 @@ export default function TR21Page() {
                              </div>
                            )}
                            {activeTab === 'In-Transit' && (
-                             <Button onClick={() => handleArrival(item.id)} className="h-7 text-[10px] font-black bg-emerald-600 text-white rounded-none px-6">ARRIVED</Button>
+                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowArrivePortal(true); }} className="h-7 text-[10px] font-black bg-emerald-600 text-white rounded-none px-6">ARRIVE</Button>
                            )}
                            {activeTab === 'Arrived' && (
                              <div className="flex gap-2">
-                                <Button onClick={() => handleUnload(item.id)} className="h-7 text-[10px] font-black bg-blue-600 text-white rounded-none px-6">UNLOAD</Button>
-                                <Button onClick={() => handleReject(item.id)} variant="outline" className="h-7 text-[10px] font-black border-red-200 text-red-600 rounded-none px-4">REJECT</Button>
+                                <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowUnloadPortal(true); }} className="h-7 text-[10px] font-black bg-blue-600 text-white rounded-none px-6">UNLOAD</Button>
+                                <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowRejectPortal(true); }} variant="outline" className="h-7 text-[10px] font-black border-red-200 text-red-600 rounded-none px-4">REJECT</Button>
                              </div>
                            )}
                            {activeTab === 'POD Verify' && (
@@ -606,7 +632,7 @@ export default function TR21Page() {
                           <span className="flex items-center gap-1 uppercase">Trip Date Time: {item.createdAt ? format(new Date(item.createdAt), 'dd-MM HH:mm') : '-'}</span>
                        </div>
                        <div className="flex-1 flex items-center justify-end gap-6 overflow-hidden">
-                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(mapsUrl, '_blank')} title={liveNode?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}>
+                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode?.latitude},${liveNode?.longitude}`, '_blank')} title={liveNode?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}>
                              <MapPin className="h-3 w-3 text-red-500 shrink-0" />
                              <span className="text-[10px] font-black text-black uppercase truncate group-hover:underline italic tracking-tight max-w-[600px]">
                                 {liveNode?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}
@@ -648,6 +674,11 @@ export default function TR21Page() {
         </div>
       )}
 
+      {/* Action Portals */}
+      <ActionPortal open={showArrivePortal} onOpenChange={setShowArrivePortal} title="Arrival Entry" onPost={handlePostArrival} trip={selectedTrip} />
+      <ActionPortal open={showUnloadPortal} onOpenChange={setShowUnloadPortal} title="Unload Verification" onPost={handlePostUnload} trip={selectedTrip} />
+      <ActionPortal open={showRejectPortal} onOpenChange={setShowRejectPortal} title="Rejection Workflow" onPost={handlePostReject} trip={selectedTrip} />
+
       <Dialog open={showAssign} onOpenChange={setShowAssign}>
         <DialogContent className="max-w-[800px] max-h-[95vh] rounded-none border-[3px] border-[#0056d2] font-mono p-0 flex flex-col text-slate-900">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0">
@@ -688,7 +719,7 @@ export default function TR21Page() {
                             {vendors?.map(v => <option key={v.id} value={v.id}>{v.vendorName} ({v.vendorCode})</option>)}
                          </select>
                       </div>
-                      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Arrange By</label><input value={assignData.arrangeBy || ''} onChange={e => setAssignData({...assignData, arrangeBy: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-[11px]" /></div>
+                      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Arrange By</label><input value={assignData.arrangeBy || ''} onChange={e => setAssignData({...assignBy: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-[11px]" /></div>
                       <div className="space-y-1.5">
                          <div className="flex items-center justify-between">
                             <label className="text-[10px] font-black text-slate-400 uppercase">Rate (Per MT)</label>
@@ -786,7 +817,7 @@ export default function TR21Page() {
 
       <Dialog open={showCNPortal} onOpenChange={setShowCNPortal}>
         <DialogContent className="max-w-[950px] max-h-[95vh] rounded-none border-[3px] border-[#0056d2] font-mono p-0 flex flex-col text-slate-900">
-           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0"><DialogTitle className="text-sm font-black uppercase text-[#0056d2]">CN Assignment</DialogTitle></DialogHeader>
+           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 shrink-0"><DialogTitle className="text-sm font-black uppercase text-[#0056d2]">CN Entry</DialogTitle></DialogHeader>
            <div className="p-8 space-y-8 flex-1 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-3 gap-8">
                  <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase italic">Previous CN</label><input readOnly value={previousCN} className="h-9 w-full border border-slate-200 bg-slate-50 px-3 text-[11px] font-black outline-none" /></div>
@@ -831,7 +862,7 @@ export default function TR21Page() {
                     <MapPin className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                     <div className="space-y-1">
                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Sync Location</span>
-                       <p className="text-sm font-black text-slate-800 leading-relaxed uppercase italic" title={gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}>
+                       <p className="text-sm font-black text-slate-800 leading-relaxed uppercase italic">
                           {gpsLive?.find(n => n.vehicleNumber === selectedTrip?.vehicleNo)?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}
                        </p>
                     </div>
