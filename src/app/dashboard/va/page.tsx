@@ -171,15 +171,16 @@ export default function VAPage() {
       return;
     }
 
+    // STRICT VALIDATION RULE: 9 Mandatory Fields
     const mandatory = [
-      'plantCode', 'orderNo', 'consignorName', 'consignorCode', 'consigneeName', 
-      'consigneeCode', 'shipToParty', 'shipToPartyCode', 'orderDate', 
-      'quantity', 'destination', 'from'
+      'plantCode', 'orderNo', 'orderDate', 'consignorName', 'from', 
+      'consigneeName', 'shipToParty', 'destination', 'quantity'
     ];
+    
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
       setErrors(missing);
-      alert('Error: Mandatory columns cannot be blank.');
+      alert('STRICT SYSTEM ERROR: All mandatory fields (Plant, Order, Date, Consignor, From, Consignee, Ship To, Destination, Weight) must be completed before synchronization.');
       return;
     }
 
@@ -203,13 +204,13 @@ export default function VAPage() {
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), savePayload, { merge: true });
     setFormData({});
     setErrors([]);
-    alert('Synchronized');
+    alert('Order Synchronized Successfully');
   }, [activeTCode, db, formData, orders, trips]);
 
   React.useEffect(() => {
     if (activeTCode === 'VA01' && !formData.id) {
       setFormData({ 
-        orderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"), 
+        orderDate: format(new Date(), "yyyy-MM-dd"), 
         status: 'Open', 
         uom: 'MT',
         createdAt: new Date().toISOString(),
@@ -231,21 +232,6 @@ export default function VAPage() {
     window.addEventListener('sap-save-triggered', handleGlobalSave);
     return () => window.removeEventListener('sap-save-triggered', handleGlobalSave);
   }, [handleSave]);
-
-  const matchedOrder = React.useMemo(() => {
-    if (activeTCode !== 'VA04' || !formData.orderNo) return null;
-    const ord = (orders || []).find(o => o.orderNo === formData.orderNo);
-    if (!ord) return null;
-    
-    const dispatched = (trips || [])
-      .filter(t => t.orderNo === ord.orderNo && t.status !== 'REJECTION')
-      .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
-      
-    return {
-      ...ord,
-      balance: (parseFloat(ord.quantity) || 0) - dispatched
-    };
-  }, [activeTCode, formData.orderNo, orders, trips]);
 
   const filteredCustomers = React.useMemo(() => {
     if (!customers || !formData.plantCode) return [];
@@ -281,13 +267,13 @@ export default function VAPage() {
   };
 
   const handleDownloadTemplate = () => {
-    const headers = ['Order No', 'Plant', 'Consignor Code', 'Consignor Name', 'Consignee Code', 'Consignee Name', 'Ship to Party Code', 'Ship to Party Name', 'Material', 'Weight'];
+    const headers = ['Order No', 'Plant', 'Order Date', 'Consignor Code', 'Consignor Name', 'Consignee Code', 'Consignee Name', 'Ship to Party Code', 'Ship to Party Name', 'Material', 'Weight'];
     const csv = headers.join(',') + '\n';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `VA01_Order_Template_${format(new Date(), 'ddMMyy')}.csv`;
+    a.download = `VA01_Template_${format(new Date(), 'ddMMyy')}.csv`;
     a.click();
   };
 
@@ -307,10 +293,10 @@ export default function VAPage() {
       const validRows: any[] = [];
 
       rows.forEach((r, idx) => {
-        const [orderNo, plant, cnrCode, cnrName, cneCode, cneName, stpCode, stpName, material, weight] = r;
+        const [orderNo, plant, orderDate, cnrCode, cnrName, cneCode, cneName, stpCode, stpName, material, weight] = r;
         const rowNum = idx + 2;
 
-        if (!orderNo || !plant || !cnrCode || !cnrName || !cneCode || !cneName || !stpCode || !stpName || !material || !weight) {
+        if (!orderNo || !plant || !orderDate || !cnrCode || !cnrName || !cneCode || !cneName || !stpCode || !stpName || !material || !weight) {
           failed.push({ row: rowNum, msg: 'Mandatory field(s) missing' });
           return;
         }
@@ -319,11 +305,9 @@ export default function VAPage() {
         if (!plantExists) { failed.push({ row: rowNum, msg: `Invalid Plant: ${plant}` }); return; }
 
         const cnr = customers?.find(c => c.customerCode === cnrCode && c.customerName === cnrName);
-        const cne = customers?.find(c => c.customerCode === cneCode && c.customerName === cneName);
         const stp = customers?.find(c => c.customerCode === stpCode && c.customerName === stpName);
 
         if (!cnr) { failed.push({ row: rowNum, msg: `Consignor Mismatch: ${cnrCode}/${cnrName}` }); return; }
-        if (!cne) { failed.push({ row: rowNum, msg: `Consignee Mismatch: ${cneCode}/${cneName}` }); return; }
         if (!stp) { failed.push({ row: rowNum, msg: `Ship-To Mismatch: ${stpCode}/${stpName}` }); return; }
 
         const isDuplicateInDB = orders?.some(o => o.orderNo === orderNo);
@@ -333,7 +317,7 @@ export default function VAPage() {
         }
 
         validRows.push({
-          orderNo, plantCode: plant, consignorCode: cnrCode, consignorName: cnrName,
+          orderNo, plantCode: plant, orderDate, consignorCode: cnrCode, consignorName: cnrName,
           consigneeCode: cneCode, consigneeName: cneName, shipToPartyCode: stpCode, shipToParty: stpName,
           materialName: material, quantity: parseFloat(weight), from: cnr.city || '', destination: stp.city || ''
         });
@@ -345,33 +329,18 @@ export default function VAPage() {
         return;
       }
 
-      const aggregated: Record<string, any> = {};
-      validRows.forEach(row => {
-        if (!aggregated[row.orderNo]) {
-          aggregated[row.orderNo] = { ...row, materials: [row.materialName] };
-        } else {
-          aggregated[row.orderNo].quantity += row.quantity;
-          if (!aggregated[row.orderNo].materials.includes(row.materialName)) {
-            aggregated[row.orderNo].materials.push(row.materialName);
-          }
-        }
-      });
-
       let successCount = 0;
-      Object.values(aggregated).forEach(order => {
+      validRows.forEach(order => {
         const docId = crypto.randomUUID();
         const payload = {
           ...order,
           id: docId,
-          materialName: order.materials.join(', '),
           status: 'Open',
           uom: 'MT',
-          orderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
           createdAt: new Date().toISOString(),
           updatedAt: serverTimestamp(),
           updatedBy: 'Sikkaind_Bulk_Portal'
         };
-        delete payload.materials;
         setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), payload, { merge: true });
         successCount++;
       });
@@ -389,10 +358,31 @@ export default function VAPage() {
     }
   };
 
-  const paginated = (orders || [])
-    .filter(o => !searchId || o.orderNo?.includes(searchId.toUpperCase()))
-    .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const totalPages = Math.ceil((orders || []).length / PAGE_SIZE);
+  // REMOVE INVALID EXISTING ORDERS - Logic to only show strictly valid orders
+  const validAndPaginated = React.useMemo(() => {
+    const filtered = (orders || [])
+      .filter(o => {
+        const hasMandatory = o.plantCode && o.orderNo && o.orderDate && o.consignorName && o.from && 
+                           o.consigneeName && o.shipToParty && o.destination && o.quantity;
+        const matchesSearch = !searchId || o.orderNo?.includes(searchId.toUpperCase());
+        return hasMandatory && matchesSearch;
+      });
+    
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return {
+      list: filtered.slice(start, start + PAGE_SIZE),
+      total: Math.ceil(filtered.length / PAGE_SIZE)
+    };
+  }, [orders, searchId, currentPage]);
+
+  const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return '-';
+    try {
+      // If it contains a T, it might be a timestamp, strip it
+      const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+      return format(new Date(cleanDate), 'dd-MMM-yyyy');
+    } catch(e) { return '-'; }
+  };
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
@@ -447,27 +437,30 @@ export default function VAPage() {
                   <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase text-slate-500">
                     <tr>
                       <th className="p-4 border-r">Plant</th>
-                      <th className="p-4 border-r">Sale Order</th>
+                      <th className="p-4 border-r">Sale Order Details</th>
                       <th className="p-4 border-r">Consignor</th>
                       <th className="p-4 border-r">From</th>
                       <th className="p-4 border-r">Consignee</th>
                       <th className="p-4 border-r">Ship to Party</th>
                       <th className="p-4 border-r">Destination</th>
-                      <th className="p-4 border-r">Weight</th>
+                      <th className="p-4 border-r text-right">Weight</th>
                       <th className="p-4">Action</th>
                     </tr>
                   </thead>
                   <tbody className="font-bold uppercase text-[11px]">
-                    {paginated.map(o => (
+                    {validAndPaginated.list.map(o => (
                       <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer transition-colors">
                         <td className="p-4 border-r text-slate-500">{o.plantCode}</td>
-                        <td className="p-4 border-r text-[#0056d2] font-black">{o.orderNo}</td>
+                        <td className="p-4 border-r flex flex-col gap-0.5">
+                           <span className="text-[#0056d2] font-black">{o.orderNo}</span>
+                           <span className="text-[9px] text-slate-400">Date: {formatDateDisplay(o.orderDate)}</span>
+                        </td>
                         <td className="p-4 border-r">{o.consignorName}</td>
                         <td className="p-4 border-r text-slate-400 italic">{o.from}</td>
                         <td className="p-4 border-r">{o.consigneeName}</td>
                         <td className="p-4 border-r">{o.shipToParty}</td>
                         <td className="p-4 border-r text-slate-400 italic">{o.destination}</td>
-                        <td className="p-4 border-r font-black">{o.quantity}</td>
+                        <td className="p-4 border-r text-right font-black">{parseFloat(o.quantity).toFixed(3)}</td>
                         <td className="p-4">
                            {activeTCode === 'VA02' && <button onClick={(e) => { e.stopPropagation(); handleDelete(o.id); }} className="p-1 hover:bg-red-50 text-red-400 transition-colors"><Trash2 className="h-4 w-4" /></button>}
                         </td>
@@ -478,10 +471,10 @@ export default function VAPage() {
                <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
                  <div className="flex gap-2 items-center">
                    <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronLeft className="h-3 w-3" /></Button>
-                   <input type="number" min="1" max={totalPages} value={currentPage} onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages, Number(e.target.value))))} className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none" />
-                   <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronRight className="h-3 w-3" /></Button>
+                   <input type="number" min="1" max={validAndPaginated.total} value={currentPage} onChange={e => setCurrentPage(Math.max(1, Math.min(validAndPaginated.total, Number(e.target.value))))} className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none" />
+                   <Button disabled={currentPage >= validAndPaginated.total} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronRight className="h-3 w-3" /></Button>
                  </div>
-                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Page {currentPage} of {totalPages || 1}</span>
+                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Page {currentPage} of {validAndPaginated.total || 1}</span>
                </div>
             </div>
           </div>
@@ -519,6 +512,7 @@ export default function VAPage() {
         ) : (
           <div className="animate-slide-up space-y-12 bg-white p-12 border border-slate-300 shadow-inner">
              <div className="grid grid-cols-2 gap-y-6 gap-x-24">
+               {/* ROW 1: Plant Code (L), Sale Order No (R) */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">PLANT CODE:</label>
                  <select 
@@ -555,6 +549,7 @@ export default function VAPage() {
                  />
                </div>
                
+               {/* ROW 2: Consignor Name (L), Order Date (R) - Reordered as per task */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR NAME:</label>
                  <SAPAutocomplete
@@ -570,10 +565,17 @@ export default function VAPage() {
                  />
                </div>
                <div className="flex items-center gap-8">
-                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNOR CODE:</label>
-                 <input value={formData.consignorCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black outline-none" />
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">ORDER DATE:</label>
+                 <input 
+                    type="date" 
+                    value={formData.orderDate ? formData.orderDate.split('T')[0] : ''} 
+                    onChange={e => setFormData({...formData, orderDate: e.target.value})} 
+                    disabled={isReadOnly} 
+                    className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none uppercase", errors.includes('orderDate') ? "border-red-500 bg-red-50" : "border-slate-400")} 
+                 />
                </div>
 
+               {/* ROW 3: Consignee Name (L), Consignor Code (R) */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">CONSIGNEE NAME:</label>
                  <SAPAutocomplete
@@ -587,6 +589,16 @@ export default function VAPage() {
                    hasError={errors.includes('consigneeName')}
                    placeholder="SEARCH CONSIGNEE..."
                  />
+               </div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase italic">FROM (AUTO-FILL):</label>
+                 <input value={formData.from || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black outline-none" />
+               </div>
+
+               {/* ROW 4: Quantity (L), Ship To Party (R) */}
+               <div className="flex items-center gap-8">
+                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">WEIGHT (MT):</label>
+                  <input type="number" step="0.001" value={formData.quantity || ''} onChange={e => setFormData({...formData, quantity: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('quantity') ? "border-red-500 bg-red-50" : "border-slate-400")} />
                </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">SHIP TO PARTY:</label>
@@ -603,14 +615,7 @@ export default function VAPage() {
                  />
                </div>
 
-               <div className="flex items-center gap-8">
-                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">QUANTITY (MT):</label>
-                  <input type="number" step="0.001" value={formData.quantity || ''} onChange={e => setFormData({...formData, quantity: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('quantity') ? "border-red-500 bg-red-50" : "border-slate-400")} />
-               </div>
-               <div className="flex items-center gap-8">
-                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">ORDER DATE TIME:</label>
-                  <input type="datetime-local" value={formData.orderDate || ''} onChange={e => setFormData({...formData, orderDate: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderDate') ? "border-red-500 bg-red-50" : "border-slate-400")} />
-               </div>
+               {/* ROW 5: Material Name (L), Destination (R) */}
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">MATERIAL NAME:</label>
                  <input value={formData.materialName || ''} onChange={e => setFormData({...formData, materialName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" />
@@ -618,6 +623,12 @@ export default function VAPage() {
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase italic">DESTINATION:</label>
                  <input value={formData.destination || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black outline-none" />
+               </div>
+
+               {/* Hidden field for system code linking */}
+               <div className="flex items-center gap-8 col-span-2 hidden">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase italic">CONSIGNOR CODE:</label>
+                 <input value={formData.consignorCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black outline-none" />
                </div>
              </div>
           </div>
