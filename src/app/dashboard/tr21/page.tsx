@@ -302,27 +302,27 @@ export default function TR21Page() {
             <div className="flex bg-[#f8fafc] border-b border-slate-300 text-[9px] font-black uppercase text-slate-500 sticky top-0 z-20">
                {activeTab === 'Open Orders' ? (
                  <>
-                   <div className="p-3 w-[4%] border-r text-center text-black">Plant</div>
-                   <div className="p-3 w-[10%] border-r text-black text-center">Sale Order Details</div>
-                   <div className="p-3 w-[12%] border-r text-black">Consignor</div>
-                   <div className="p-3 w-[12%] border-r text-black">Consignee</div>
-                   <div className="p-3 w-[12%] border-r text-black">Ship to Party</div>
-                   <div className="p-3 w-[12%] border-r text-black">Route</div>
-                   <div className="p-3 w-[5%] border-r text-right text-black">Qty</div>
-                   <div className="p-3 w-[5%] border-r text-right text-emerald-600">Balance</div>
-                   <div className="p-1 w-[50px] text-center text-black">Action</div>
+                   <div className="p-3 w-[4%] border-r text-center text-black shrink-0">Plant</div>
+                   <div className="p-3 w-[12%] border-r text-black text-center shrink-0">Sale Order Details</div>
+                   <div className="p-3 w-[15%] border-r text-black shrink-0">Consignor</div>
+                   <div className="p-3 w-[15%] border-r text-black shrink-0">Consignee</div>
+                   <div className="p-3 flex-1 border-r text-black shrink-0">Ship to Party</div>
+                   <div className="p-3 w-[12%] border-r text-black shrink-0">Route</div>
+                   <div className="p-3 w-[5%] border-r text-right text-black shrink-0">Qty</div>
+                   <div className="p-3 w-[5%] border-r text-right text-emerald-600 shrink-0">Balance</div>
+                   <div className="p-1 w-[100px] text-center text-black shrink-0">Action</div>
                  </>
                ) : (
                  <>
-                   <div className="p-3 w-[3%] border-r text-center text-black">Plant</div>
-                   <div className="p-3 w-[9%] border-r text-black text-center">Sale Order</div>
-                   <div className="p-3 w-[7%] border-r text-blue-700">Trip ID</div>
-                   <div className="p-3 w-[14%] border-r text-black">Consignee</div>
-                   <div className="p-3 w-[14%] border-r text-black">Ship To Party</div>
-                   <div className="p-3 w-[10%] border-r">Route</div>
-                   <div className="p-3 w-[12%] border-r text-black">Vehicle</div>
-                   <div className="p-3 w-[4%] border-r text-center">Qty</div>
-                   <div className="p-1 w-[50px] text-center text-black">Action</div>
+                   <div className="p-3 w-[3%] border-r text-center text-black shrink-0">Plant</div>
+                   <div className="p-3 w-[10%] border-r text-black text-center shrink-0">Sale Order</div>
+                   <div className="p-3 w-[8%] border-r text-blue-700 shrink-0">Trip ID</div>
+                   <div className="p-3 w-[15%] border-r text-black shrink-0">Consignee</div>
+                   <div className="p-3 flex-1 border-r text-black shrink-0">Ship To Party</div>
+                   <div className="p-3 w-[10%] border-r shrink-0">Route</div>
+                   <div className="p-3 w-[12%] border-r text-black shrink-0">Vehicle</div>
+                   <div className="p-3 w-[5%] border-r text-center shrink-0">Qty</div>
+                   <div className="p-1 w-[100px] text-center text-black shrink-0">Action</div>
                  </>
                )}
             </div>
@@ -334,46 +334,46 @@ export default function TR21Page() {
                   <div className="flex items-center text-[12px] font-black uppercase min-h-[70px] text-black">
                     {activeTab === 'Open Orders' ? (
                       <>
-                        <div className="p-3 w-[4%] border-r text-center">{item.plantCode}</div>
-                        <div className="p-3 w-[10%] border-r flex flex-col justify-center">
+                        <div className="p-3 w-[4%] border-r text-center shrink-0">{item.plantCode}</div>
+                        <div className="p-3 w-[12%] border-r flex flex-col justify-center shrink-0">
                            <span className="text-blue-700">{item.orderNo}</span>
                            <span className="text-[10px] text-slate-500 font-bold">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
-                        <div className="p-3 w-[12%] border-r truncate" title={item.consignorName}>{item.consignorName}</div>
-                        <div className="p-3 w-[12%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
-                        <div className="p-3 w-[12%] border-r truncate" title={item.shipToParty}>{item.shipToParty}</div>
-                        <div className="p-3 w-[12%] border-r italic text-slate-500 text-[10px] leading-tight">{item.from} → {item.destination}</div>
-                        <div className="p-3 w-[5%] border-r text-right">{item.quantity}</div>
-                        <div className="p-3 w-[5%] border-r text-right text-emerald-600 font-black">{item.balance?.toFixed(3)}</div>
-                        <div className="p-1 w-[50px] flex justify-center">
-                           <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }); setShowAssign(true); }} className="h-7 w-full text-[9px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-0">Assign</Button>
+                        <div className="p-3 w-[15%] border-r truncate shrink-0" title={item.consignorName}>{item.consignorName}</div>
+                        <div className="p-3 w-[15%] border-r truncate shrink-0" title={item.consigneeName}>{item.consigneeName}</div>
+                        <div className="p-3 flex-1 border-r truncate shrink-0" title={item.shipToParty}>{item.shipToParty}</div>
+                        <div className="p-3 w-[12%] border-r italic text-slate-500 text-[10px] leading-tight shrink-0">{item.from} → {item.destination}</div>
+                        <div className="p-3 w-[5%] border-r text-right shrink-0">{item.quantity}</div>
+                        <div className="p-3 w-[5%] border-r text-right text-emerald-600 font-black shrink-0">{item.balance?.toFixed(3)}</div>
+                        <div className="p-1 w-[100px] flex justify-center shrink-0">
+                           <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }); setShowAssign(true); }} className="h-7 w-[80px] text-[9px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-0">Assign</Button>
                         </div>
                       </>
                     ) : (
                       <>
-                        <div className="p-3 w-[3%] border-r text-center">{item.plantCode}</div>
-                        <div className="p-3 w-[9%] border-r flex flex-col justify-center">
+                        <div className="p-3 w-[3%] border-r text-center shrink-0">{item.plantCode}</div>
+                        <div className="p-3 w-[10%] border-r flex flex-col justify-center shrink-0">
                            <span className="text-slate-800">{item.orderNo}</span>
                            <span className="text-[10px] text-slate-400 font-bold">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
-                        <div className="p-3 w-[7%] border-r text-blue-700 font-black">{item.tripNo}</div>
-                        <div className="p-3 w-[14%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
-                        <div className="p-3 w-[14%] border-r truncate" title={item.shipToParty}>{item.shipToParty}</div>
-                        <div className="p-3 w-[10%] border-r italic text-slate-500 text-[10px]">{item.from} → {item.destination}</div>
-                        <div className="p-3 w-[12%] border-r flex flex-col">
+                        <div className="p-3 w-[7%] border-r text-blue-700 font-black shrink-0">{item.tripNo}</div>
+                        <div className="p-3 w-[15%] border-r truncate shrink-0" title={item.consigneeName}>{item.consigneeName}</div>
+                        <div className="p-3 flex-1 border-r truncate shrink-0" title={item.shipToParty}>{item.shipToParty}</div>
+                        <div className="p-3 w-[10%] border-r italic text-slate-500 text-[10px] shrink-0">{item.from} → {item.destination}</div>
+                        <div className="p-3 w-[12%] border-r flex flex-col shrink-0">
                            <span className="font-black text-blue-800">{item.vehicleNo}</span>
                            <span className="text-[10px] text-slate-500 font-bold">{item.driverMobile || '-'}</span>
                         </div>
-                        <div className="p-3 w-[4%] border-r text-center text-blue-600 font-black">{item.assignWeight}</div>
-                        <div className="p-1 w-[50px] flex flex-col gap-1 items-center">
+                        <div className="p-3 w-[5%] border-r text-center text-blue-600 font-black shrink-0">{item.assignWeight}</div>
+                        <div className="p-1 w-[100px] flex flex-col gap-1 items-center shrink-0">
                            {activeTab === 'Loading' && (
-                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} className="h-6 w-full text-[8px] font-black bg-[#1e3a8a] text-white rounded-none px-0">OUT</Button>
+                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} className="h-6 w-[80px] text-[8px] font-black bg-[#1e3a8a] text-white rounded-none px-0">OUT</Button>
                            )}
                            {activeTab === 'In-Transit' && (
-                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowArrivePortal(true); }} className="h-6 w-full text-[8px] font-black bg-emerald-600 text-white rounded-none px-0">ARRIVE</Button>
+                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowArrivePortal(true); }} className="h-6 w-[80px] text-[8px] font-black bg-emerald-600 text-white rounded-none px-0">ARRIVE</Button>
                            )}
                            {(activeTab === 'In-Transit' || activeTab === 'Arrived') && (
-                             <Button onClick={() => { setSelectedTrip(item); setShowMapPortal(true); }} variant="outline" className="h-6 w-full text-[8px] font-black border-blue-200 text-blue-600 rounded-none px-0">MAP</Button>
+                             <Button onClick={() => { setSelectedTrip(item); setShowMapPortal(true); }} variant="outline" className="h-6 w-[80px] text-[8px] font-black border-blue-200 text-blue-600 rounded-none px-0">MAP</Button>
                            )}
                         </div>
                       </>
