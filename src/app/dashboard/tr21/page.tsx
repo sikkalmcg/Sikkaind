@@ -513,11 +513,11 @@ export default function TR21Page() {
                            <span className="font-black text-blue-700 text-[11px]">{item.orderNo}</span>
                            <span className="text-[10px] text-slate-400 font-bold lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
                         </div>
-                        <div className="p-3 w-[12%] border-r truncate" title={item.consignorName}>{item.consignorName}</div>
+                        <div className="p-3 w-[12%] border-r truncate text-black font-black text-[11px]" title={item.consignorName}>{item.consignorName}</div>
                         <div className="p-3 w-[12%] border-r truncate text-black text-[12px] font-black" title={item.consigneeName}>{item.consigneeName}</div>
-                        <div className="p-3 w-[12%] border-r truncate font-black" title={item.shipToParty}>{item.shipToParty}</div>
+                        <div className="p-3 w-[12%] border-r truncate font-black text-black text-[11px]" title={item.shipToParty}>{item.shipToParty}</div>
                         <div className="p-3 w-[10%] border-r italic text-slate-500 leading-tight" title={`${item.from} to ${item.destination}`}>{item.from} → {item.destination}</div>
-                        <div className="p-3 w-[8%] border-r text-right font-black">{item.quantity}</div>
+                        <div className="p-3 w-[8%] border-r text-right font-black text-black text-[11px]">{item.quantity}</div>
                         <div className="p-3 w-[8%] border-r text-right font-black text-slate-400">{item.dispatched?.toFixed(3)}</div>
                         <div className="p-3 w-[8%] border-r text-right font-black text-emerald-600">{item.balance?.toFixed(3)}</div>
                         <div className="p-3 flex-1 flex justify-center">
@@ -528,7 +528,7 @@ export default function TR21Page() {
                       <>
                         <div className="p-3 w-[3%] border-r text-center text-black font-black text-[12px]">{item.plantCode}</div>
                         <div className="p-3 w-[7%] border-r flex flex-col">
-                           <span className="text-slate-700 font-bold text-[10px]">{item.orderNo}</span>
+                           <span className="text-black font-black text-[11px]">{item.orderNo}</span>
                            <span className="text-[10px] text-slate-400 font-bold lowercase">{item.orderDate ? format(new Date(item.orderDate), 'dd-MM HH:mm') : '-'}</span>
                         </div>
                         <div className="p-3 w-[7%] border-r flex flex-col">
@@ -536,10 +536,10 @@ export default function TR21Page() {
                            <span className="text-[10px] text-slate-400 font-bold lowercase">{item.updatedAt ? format(new Date(item.updatedAt), 'dd-MM HH:mm') : '-'}</span>
                         </div>
                         <div className="p-3 w-[12%] border-r flex flex-col gap-0.5">
-                           <span className="truncate" title={item.consignorName}>{item.consignorName}</span>
+                           <span className="truncate text-black font-black text-[11px]" title={item.consignorName}>{item.consignorName}</span>
                            <span className="truncate text-black text-[12px] font-black italic border-t border-slate-50 pt-0.5" title={`TO: ${item.consigneeName}`}>TO: {item.consigneeName}</span>
                         </div>
-                        <div className="p-3 w-[10%] border-r font-black text-slate-700 truncate" title={item.shipToParty}>{item.shipToParty}</div>
+                        <div className="p-3 w-[10%] border-r font-black text-black text-[11px] truncate" title={item.shipToParty}>{item.shipToParty}</div>
                         <div className="p-3 w-[8%] border-r italic text-slate-500 text-[8px] leading-tight" title={`${item.from} to ${item.destination}`}>{item.from} → {item.destination}</div>
                         
                         <div className="p-3 w-[10%] border-r flex flex-col gap-0.5 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedTrip(item); setVehicleEdit({vehicleNo: item.vehicleNo, mobile: item.driverMobile}); setShowVehiclePortal(true); }}>
@@ -554,9 +554,9 @@ export default function TR21Page() {
                         </div>
 
                         <div className="p-3 w-[12%] border-r flex flex-col gap-0.5 overflow-hidden">
-                           <span className="text-[9px] font-black text-slate-800 truncate" title={getCarrierForPlant(item.plantCode)}>{getCarrierForPlant(item.plantCode)}</span>
-                           {item.transporterName && <span className="text-[8px] font-bold text-slate-400 italic truncate" title={item.transporterName}>{item.transporterName}</span>}
-                           <span className="text-[7px] font-black text-slate-300 uppercase truncate" title={item.arrangeBy}>{item.arrangeBy || '-'}</span>
+                           <span className="text-[11px] font-black text-black truncate" title={getCarrierForPlant(item.plantCode)}>{getCarrierForPlant(item.plantCode)}</span>
+                           {item.transporterName && <span className="text-[10px] font-black text-slate-400 italic truncate" title={item.transporterName}>{item.transporterName}</span>}
+                           <span className="text-[8px] font-black text-slate-300 uppercase truncate" title={item.arrangeBy}>{item.arrangeBy || '-'}</span>
                         </div>
 
                         <div className="p-3 w-[8%] border-r">
@@ -628,14 +628,14 @@ export default function TR21Page() {
 
                   {activeTab !== 'Open Orders' && (
                     <div className="flex bg-slate-50/70 border-t border-slate-200 h-9 items-center px-4">
-                       <div className="w-[30%] flex items-center gap-4 text-[8px] font-black text-slate-400">
+                       <div className="w-[30%] flex items-center gap-4 text-[9px] font-black text-black">
                           <span className="flex items-center gap-1 uppercase">Trip Date Time: {item.createdAt ? format(new Date(item.createdAt), 'dd-MM HH:mm') : '-'}</span>
                        </div>
                        <div className="flex-1 flex items-center justify-end gap-6 overflow-hidden">
-                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode?.latitude},${liveNode?.longitude}`, '_blank')} title={liveNode?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}>
+                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode?.latitude},${liveNode?.longitude}`, '_blank')} title={liveNode?.lastLocation || 'FETCHING LIVE SATELLITE POSITION...'}>
                              <MapPin className="h-3 w-3 text-red-500 shrink-0" />
-                             <span className="text-[10px] font-black text-black uppercase truncate group-hover:underline italic tracking-tight max-w-[600px]">
-                                {liveNode?.lastLocation || 'RESOLVING VEHICLE LOCATION...'}
+                             <span className="text-[11px] font-black text-black uppercase truncate group-hover:underline italic tracking-tight max-w-[600px]">
+                                {liveNode?.lastLocation || 'FETCHING LIVE SATELLITE POSITION...'}
                              </span>
                           </div>
                           <button onClick={() => { setSelectedTrip(item); setShowTrackPortal(true); }} className="flex items-center gap-1.5 h-6 bg-white border border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all text-[8px] font-black uppercase rounded-full px-3 shrink-0 shadow-sm">

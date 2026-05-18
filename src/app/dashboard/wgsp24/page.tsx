@@ -5,20 +5,27 @@ import { Radar, MapPin, Truck, Loader2, Settings, X, RefreshCw, Upload } from 'l
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import Image from 'next/image';
+import { useFirestore, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+
+const SHARED_HUB_ID = 'Sikkaind';
 
 /**
  * @fileOverview WGPS24 – Global Fleet Monitoring.
  * Integrates live Wheelseye API data with Google Maps for real-time tracking.
  */
 export default function WGPS24Page() {
+  const db = useFirestore();
   const [view, setView] = React.useState<'MAP' | 'SETTING'>('MAP');
   const [gpsData, setGpsData] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedVehicle, setSelectedVehicle] = React.useState<any>(null);
   const [resolvedAddress, setResolvedAddress] = React.useState<string>('RESOLVING...');
   
-  // Icon State
+  // Persistent Settings
+  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
+  const { data: settings } = useDoc(settingsRef);
+
   const [activeIcon, setActiveIcon] = React.useState<string>('https://maps.google.com/mapfiles/ms/icons/green-dot.png');
   const [stoppedIcon, setStoppedIcon] = React.useState<string>('https://maps.google.com/mapfiles/ms/icons/red-dot.png');
 
@@ -29,7 +36,13 @@ export default function WGPS24Page() {
   const googleMap = React.useRef<any>(null);
   const markersRef = React.useRef<any[]>([]);
 
-  // Handle Image Upload
+  React.useEffect(() => {
+    if (settings) {
+      if (settings.activeIcon) setActiveIcon(settings.activeIcon);
+      if (settings.stoppedIcon) setStoppedIcon(settings.stoppedIcon);
+    }
+  }, [settings]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'ACTIVE' | 'STOPPED') => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -42,13 +55,12 @@ export default function WGPS24Page() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const result = event.target?.result as string;
-      if (type === 'ACTIVE') setActiveIcon(result);
-      else setStoppedIcon(result);
+      const updates = type === 'ACTIVE' ? { activeIcon: result } : { stoppedIcon: result };
+      setDocumentNonBlocking(settingsRef, updates, { merge: true });
     };
     reader.readAsDataURL(file);
   };
 
-  // Fetch GPS data from Wheelseye Proxy
   const fetchGps = React.useCallback(async () => {
     try {
       const res = await fetch('/api/gps');
@@ -64,14 +76,12 @@ export default function WGPS24Page() {
     }
   }, []);
 
-  // Set up synchronization interval
   React.useEffect(() => {
     fetchGps();
-    const interval = setInterval(fetchGps, 30000); // 30s heartbeat
+    const interval = setInterval(fetchGps, 30000);
     return () => clearInterval(interval);
   }, [fetchGps]);
 
-  // Reverse Geocoding Helper
   const reverseGeocode = React.useCallback((lat: number, lng: number) => {
     if (!window.google) return;
     const geocoder = new window.google.maps.Geocoder();
@@ -84,14 +94,12 @@ export default function WGPS24Page() {
     });
   }, []);
 
-  // Handle Map and Marker Lifecycle
   React.useEffect(() => {
     if (!window.google || !mapRef.current || view !== 'MAP') return;
 
-    // Initialize Map instance if not present
     if (!googleMap.current) {
       googleMap.current = new window.google.maps.Map(mapRef.current, {
-        center: { lat: 20.5937, lng: 78.9629 }, // Center of India
+        center: { lat: 20.5937, lng: 78.9629 },
         zoom: 5,
         mapTypeControl: false,
         streetViewControl: false,
@@ -103,11 +111,9 @@ export default function WGPS24Page() {
       });
     }
 
-    // Clear existing markers
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
 
-    // Add new markers for synced nodes
     gpsData.forEach(v => {
       const marker = new window.google.maps.Marker({
         position: { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) },
@@ -139,7 +145,6 @@ export default function WGPS24Page() {
 
   return (
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden">
-      {/* Transaction Header */}
       <div className="bg-white border-b border-slate-300 px-8 py-2 flex items-center justify-between shrink-0 shadow-sm z-20">
         <div className="flex items-center gap-4">
            <Radar className="h-5 w-5 text-[#1e3a8a]" />
@@ -172,7 +177,6 @@ export default function WGPS24Page() {
       <div className="flex-1 flex overflow-hidden">
         {view === 'MAP' ? (
           <>
-            {/* Vehicle List Sidebar */}
             <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-lg z-10">
               <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
                  <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
@@ -213,11 +217,9 @@ export default function WGPS24Page() {
               </div>
             </div>
 
-            {/* Map Container */}
             <div className="flex-1 relative bg-slate-200">
                <div ref={mapRef} className="w-full h-full" />
                
-               {/* Selection Details Overlay */}
                {selectedVehicle && (
                  <div className="absolute top-4 left-4 right-4 bg-white/95 border border-slate-300 p-4 shadow-2xl backdrop-blur-sm animate-fade-in z-20">
                     <div className="flex justify-between items-start">
@@ -268,7 +270,6 @@ export default function WGPS24Page() {
             </div>
           </>
         ) : (
-          /* Settings Tab */
           <div className="flex-1 bg-white p-12 overflow-y-auto">
              <div className="max-w-4xl space-y-12 animate-slide-up">
                 <div className="space-y-8">
