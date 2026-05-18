@@ -309,13 +309,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   (searchParams.get('tcode') === t.code || selectedFavCode === t.code) && "bg-blue-50 border-l-4 border-l-[#0056d2]"
                 )}
               >
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a]">{t.code}</span>
-                  <span className="text-[8px] font-bold text-slate-400 uppercase">{t.description}</span>
+                <div className="flex items-baseline gap-2 overflow-hidden flex-1">
+                  <span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a] shrink-0">{t.code}</span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase truncate" title={t.description}>{t.description}</span>
                 </div>
-                <div className="flex-1" />
                 <t.icon className={cn(
-                  "h-3.5 w-3.5 text-slate-300 group-hover:text-blue-600 transition-colors",
+                  "h-3.5 w-3.5 text-slate-300 group-hover:text-blue-600 transition-colors shrink-0",
                   (searchParams.get('tcode') === t.code || selectedFavCode === t.code) && "text-blue-600"
                 )} />
               </div>

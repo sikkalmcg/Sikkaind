@@ -537,16 +537,16 @@ export default function TR21Page() {
                    
                    {activeTab === 'Reject' && (
                      <>
-                        <div className="p-3 w-[6%] border-r">Out Date</div>
-                        <div className="p-3 w-[6%] border-r">Arrived Date</div>
-                        <div className="p-3 w-[6%] border-r">Reject Date</div>
+                        <div className="p-3 w-[6%] border-r">Out Date time</div>
+                        <div className="p-3 w-[6%] border-r">Arrived Date time</div>
+                        <div className="p-3 w-[6%] border-r text-red-600">Reject Date time</div>
                      </>
                    )}
                    {(activeTab === 'POD Verify' || activeTab === 'Closed') && (
                      <>
-                        <div className="p-3 w-[6%] border-r">Out Date</div>
-                        <div className="p-3 w-[6%] border-r">Arrived Date</div>
-                        <div className="p-3 w-[6%] border-r">Unload Date</div>
+                        <div className="p-3 w-[6%] border-r">Out Date time</div>
+                        <div className="p-3 w-[6%] border-r">Arrived Date time</div>
+                        <div className="p-3 w-[6%] border-r text-emerald-600">Unload Date time</div>
                      </>
                    )}
                    {(activeTab !== 'Reject' && activeTab !== 'POD Verify' && activeTab !== 'Closed') && (
