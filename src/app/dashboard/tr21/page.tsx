@@ -4,11 +4,11 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Save, ChevronLeft, ChevronRight, Filter, Search, MapPin, Truck, Radar, 
-  CheckCircle, Loader2, X, Upload, Info
+  CheckCircle, Loader2, X, Upload, Info, Map as MapIcon, RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -35,8 +35,17 @@ export default function TR21Page() {
   const [showAssign, setShowAssign] = React.useState(false);
   const [showOutPortal, setShowOutPortal] = React.useState(false);
   const [showArrivePortal, setShowArrivePortal] = React.useState(false);
+  const [showMapPortal, setShowMapPortal] = React.useState(false);
   const [assignData, setAssignData] = React.useState<any>({});
   const [actionData, setActionData] = React.useState({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
+
+  // Persistent Settings for Icons
+  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
+  const { data: settings } = useDoc(settingsRef);
+
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const googleMapInstance = React.useRef<any>(null);
+  const markerInstance = React.useRef<any>(null);
 
   React.useEffect(() => { setMounted(true); }, []);
 
@@ -171,6 +180,32 @@ export default function TR21Page() {
     setAssignData({});
   };
 
+  // Map Dialog Logic
+  React.useEffect(() => {
+    if (showMapPortal && selectedTrip && mapRef.current && window.google) {
+      const liveNode = gpsLive.find(n => n.vehicleNumber?.trim() === selectedTrip.vehicleNo?.trim());
+      const lat = liveNode ? parseFloat(liveNode.latitude) : 20.5937;
+      const lng = liveNode ? parseFloat(liveNode.longitude) : 78.9629;
+
+      googleMapInstance.current = new window.google.maps.Map(mapRef.current, {
+        center: { lat, lng },
+        zoom: 14,
+        disableDefaultUI: true,
+        styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
+      });
+
+      markerInstance.current = new window.google.maps.Marker({
+        position: { lat, lng },
+        map: googleMapInstance.current,
+        icon: {
+          url: liveNode?.status === 'RUNNING' ? (settings?.activeIcon || 'https://maps.google.com/mapfiles/ms/icons/green-dot.png') : (settings?.stoppedIcon || 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'),
+          scaledSize: new window.google.maps.Size(42, 42),
+          anchor: new window.google.maps.Point(21, 21)
+        }
+      });
+    }
+  }, [showMapPortal, selectedTrip, gpsLive, settings]);
+
   const ActionPortal = ({ open, onOpenChange, title, onPost, trip }: { open: boolean, onOpenChange: (v: boolean) => void, title: string, onPost: () => void, trip: any }) => (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden text-slate-900 text-left">
@@ -202,7 +237,7 @@ export default function TR21Page() {
   const formatDate = (val: any) => val ? format(new Date(val), 'dd-MMM HH:mm') : '-';
 
   return (
-    <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden text-[#333]">
+    <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden text-black">
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
         <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD</h2>
         <div className="flex gap-4 items-center">
@@ -223,7 +258,7 @@ export default function TR21Page() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col p-8 transition-opacity duration-300">
+      <div className="flex-1 flex flex-col p-8">
         <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 mb-4 overflow-x-auto no-scrollbar">
           {['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'].map(l => (
             <button key={l} onClick={() => { setActiveTab(l); setCurrentPage(1); }} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest border-r border-slate-300 shrink-0", activeTab === l ? "bg-white text-[#0056d2] border-t-2 border-t-[#0056d2]" : "text-slate-500 hover:bg-white/50")}>
@@ -247,30 +282,6 @@ export default function TR21Page() {
                    <div className="p-3 w-[5%] border-r text-right text-emerald-600">Balance</div>
                    <div className="p-3 w-[100px] text-center text-black">Action</div>
                  </>
-               ) : activeTab === 'Reject' ? (
-                <>
-                   <div className="p-3 w-[3%] border-r text-center text-black">Plant</div>
-                   <div className="p-3 w-[15%] border-r text-black text-center">Sale Order</div>
-                   <div className="p-3 w-[7%] border-r text-blue-700">Trip ID</div>
-                   <div className="p-3 w-[9%] border-r text-black">Vehicle</div>
-                   <div className="p-3 w-[11%] border-r text-black">Out Date time</div>
-                   <div className="p-3 w-[11%] border-r text-black">Arrived Date time</div>
-                   <div className="p-3 w-[11%] border-r text-red-600">Reject Date time</div>
-                   <div className="p-3 w-[15%] border-r text-black">Consignee</div>
-                   <div className="p-3 w-[100px] text-center text-black">Action</div>
-                </>
-               ) : (activeTab === 'POD Verify' || activeTab === 'Closed') ? (
-                <>
-                   <div className="p-3 w-[3%] border-r text-center text-black">Plant</div>
-                   <div className="p-3 w-[15%] border-r text-black text-center">Sale Order</div>
-                   <div className="p-3 w-[7%] border-r text-blue-700">Trip ID</div>
-                   <div className="p-3 w-[9%] border-r text-black">Vehicle</div>
-                   <div className="p-3 w-[11%] border-r text-black">Out Date time</div>
-                   <div className="p-3 w-[11%] border-r text-black">Arrived Date time</div>
-                   <div className="p-3 w-[11%] border-r text-emerald-600">Unload Date time</div>
-                   <div className="p-3 w-[15%] border-r text-black">Consignee</div>
-                   <div className="p-3 w-[100px] text-center text-black">Action</div>
-                </>
                ) : (
                  <>
                    <div className="p-3 w-[3%] border-r text-center text-black">Plant</div>
@@ -294,9 +305,9 @@ export default function TR21Page() {
                     {activeTab === 'Open Orders' ? (
                       <>
                         <div className="p-3 w-[4%] border-r text-center">{item.plantCode}</div>
-                        <div className="p-3 w-[20%] border-r flex items-center justify-center gap-4">
-                           <span className="text-blue-700 whitespace-nowrap">Order: {item.orderNo}</span>
-                           <span className="text-[10px] text-slate-500 font-bold whitespace-nowrap">Order Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
+                        <div className="p-3 w-[20%] border-r flex flex-col justify-center">
+                           <span className="text-blue-700">Order: {item.orderNo}</span>
+                           <span className="text-[10px] text-slate-500 font-bold">Date: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consignorName}>{item.consignorName}</div>
                         <div className="p-3 w-[12%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
@@ -308,38 +319,10 @@ export default function TR21Page() {
                            <Button onClick={() => { setSelectedOrder(item); setAssignData({assignWeight: item.balance.toFixed(3), paymentTerms: 'TO PAY'}); setShowAssign(true); }} className="h-7 text-[9px] font-black uppercase bg-[#1e3a8a] text-white rounded-none px-6">Assign</Button>
                         </div>
                       </>
-                    ) : activeTab === 'Reject' ? (
-                        <>
-                            <div className="p-3 w-[3%] border-r text-center">{item.plantCode}</div>
-                            <div className="p-3 w-[15%] border-r text-center text-slate-500">Order: {item.orderNo}</div>
-                            <div className="p-3 w-[7%] border-r text-blue-700 font-black">{item.tripNo}</div>
-                            <div className="p-3 w-[9%] border-r">{item.vehicleNo}</div>
-                            <div className="p-3 w-[11%] border-r text-slate-400 font-bold">{formatDate(item.dispatchDate)}</div>
-                            <div className="p-3 w-[11%] border-r text-slate-400 font-bold">{formatDate(item.arrivalDate)}</div>
-                            <div className="p-3 w-[11%] border-r text-red-600 font-black">{formatDate(item.rejectDate)}</div>
-                            <div className="p-3 w-[15%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
-                            <div className="p-3 w-[100px] flex justify-center">
-                                <Badge variant="outline" className="text-[8px] rounded-none border-red-200 text-red-500">REJECTED</Badge>
-                            </div>
-                        </>
-                    ) : (activeTab === 'POD Verify' || activeTab === 'Closed') ? (
-                        <>
-                            <div className="p-3 w-[3%] border-r text-center">{item.plantCode}</div>
-                            <div className="p-3 w-[15%] border-r text-center text-slate-500">Order: {item.orderNo}</div>
-                            <div className="p-3 w-[7%] border-r text-blue-700 font-black">{item.tripNo}</div>
-                            <div className="p-3 w-[9%] border-r">{item.vehicleNo}</div>
-                            <div className="p-3 w-[11%] border-r text-slate-400 font-bold">{formatDate(item.dispatchDate)}</div>
-                            <div className="p-3 w-[11%] border-r text-slate-400 font-bold">{formatDate(item.arrivalDate)}</div>
-                            <div className="p-3 w-[11%] border-r text-emerald-600 font-black">{formatDate(item.unloadDate)}</div>
-                            <div className="p-3 w-[15%] border-r truncate" title={item.consigneeName}>{item.consigneeName}</div>
-                            <div className="p-3 w-[100px] flex justify-center">
-                                <Badge variant="outline" className="text-[8px] rounded-none border-blue-200 text-blue-500">{activeTab}</Badge>
-                            </div>
-                        </>
                     ) : (
                       <>
                         <div className="p-3 w-[3%] border-r text-center">{item.plantCode}</div>
-                        <div className="p-3 w-[18%] border-r flex items-center justify-center gap-3">
+                        <div className="p-3 w-[18%] border-r flex flex-col justify-center">
                            <span className="text-slate-800">Order: {item.orderNo}</span>
                            <span className="text-[10px] text-slate-400 font-bold">Dt: {item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
@@ -352,12 +335,15 @@ export default function TR21Page() {
                            <span className="text-[10px] text-slate-500 font-bold">{item.driverMobile || '-'}</span>
                         </div>
                         <div className="p-3 w-[4%] border-r text-center text-blue-600 font-black">{item.assignWeight}</div>
-                        <div className="p-3 w-[100px] flex justify-center gap-2">
+                        <div className="p-3 w-[100px] flex flex-col gap-1 items-center px-1">
                            {activeTab === 'Loading' && (
-                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} className="h-7 text-[9px] font-black bg-[#1e3a8a] text-white rounded-none px-4">OUT</Button>
+                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowOutPortal(true); }} className="h-6 w-full text-[8px] font-black bg-[#1e3a8a] text-white rounded-none">OUT</Button>
                            )}
                            {activeTab === 'In-Transit' && (
-                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowArrivePortal(true); }} className="h-7 text-[10px] font-black bg-emerald-600 text-white rounded-none px-6">ARRIVE</Button>
+                             <Button onClick={() => { setSelectedTrip(item); setActionData({date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm')}); setShowArrivePortal(true); }} className="h-6 w-full text-[8px] font-black bg-emerald-600 text-white rounded-none">ARRIVE</Button>
+                           )}
+                           {(activeTab === 'In-Transit' || activeTab === 'Arrived') && (
+                             <Button onClick={() => { setSelectedTrip(item); setShowMapPortal(true); }} variant="outline" className="h-6 w-full text-[8px] font-black border-blue-200 text-blue-600 rounded-none"><MapIcon className="h-3 w-3 mr-1" /> MAP</Button>
                            )}
                         </div>
                       </>
@@ -367,7 +353,7 @@ export default function TR21Page() {
                   {activeTab !== 'Open Orders' && (
                     <div className="flex bg-slate-50/70 border-t border-slate-200 h-9 items-center px-4">
                        <div className="flex-1 flex items-center gap-6 overflow-hidden">
-                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${liveNode?.latitude},${liveNode?.longitude}`, '_blank')}>
+                          <div className="flex items-center gap-2 group cursor-pointer overflow-hidden" onClick={() => { setSelectedTrip(item); setShowMapPortal(true); }}>
                              <MapPin className="h-3 w-3 text-red-500 shrink-0" />
                              <span className="text-[11px] font-black text-black uppercase truncate group-hover:underline italic tracking-tight">
                                 {locationMap[item.vehicleNo?.trim()] || 'SYNCHRONIZING LOCATION...'}
@@ -413,6 +399,20 @@ export default function TR21Page() {
           updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { status: 'ARRIVED', arrivalDate: ts, updatedAt: new Date().toISOString() });
           setShowArrivePortal(false);
       }} />
+
+      <Dialog open={showMapPortal} onOpenChange={setShowMapPortal}>
+        <DialogContent className="max-w-4xl rounded-none border-[3px] border-[#0056d2] font-mono p-0 h-[600px] flex flex-col">
+          <DialogHeader className="bg-slate-50 p-4 border-b flex flex-row items-center justify-between shrink-0">
+             <DialogTitle className="text-xs font-black uppercase text-[#1e3a8a] italic">Live Tracking: {selectedTrip?.vehicleNo}</DialogTitle>
+             <Button variant="ghost" onClick={() => setShowMapPortal(false)} className="h-8 w-8 p-0"><X className="h-4 w-4" /></Button>
+          </DialogHeader>
+          <div ref={mapRef} className="flex-1 bg-slate-100" />
+          <div className="p-3 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase">
+             <span className="flex items-center gap-2"><MapPin className="h-3 w-3 text-red-500" /> {locationMap[selectedTrip?.vehicleNo?.trim()] || 'LOCATING...'}</span>
+             <span className="text-blue-700 italic">Sikka Satellite Gateway Active</span>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
