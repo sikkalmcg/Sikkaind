@@ -271,7 +271,7 @@ export default function TR21Page() {
                     <th className="p-3 border-r w-[180px]">Ship to Party</th>
                     <th className="p-3 border-r w-[180px]">Route</th>
                     <th className="p-3 border-r w-[150px]">Vehicle/Mobile</th>
-                    <th className="p-3 border-r w-[150px]">Carrier/Vendor</th>
+                    <th className="p-3 border-r w-[180px]">Carrier/Vendor</th>
                     <th className="p-3 border-r w-[100px]">Fleet Type</th>
                     <th className="p-3 border-r w-[150px]">CN No/Date</th>
                     {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
@@ -326,7 +326,21 @@ export default function TR21Page() {
                             <span className="text-[9px] text-slate-400 font-normal">{item.driverMobile || '-'}</span>
                           </button>
                         </td>
-                        <td className="p-3 border-r truncate max-w-[150px] font-normal">{item.carrierName || item.vendorName || '-'}</td>
+                        <td className="p-3 border-r">
+                           {(() => {
+                              const carrier = (companies || []).find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(item.plantCode));
+                              return (
+                                <div className="flex flex-col leading-tight overflow-hidden">
+                                  <span className="text-[#0056d2] font-normal text-[10px] truncate" title={carrier?.companyName || item.carrierName}>
+                                    {carrier?.companyName || item.carrierName || 'PENDING'}
+                                  </span>
+                                  <span className="text-slate-500 font-normal text-[9px] truncate" title={item.vendorName}>
+                                    {item.vendorName || '-'}
+                                  </span>
+                                </div>
+                              );
+                           })()}
+                        </td>
                         <td className="p-3 border-r text-[9px] font-normal text-slate-400">{item.fleetType}</td>
                         <td className="p-3 border-r">
                            <div className="flex flex-col leading-tight">
