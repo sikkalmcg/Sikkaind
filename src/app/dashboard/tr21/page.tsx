@@ -181,6 +181,7 @@ export default function TR21Page() {
         email: carrier.email,
         gstNo: carrier.gstNo,
         panNo: carrier.panNo,
+        website: carrier.website || '',
         logoUrl: carrier.logoUrl,
         termsAndConditions: carrier.termsAndConditions || ''
       } : null,
@@ -241,7 +242,7 @@ export default function TR21Page() {
               <tr>
                 <th className="p-3 border-r w-[60px] text-center">Plant</th>
                 <th className="p-3 border-r w-[150px]">Sale Order Details</th>
-                {activeTab !== 'Open Orders' && <th className="p-3 border-r w-[100px] text-blue-700">Trip ID</th>}
+                {activeTab !== 'Open Orders' && <th className="p-3 border-r w-[120px]">Trip ID</th>}
                 <th className="p-3 border-r w-[150px]">Ship to Party</th>
                 <th className="p-3 border-r w-[150px]">Route (From → To)</th>
                 <th className="p-3 border-r w-[140px]">Vehicle / Mobile</th>
@@ -258,7 +259,12 @@ export default function TR21Page() {
                     <span className="font-black text-slate-800">{item.orderNo}</span>
                     <span className="text-[9px] text-slate-400">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                   </td>
-                  {activeTab !== 'Open Orders' && <td className="p-3 border-r font-black text-blue-700">{item.tripNo || '-'}</td>}
+                  {activeTab !== 'Open Orders' && (
+                    <td className="p-3 border-r leading-tight flex flex-col justify-center min-h-[60px]">
+                      <span className="font-black text-blue-700">{item.tripNo || '-'}</span>
+                      <span className="text-[9px] text-slate-400">{item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '-'}</span>
+                    </td>
+                  )}
                   <td className="p-3 border-r truncate font-bold uppercase" title={item.shipToParty}>{item.shipToParty}</td>
                   <td className="p-3 border-r italic text-[10px] leading-tight flex flex-col justify-center min-h-[60px]">
                     <span className="uppercase">{item.from} → {item.destination}</span>
@@ -455,9 +461,9 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
       {copies.map((copyLabel, index) => (
         <div key={index} className="relative p-10 bg-white border-b-2 border-dashed border-slate-300 last:border-b-0 print:border-none print:p-10 print:page-break-after-always overflow-hidden text-left w-[210mm] min-h-[297mm] mx-auto box-border flex flex-col">
           <div className="flex justify-between items-start mb-8">
-            <div className="flex flex-col gap-5">
+            <div className="flex gap-6 items-start">
               {(carrier?.logoUrl || logoFallback?.url) && (
-                <div className="relative w-[90px] h-[42px]">
+                <div className="relative w-[90px] h-[42px] shrink-0">
                   <Image 
                     src={carrier?.logoUrl || logoFallback?.url || ''} 
                     alt="Carrier Logo" 
@@ -467,17 +473,19 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                   />
                 </div>
               )}
-              <div className="space-y-1">
-                <h1 className="text-xl font-normal uppercase italic tracking-tighter">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
-                <p className="text-[10px] uppercase max-w-[350px] leading-tight text-slate-600 font-normal">{carrier?.address}</p>
-                <div className="flex gap-4 pt-1">
-                  <p className="text-[10px] uppercase font-normal">GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</p>
-                  {carrier?.panNo && <p className="text-[10px] uppercase font-normal">PAN: {carrier.panNo}</p>}
+              <div className="space-y-0.5">
+                <h1 className="text-[16px] font-black uppercase italic tracking-tighter leading-none">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
+                <p className="text-[9px] uppercase max-w-[400px] leading-tight text-slate-600 font-bold">{carrier?.address}</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[9px] font-black uppercase text-slate-500 pt-1">
+                  <span>GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</span>
+                  {carrier?.panNo && <span>PAN: {carrier.panNo}</span>}
+                  <span>MOB: {carrier?.mobile}</span>
+                  <span>EMAIL: {carrier?.email}</span>
+                  {carrier?.website && <span>WEB: {carrier.website}</span>}
                 </div>
-                <p className="text-[10px] uppercase font-normal">Contact: {carrier?.mobile} | Email: {carrier?.email}</p>
               </div>
             </div>
-            <div className="flex flex-col items-end gap-8 text-right">
+            <div className="flex flex-col items-end gap-6 text-right">
               <div className="border border-black px-5 py-2 text-[11px] font-normal uppercase italic bg-slate-50 tracking-widest">{copyLabel}</div>
               <div className="space-y-1.5">
                 <p className="text-[16px] font-normal tracking-tighter">CN NO: {trip.cnNumber || 'DRAFT'}</p>

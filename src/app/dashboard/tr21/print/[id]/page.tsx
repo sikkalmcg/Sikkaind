@@ -16,7 +16,7 @@ const SHARED_HUB_ID = 'Sikkaind';
 
 /**
  * @fileOverview CNPrintPage - High-fidelity A4 Consignment Note Printing Protocol.
- * Updated with terms from FM03, 4-line blank buffer, and right-aligned signature.
+ * Updated with headerDetails positioning and consolidated metadata block.
  */
 export default function CNPrintPage() {
   const params = useParams();
@@ -153,9 +153,9 @@ export default function CNPrintPage() {
         {copies.map((copyLabel, index) => (
           <div key={index} className="cn-page relative p-10 bg-white border-b-2 border-dashed border-slate-200 last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left flex flex-col">
             <div className="flex justify-between items-start mb-8">
-              <div className="flex flex-col gap-5">
+              <div className="flex gap-6 items-start">
                 {(carrier?.logoUrl || logoFallback?.url) && (
-                  <div className="relative w-[90px] h-[42px]">
+                  <div className="relative w-[90px] h-[42px] shrink-0">
                     <Image 
                       src={carrier?.logoUrl || logoFallback?.url || ''} 
                       alt="Carrier Logo" 
@@ -165,17 +165,19 @@ export default function CNPrintPage() {
                     />
                   </div>
                 )}
-                <div className="space-y-1">
-                  <h1 className="text-xl font-normal uppercase italic tracking-tighter">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
-                  <p className="text-[10px] uppercase max-w-[350px] leading-tight text-slate-600 font-normal">{carrier?.address}</p>
-                  <div className="flex gap-4 pt-1">
-                    <p className="text-[10px] uppercase font-normal">GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</p>
-                    {carrier?.panNo && <p className="text-[10px] uppercase font-normal">PAN: {carrier.panNo}</p>}
+                <div className="space-y-0.5">
+                  <h1 className="text-[16px] font-black uppercase italic tracking-tighter leading-none">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
+                  <p className="text-[9px] uppercase max-w-[400px] leading-tight text-slate-600 font-bold">{carrier?.address}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[9px] font-black uppercase text-slate-500 pt-1">
+                    <span>GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</span>
+                    {carrier?.panNo && <span>PAN: {carrier.panNo}</span>}
+                    <span>MOB: {carrier?.mobile}</span>
+                    <span>EMAIL: {carrier?.email}</span>
+                    {carrier?.website && <span>WEB: {carrier.website}</span>}
                   </div>
-                  <p className="text-[10px] uppercase font-normal">Contact: {carrier?.mobile} | Email: {carrier?.email}</p>
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-8 text-right">
+              <div className="flex flex-col items-end gap-6 text-right">
                 <div className="border border-black px-5 py-2 text-[11px] font-normal uppercase italic bg-slate-50 tracking-widest">{copyLabel}</div>
                 <div className="space-y-1.5">
                   <p className="text-[16px] font-normal tracking-tighter">CN NO: {trip.cnNumber || 'DRAFT'}</p>
