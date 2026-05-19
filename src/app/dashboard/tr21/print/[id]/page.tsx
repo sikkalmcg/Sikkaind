@@ -13,7 +13,6 @@ const SHARED_HUB_ID = 'Sikkaind';
 
 /**
  * @fileOverview CNPrintPage - High-fidelity A4 Consignment Note Printing Protocol.
- * Corrected syntax for final deployment.
  */
 export default function CNPrintPage() {
   const params = useParams();
@@ -61,9 +60,10 @@ export default function CNPrintPage() {
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
   
   const packageSummary = (() => {
-    if (!trip.invoices || trip.invoices.length === 0) return "0 PKG";
+    const invoices = trip.invoices || [];
+    if (invoices.length === 0) return "0 PKG";
     const groups: Record<string, number> = {};
-    trip.invoices.forEach((inv: any) => {
+    invoices.forEach((inv: any) => {
       const uom = (inv.uom || "PKG").toUpperCase();
       const qty = parseInt(inv.pkg) || 0;
       groups[uom] = (groups[uom] || 0) + qty;
@@ -90,14 +90,14 @@ export default function CNPrintPage() {
             </div>
             <div className="flex gap-3">
                <button onClick={() => window.print()} className="h-9 bg-blue-700 hover:bg-blue-800 text-white px-8 text-[11px] font-normal uppercase rounded-none transition-all flex items-center gap-2 shadow-md active:scale-95"><Printer className="h-4 w-4" /> Print Protocol</button>
-               <button onClick={() => window.close()} className="h-9 bg-white border border-slate-300 text-slate-600 px-8 text-[11px] font-normal uppercase rounded-none hover:bg-slate-100 transition-all flex items-center gap-2 active:scale-95"><X className="h-4 w-4" /> Exit</button>
+               <button onClick={() => router.back()} className="h-9 bg-white border border-slate-300 text-slate-600 px-8 text-[11px] font-normal uppercase rounded-none hover:bg-slate-100 transition-all flex items-center gap-2 active:scale-95"><X className="h-4 w-4" /> Exit</button>
             </div>
          </div>
       </div>
 
       <div id="printable-area" className="flex flex-col gap-0 bg-white mx-auto w-[210mm] print:w-full text-black font-normal">
         {copies.map((copyLabel, index) => (
-          <div key={index} className="cn-page bg-white text-black font-normal p-[15mm] min-h-[297mm] border-b last:border-b-0">
+          <div key={index} className="cn-page bg-white text-black font-normal p-[15mm] min-h-[297mm] border-b last:border-b-0 flex flex-col">
             <div className="flex justify-between items-start mb-6">
               <div className="flex gap-2 items-start">
                 {(carrier?.logoUrl || logoFallback?.url) && (
@@ -213,7 +213,7 @@ export default function CNPrintPage() {
                      </tr>
                   </thead>
                   <tbody>
-                     {trip.invoices?.filter((inv: any) => inv.invNo).map((inv: any, i: number) => (
+                     {(trip.invoices || []).filter((inv: any) => inv.invNo).map((inv: any, i: number) => (
                         <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black text-[11px]">
                            <td className="p-3 border-r border-black">{inv.invNo}</td>
                            <td className="p-3 border-r border-black">{inv.ewaybillNo}</td>
@@ -246,8 +246,8 @@ export default function CNPrintPage() {
                    </div>
                 </div>
                 <div className="text-right space-y-12 pr-4 text-black font-normal">
-                   <div className="h-14"></div>
-                   <div className="space-y-1">
+                   <div className="h-14 text-black"></div>
+                   <div className="space-y-1 text-black">
                       <p className="text-[10px] font-normal uppercase italic tracking-tighter text-black">Authorized Signature</p>
                    </div>
                 </div>

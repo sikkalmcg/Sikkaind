@@ -11,7 +11,6 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 
 /**
  * @fileOverview Secure Public CN Preview Protocol.
- * Optimized for standard browser print (Ctrl+P) with zero browser margins.
  */
 export default function PublicCNPreviewPage() {
   const params = useParams();
@@ -54,9 +53,10 @@ export default function PublicCNPreviewPage() {
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
   
   const packageSummary = (() => {
-    if (!trip.invoices || trip.invoices.length === 0) return "0 PKG";
+    const invoices = trip.invoices || [];
+    if (invoices.length === 0) return "0 PKG";
     const groups: Record<string, number> = {};
-    trip.invoices.forEach((inv: any) => {
+    invoices.forEach((inv: any) => {
       const uom = (inv.uom || "PKG").toUpperCase();
       const qty = parseInt(inv.pkg) || 0;
       groups[uom] = (groups[uom] || 0) + qty;
@@ -91,7 +91,7 @@ export default function PublicCNPreviewPage() {
 
       <div id="printable-area" className="flex flex-col gap-0 mx-auto w-[210mm] print:w-full shadow-2xl text-black font-normal bg-white">
         {copies.map((copyLabel, index) => (
-          <div key={index} className="cn-page bg-white text-black font-normal p-[15mm] min-h-[297mm] border-b last:border-b-0">
+          <div key={index} className="cn-page bg-white text-black font-normal p-[15mm] min-h-[297mm] border-b last:border-b-0 flex flex-col">
             <div className="flex justify-between items-start mb-6">
               <div className="flex gap-2 items-start">
                 {(trip.carrier?.logoUrl || logoFallback?.url) && (
@@ -207,7 +207,7 @@ export default function PublicCNPreviewPage() {
                      </tr>
                   </thead>
                   <tbody>
-                     {trip.invoices?.filter((inv: any) => inv.invNo).map((inv: any, i: number) => (
+                     {(trip.invoices || []).filter((inv: any) => inv.invNo).map((inv: any, i: number) => (
                         <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black text-[11px]">
                            <td className="p-3 border-r border-black">{inv.invNo}</td>
                            <td className="p-3 border-r border-black">{inv.ewaybillNo}</td>

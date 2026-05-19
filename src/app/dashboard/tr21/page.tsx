@@ -608,9 +608,10 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
   
   const packageSummary = React.useMemo(() => {
-    if (!trip.invoices || trip.invoices.length === 0) return "0 PKG";
+    const invoices = trip.invoices || [];
+    if (invoices.length === 0) return "0 PKG";
     const groups: Record<string, number> = {};
-    trip.invoices.forEach((inv: any) => {
+    invoices.forEach((inv: any) => {
       const uom = (inv.uom || "PKG").toUpperCase();
       const qty = parseInt(inv.pkg) || 0;
       groups[uom] = (groups[uom] || 0) + qty;
@@ -750,7 +751,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                    </tr>
                 </thead>
                 <tbody>
-                   {trip.invoices?.filter((inv: any) => inv.invNo).map((inv: any, i: number) => (
+                   {(trip.invoices || []).filter((inv: any) => inv.invNo).map((inv: any, i: number) => (
                       <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black text-[11px]">
                          <td className="p-2 border-r border-black">{inv.invNo}</td>
                          <td className="p-2 border-r border-black">{inv.ewaybillNo}</td>

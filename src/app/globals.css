@@ -114,31 +114,31 @@
   }
 
   #printable-area {
-    position: absolute !important;
+    position: relative !important;
+    display: block !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
     left: 0 !important;
     top: 0 !important;
-    width: 210mm !important;
-    padding: 0 !important;
-    margin: 0 !important;
     box-shadow: none !important;
-    display: block !important;
   }
 
   .cn-page {
+    display: flex !important;
+    flex-direction: column !important;
     width: 210mm !important;
     min-height: 297mm !important;
     padding: 15mm !important;
     page-break-after: always !important;
     page-break-inside: avoid !important;
-    border-bottom: 1px solid black !important;
     box-sizing: border-box !important;
-    display: block !important;
-    position: relative !important;
+    background: white !important;
+    border: none !important;
   }
 
   .cn-page:last-child {
     page-break-after: auto !important;
-    border-bottom: none !important;
   }
 
   .no-print, .print\:hidden {
