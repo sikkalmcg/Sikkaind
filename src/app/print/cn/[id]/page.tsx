@@ -2,56 +2,36 @@
 
 import * as React from 'react';
 import { useParams } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { Loader2, FileText, AlertCircle } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
-const SHARED_HUB_ID = 'Sikkaind';
-
 /**
  * @fileOverview Secure Public CN Preview Protocol.
  * Mimics a PDF viewer interface. Strictly read-only.
- * Disables text selection and context menu to satisfy "no download/edit" conditions.
+ * Synchronizes with a dedicated public execution node to bypass master collection restrictions.
  */
 export default function PublicCNPreviewPage() {
   const params = useParams();
   const db = useFirestore();
   const id = params.id as string;
 
-  // Interaction Lockdown: Prevent right-click and selection
+  // Interaction Lockdown
   React.useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     document.addEventListener('contextmenu', handleContextMenu);
     return () => document.removeEventListener('contextmenu', handleContextMenu);
   }, []);
 
+  // Fetch only from the public execution node
   const tripRef = useMemoFirebase(() => {
     if (!id) return null;
-    return doc(db, 'users', SHARED_HUB_ID, 'trip_board', id);
+    return doc(db, 'public_trips', id);
   }, [db, id]);
   const { data: trip, isLoading: isTripLoading } = useDoc(tripRef);
-
-  const companiesQuery = useMemoFirebase(() => {
-    return collection(db, 'users', SHARED_HUB_ID, 'companies');
-  }, [db]);
-  const { data: companies } = useCollection(companiesQuery);
-  
-  const customersQuery = useMemoFirebase(() => {
-    return collection(db, 'users', SHARED_HUB_ID, 'customers');
-  }, [db]);
-  const { data: customers } = useCollection(customersQuery);
-
-  const carrier = React.useMemo(() => {
-    if (!trip || !companies) return null;
-    return companies.find(c => c.companyName === trip.carrierName) || companies[0];
-  }, [trip, companies]);
-
-  const consignor = React.useMemo(() => customers?.find(c => c.customerCode === trip?.consignorCode), [customers, trip]);
-  const consignee = React.useMemo(() => customers?.find(c => c.customerCode === trip?.consigneeCode), [customers, trip]);
-  const shipToParty = React.useMemo(() => customers?.find(c => c.customerCode === trip?.shipToPartyCode), [customers, trip]);
 
   if (isTripLoading || !trip) {
     return (
@@ -92,10 +72,10 @@ export default function PublicCNPreviewPage() {
               <div className="flex flex-col gap-5">
                 {logoAsset && <Image src={logoAsset.url} alt="Logo" width={150} height={70} className="object-contain grayscale" unoptimized />}
                 <div className="space-y-1">
-                  <h1 className="text-xl font-normal uppercase italic tracking-tighter">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
-                  <p className="text-[10px] uppercase max-w-[350px] leading-tight text-slate-600 font-normal">{carrier?.address}</p>
-                  <p className="text-[10px] uppercase font-normal pt-1">GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</p>
-                  <p className="text-[10px] uppercase font-normal">Contact: {carrier?.mobile} | Email: {carrier?.email}</p>
+                  <h1 className="text-xl font-normal uppercase italic tracking-tighter">{trip.carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
+                  <p className="text-[10px] uppercase max-w-[350px] leading-tight text-slate-600 font-normal">{trip.carrier?.address}</p>
+                  <p className="text-[10px] uppercase font-normal pt-1">GSTIN: {trip.carrier?.gstNo || 'UNREGISTERED'}</p>
+                  <p className="text-[10px] uppercase font-normal">Contact: {trip.carrier?.mobile} | Email: {trip.carrier?.email}</p>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-8 text-right">
@@ -141,27 +121,27 @@ export default function PublicCNPreviewPage() {
                <div className="border border-black border-r-0 p-5 space-y-4 min-h-[180px]">
                   <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignor</h4>
                   <div className="text-[11px] uppercase font-normal space-y-1.5">
-                     <p className="text-[12px]">{trip.consignorName}</p>
-                     <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{consignor?.address}</p>
-                     <p>MOB: {consignor?.mobile}</p>
-                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {consignor?.gstNo}</p>
+                     <p className="text-[12px]">{trip.consignor?.name || trip.consignorName}</p>
+                     <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{trip.consignor?.address}</p>
+                     <p>MOB: {trip.consignor?.mobile}</p>
+                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {trip.consignor?.gstNo}</p>
                   </div>
                </div>
                <div className="border border-black border-r-0 p-5 space-y-4 min-h-[180px]">
                   <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignee</h4>
                   <div className="text-[11px] uppercase font-normal space-y-1.5">
-                     <p className="text-[12px]">{trip.consigneeName}</p>
-                     <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{consignee?.address}</p>
-                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {consignee?.gstNo}</p>
+                     <p className="text-[12px]">{trip.consignee?.name || trip.consigneeName}</p>
+                     <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{trip.consignee?.address}</p>
+                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {trip.consignee?.gstNo}</p>
                   </div>
                </div>
                <div className="border border-black p-5 space-y-4 min-h-[180px] bg-slate-50/20">
                   <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Ship To Party</h4>
                   <div className="text-[11px] uppercase font-normal space-y-1.5">
-                     <p className="text-[12px]">{trip.shipToParty}</p>
-                     <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{shipToParty?.address}</p>
-                     <p>MOB: {shipToParty?.mobile}</p>
-                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {shipToParty?.gstNo}</p>
+                     <p className="text-[12px]">{trip.shipToPartyData?.name || trip.shipToParty}</p>
+                     <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{trip.shipToPartyData?.address}</p>
+                     <p>MOB: {trip.shipToPartyData?.mobile}</p>
+                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {trip.shipToPartyData?.gstNo}</p>
                   </div>
                </div>
             </div>
@@ -204,7 +184,7 @@ export default function PublicCNPreviewPage() {
                <div className="bg-slate-50 p-2.5 border-b border-black text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Reference</div>
                <div className="p-5 min-h-[100px]">
                   <p className="text-[11px] font-normal uppercase italic leading-relaxed text-slate-700 whitespace-pre-wrap">
-                    {shipToParty?.address || 'AS PER DOCUMENTATION'}
+                    {trip.shipToPartyData?.address || 'AS PER DOCUMENTATION'}
                   </p>
                </div>
             </div>

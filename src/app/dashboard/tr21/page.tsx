@@ -134,11 +134,17 @@ export default function TR21Page() {
     return collection(db, 'users', SHARED_HUB_ID, 'companies');
   }, [db, user, isAuthLoading]);
 
+  const customersQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'customers');
+  }, [db, user, isAuthLoading]);
+
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: plants } = useCollection(plantsQuery);
   const { data: vendors } = useCollection(vendorsQuery);
   const { data: companies } = useCollection(companiesQuery);
+  const { data: customers } = useCollection(customersQuery);
 
   const currentCarrier = React.useMemo(() => {
     if (!selectedTrip || !companies) return null;
@@ -217,11 +223,32 @@ export default function TR21Page() {
 
   const handlePostCN = () => {
     if (!cnData.cnNumber) return alert('CN Number Mandatory');
+    
+    // Protocol Snapshot for Public Node
+    const cnr = customers?.find(c => c.customerCode === selectedTrip.consignorCode);
+    const cne = customers?.find(c => c.customerCode === selectedTrip.consigneeCode);
+    const stp = customers?.find(c => c.customerCode === selectedTrip.shipToPartyCode);
+
+    const publicContext = {
+      ...selectedTrip,
+      ...cnData,
+      carrier: currentCarrier,
+      consignor: cnr ? { name: cnr.customerName, address: cnr.address, mobile: cnr.mobile, gstNo: cnr.gstNo || cnr.gstin } : null,
+      consignee: cne ? { name: cne.customerName, address: cne.address, mobile: cne.mobile, gstNo: cne.gstNo || cne.gstin } : null,
+      shipToPartyData: stp ? { name: stp.customerName, address: stp.address, mobile: stp.mobile, gstNo: stp.gstNo || stp.gstin } : null,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Update main restricted database
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
       ...cnData, 
       carrierName: currentCarrier?.companyName || '',
       updatedAt: new Date().toISOString() 
     });
+
+    // Post to Public Execution Node for Document Preview
+    setDocumentNonBlocking(doc(db, 'public_trips', selectedTrip.id), publicContext, { merge: true });
+
     setShowCNPortal(false);
     alert('Documentation Synchronized');
   };

@@ -4,69 +4,35 @@ service cloud.firestore {
     
     // Helper functions
     function isSignedIn() { return request.auth != null; }
-    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
 
-    // 1. SIKKA INDUSTRIES SHARED HUB (Sikkaind)
-    // These paths are the "Execution Nodes" used by the public tracking portal and CN preview.
-    
-    // Individual Document Matches (for useDoc) and Collection Matches (for useCollection)
-    match /users/Sikkaind/trip_board/{docId} { 
-      allow read: if true; 
-      allow write: if isSignedIn(); 
+    // 1. PUBLIC EXECUTION NODES (Tracking & Document Preview)
+    // These paths allow unauthenticated customers to view movement and documentation.
+    match /public_trips/{tripId} {
+      allow read: if true;
+      allow write: if isSignedIn();
     }
-    match /users/Sikkaind/companies/{docId} { 
-      allow read: if true; 
-      allow write: if isSignedIn(); 
-    }
-    match /users/Sikkaind/customers/{docId} { 
-      allow read: if true; 
-      allow write: if isSignedIn(); 
-    }
-    match /users/Sikkaind/sales_orders/{docId} { 
-      allow read: if true; 
-      allow write: if isSignedIn(); 
-    }
-    match /users/Sikkaind/gps_tracking/{docId} { 
-      allow read: if true; 
-      allow write: if isSignedIn(); 
-    }
-    
-    // Protected System Masters - REQUIRES AUTHENTICATION
-    match /users/Sikkaind/users_master/{docId} {
-      allow read, write: if isSignedIn();
-    }
-    match /users/Sikkaind/plants/{docId} {
-      allow read, write: if isSignedIn();
-    }
-    match /users/Sikkaind/vendors/{docId} {
-      allow read, write: if isSignedIn();
-    }
-    match /users/Sikkaind/reports/{docId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    // 2. PRIVATE USER DATA NODES (Owner Only)
-    // This rule is placed after the explicit shared hub rules to avoid conflict.
-    match /users/{userId}/{collectionName}/{docId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    match /user_profiles/{userId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    match /user_registry/{allPaths=**} {
-      allow read, write: if isSignedIn();
-    }
-
-    // 3. LEGACY PUBLIC TRACKING PATHS
     match /public_orders/{orderNo} {
       allow read: if true;
       allow write: if isSignedIn();
     }
-    match /public_trips/{tripId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+
+    // 2. PROTECTED SYSTEM HUB (Sikkaind)
+    // All administrative master data and logs require authentication.
+    match /users/Sikkaind/{allPaths=**} {
+      allow read, write: if isSignedIn();
+    }
+    
+    // 3. PRIVATE USER REGISTRY
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /user_profiles/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /user_registry/{allPaths=**} {
+      allow read, write: if isSignedIn();
     }
 
     // 4. GLOBAL CATCH-ALL
