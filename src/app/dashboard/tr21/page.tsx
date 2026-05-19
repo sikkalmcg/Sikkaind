@@ -62,9 +62,8 @@ export default function TR21Page() {
   const [vehicleData, setVehicleData] = React.useState({ vehicleNo: '', driverMobile: '' });
 
   const settingsRef = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings');
-  }, [db, user, isAuthLoading]);
+  }, [db]);
   const { data: settings } = useDoc(settingsRef);
 
   const mapRef = React.useRef<HTMLDivElement>(null);
@@ -111,29 +110,24 @@ export default function TR21Page() {
   }, [gpsLive, reverseGeocode]);
 
   const ordersQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'sales_orders');
-  }, [db, user, isAuthLoading]);
+  }, [db]);
 
   const tripsQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'trip_board');
-  }, [db, user, isAuthLoading]);
+  }, [db]);
 
   const plantsQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'plants');
-  }, [db, user, isAuthLoading]);
+  }, [db]);
 
   const vendorsQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'vendors');
-  }, [db, user, isAuthLoading]);
+  }, [db]);
 
   const companiesQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'companies');
-  }, [db, user, isAuthLoading]);
+  }, [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
@@ -285,7 +279,6 @@ export default function TR21Page() {
                 <th className="p-3 border-r w-[60px] text-center">Plant</th>
                 <th className="p-3 border-r w-[150px]">Sale Order Details</th>
                 {activeTab !== 'Open Orders' && <th className="p-3 border-r w-[100px] text-blue-700">Trip ID</th>}
-                <th className="p-3 border-r w-[200px]">Consignee</th>
                 <th className="p-3 border-r w-[150px]">Ship to Party</th>
                 <th className="p-3 border-r w-[150px]">Route (From → To)</th>
                 <th className="p-3 border-r w-[140px]">Vehicle / Mobile</th>
@@ -303,7 +296,6 @@ export default function TR21Page() {
                     <span className="text-[9px] text-slate-400">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                   </td>
                   {activeTab !== 'Open Orders' && <td className="p-3 border-r font-black text-blue-700">{item.tripNo || '-'}</td>}
-                  <td className="p-3 border-r truncate font-bold uppercase" title={item.consigneeName}>{item.consigneeName}</td>
                   <td className="p-3 border-r truncate font-bold uppercase" title={item.shipToParty}>{item.shipToParty}</td>
                   <td className="p-3 border-r italic text-[10px] leading-tight flex flex-col justify-center min-h-[60px]">
                     <span className="uppercase">{item.from} → {item.destination}</span>
