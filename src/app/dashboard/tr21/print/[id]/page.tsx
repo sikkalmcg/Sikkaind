@@ -29,7 +29,7 @@ export default function CNPrintPage() {
 
   const [generating, setGenerating] = React.useState(false);
 
-  // Data Fetching - Memoized to wait for authenticated user
+  // Data Fetching
   const tripRef = useMemoFirebase(() => {
     if (isAuthLoading || !user) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'trip_board', id);
@@ -122,7 +122,7 @@ export default function CNPrintPage() {
       <div className="h-screen flex items-center justify-center bg-slate-50 font-mono">
         <div className="flex flex-col items-center gap-4 text-black">
           <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
-          <span className="text-[10px] font-normal uppercase tracking-[0.3em]">Synchronizing Print Protocol...</span>
+          <span className="text-[10px] font-normal uppercase tracking-[0.4em]">Synchronizing Print Protocol...</span>
         </div>
       </div>
     );
@@ -175,7 +175,6 @@ export default function CNPrintPage() {
         {copies.map((copyLabel, index) => (
           <div key={index} className="cn-page relative p-10 bg-white border-b-2 border-dashed border-slate-200 last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left">
             
-            {/* Header Section */}
             <div className="flex justify-between items-start mb-8">
               <div className="flex flex-col gap-5">
                 {logoAsset && <Image src={logoAsset.url} alt="Logo" width={150} height={70} className="object-contain" unoptimized />}
@@ -201,7 +200,6 @@ export default function CNPrintPage() {
               </div>
             </div>
 
-            {/* Vehicle Details Table */}
             <div className="mb-8">
                <table className="w-full border-collapse border border-black text-[11px]">
                   <thead>
@@ -225,7 +223,6 @@ export default function CNPrintPage() {
                </table>
             </div>
 
-            {/* Party Details Section */}
             <div className="grid grid-cols-3 gap-0 mb-8">
                <div className="border border-black border-r-0 p-5 space-y-4 min-h-[180px]">
                   <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignor</h4>
@@ -245,7 +242,7 @@ export default function CNPrintPage() {
                   </div>
                </div>
                <div className="border border-black p-5 space-y-4 min-h-[180px] bg-slate-50/20">
-                  <h4 className="text-[10px) font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Ship To Party</h4>
+                  <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Ship To Party</h4>
                   <div className="text-[11px] uppercase font-normal space-y-1.5">
                      <p className="text-[12px]">{trip.shipToParty}</p>
                      <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{shipToParty?.address}</p>
@@ -255,7 +252,6 @@ export default function CNPrintPage() {
                </div>
             </div>
 
-            {/* Document & Items Table */}
             <div className="mb-8">
                <table className="w-full border-collapse border border-black text-[11px]">
                   <thead>
@@ -277,9 +273,6 @@ export default function CNPrintPage() {
                            <td className="p-3 text-right">{i === 0 ? trip.assignWeight : '-'}</td>
                         </tr>
                      ))}
-                     {(!trip.invoices || trip.invoices.length === 0) && (
-                        <tr><td colSpan={5} className="p-16 text-center italic text-slate-300 uppercase tracking-widest text-[9px]">No Items Registered for this execution node</td></tr>
-                     )}
                   </tbody>
                   <tfoot>
                      <tr className="bg-slate-50 border-t border-black font-normal text-[10px] uppercase">
@@ -291,7 +284,6 @@ export default function CNPrintPage() {
                </table>
             </div>
 
-            {/* Acknowledgement Box */}
             <div className="border border-black mb-8">
                <div className="bg-slate-50 p-2.5 border-b border-black text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Acknowledgement & Trace</div>
                <div className="p-5 grid grid-cols-2 gap-12">
@@ -313,7 +305,6 @@ export default function CNPrintPage() {
                </div>
             </div>
 
-            {/* Terms & Note Section */}
             <div className="space-y-8">
                <div className="space-y-2.5">
                   <h5 className="text-[9px] font-normal uppercase text-slate-400 tracking-widest italic">Standard Operational Terms</h5>
@@ -332,7 +323,6 @@ export default function CNPrintPage() {
                </div>
             </div>
 
-            {/* Footer Seal Area */}
             <div className="absolute bottom-8 left-10 text-[8px] font-normal text-slate-300 uppercase tracking-[0.5em]">
                SIKKA LMC V1.0 • SYSTEM HASH: {trip.id.substring(0, 12)}
             </div>
