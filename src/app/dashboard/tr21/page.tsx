@@ -48,13 +48,14 @@ export default function TR21Page() {
     assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
     mode: 'Road',
     via: '',
-    fixRate: false
+    fixRate: false,
+    paymentTerms: 'PAID'
   });
 
   const [cnData, setCNData] = React.useState<any>({
     cnNumber: '',
     cnDate: format(new Date(), 'yyyy-MM-dd'),
-    paymentTerms: 'TO PAY',
+    paymentTerms: 'PAID',
     mode: 'Road',
     ratePoint: '',
     invoices: [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }]
@@ -158,7 +159,7 @@ export default function TR21Page() {
       via: assignData.via || '', fleetType: assignData.fleetType, createdAt: now, updatedAt: now,
       consignorName: selectedOrder.consignorName, consignorCode: selectedOrder.consignorCode,
       from: selectedOrder.from, materialName: selectedOrder.materialName,
-      paymentTerms: assignData.paymentTerms || 'TO PAY', vendorName: assignData.vendorName || '',
+      paymentTerms: assignData.paymentTerms || 'PAID', vendorName: assignData.vendorName || '',
       vendorMobile: assignData.vendorMobile || '', arrangeBy: assignData.arrangeBy || '',
       rate: parseFloat(assignData.rate) || 0, freightAmount: parseFloat(assignData.freightAmount) || 0,
       fixRate: assignData.fixRate || false
@@ -283,12 +284,12 @@ export default function TR21Page() {
                   <td className="p-3 border-r text-right font-black text-blue-600">{item.assignWeight || item.quantity}</td>
                   <td className="p-3 text-center flex flex-col gap-1 items-center justify-center">
                     {activeTab === 'Open Orders' ? (
-                      <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3) }); setShowAssign(true); }} className="h-7 w-[80px] text-[9px] font-black bg-[#1e3a8a] rounded-none">Assign</Button>
+                      <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), paymentTerms: 'PAID' }); setShowAssign(true); }} className="h-7 w-[80px] text-[9px] font-black bg-[#1e3a8a] rounded-none">Assign</Button>
                     ) : (
                       <>
                         <Button onClick={() => { 
                           setSelectedTrip(item); 
-                          setCNData(item.cnNumber ? item : { ...cnData, mode: item.mode, via: item.via }); 
+                          setCNData(item.cnNumber ? item : { ...cnData, mode: item.mode, via: item.via, paymentTerms: item.paymentTerms || 'PAID' }); 
                           setShowCNPortal(true); 
                         }} className="h-6 w-[80px] text-[8px] font-black bg-blue-600 text-white rounded-none">{item.cnNumber ? 'Edit CN' : 'CN Entry'}</Button>
                         {activeTab === 'Loading' && <Button onClick={() => { setSelectedTrip(item); setShowOutPortal(true); }} className="h-6 w-[80px] text-[8px] font-black bg-[#1e3a8a] text-white rounded-none">OUT</Button>}
@@ -342,8 +343,9 @@ export default function TR21Page() {
                       </select>
                    </div>
                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Vendor Mobile</label><input readOnly value={assignData.vendorMobile || ''} className="h-9 w-full border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-500" /></div>
+                   <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Payment Terms</label><select value={assignData.paymentTerms} onChange={e => setAssignData({...assignData, paymentTerms: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-black uppercase outline-none"><option value="PAID">PAID</option><option value="TO PAY">TO PAY</option></select></div>
                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Rate (per MT)</label><input type="number" disabled={assignData.fixRate} value={assignData.rate || ''} onChange={e => setAssignData({...assignData, rate: e.target.value, freightAmount: (parseFloat(e.target.value) * (parseFloat(assignData.assignWeight) || 0)).toFixed(2)})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none" /></div>
-                   <div className="space-y-1.5">
+                   <div className="space-y-1.5 col-span-2">
                       <div className="flex justify-between items-center"><label className="text-[10px] font-black text-slate-400 uppercase">Freight Amount</label><div className="flex items-center gap-1.5"><input type="checkbox" id="fixRate" checked={assignData.fixRate} onChange={e => setAssignData({...assignData, fixRate: e.target.checked})} className="h-3 w-3" /><label htmlFor="fixRate" className="text-[8px] font-black uppercase text-slate-500 cursor-pointer">Fix Rate</label></div></div>
                       <input type="number" value={assignData.freightAmount || ''} onChange={e => setAssignData({...assignData, freightAmount: e.target.value})} readOnly={!assignData.fixRate} className={cn("h-9 w-full border px-3 text-xs font-black outline-none", assignData.fixRate ? "border-blue-600 bg-white" : "border-slate-200 bg-slate-50 text-slate-500")} />
                    </div>
@@ -374,7 +376,7 @@ export default function TR21Page() {
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Previous CN (Auto)</label><input readOnly className="h-9 w-full border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-400" value="AUTO-DETECTING..." /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">CN Number *</label><input value={cnData.cnNumber || ''} onChange={e => setCNData({...cnData, cnNumber: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">CN Date *</label><input type="date" value={cnData.cnDate} onChange={e => setCNData({...cnData, cnDate: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Payment Terms</label><select value={cnData.paymentTerms} onChange={e => setCNData({...cnData, paymentTerms: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-black uppercase outline-none"><option value="TO PAY">TO PAY</option><option value="PAID">PAID</option><option value="TBB">TBB (BILLING)</option></select></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Payment Terms</label><select value={cnData.paymentTerms} onChange={e => setCNData({...cnData, paymentTerms: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-black uppercase outline-none"><option value="PAID">PAID</option><option value="TO PAY">TO PAY</option></select></div>
              </div>
 
              <div className="space-y-4">
