@@ -258,14 +258,14 @@ export default function TR21Page() {
         </div>
 
         <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner custom-scrollbar">
-          <table className="w-full text-left border-collapse min-w-[1600px] text-[11px]">
+          <table className="w-full text-left border-collapse min-w-[1500px] text-[11px]">
             <thead className="bg-[#f8fafc] sticky top-0 z-20 border-b border-slate-300 font-black uppercase text-slate-500">
               <tr>
                 <th className="p-3 border-r w-[60px] text-center">Plant</th>
                 <th className="p-3 border-r w-[150px]">Sale Order Details</th>
                 {activeTab !== 'Open Orders' && <th className="p-3 border-r w-[100px] text-blue-700">Trip ID</th>}
                 <th className="p-3 border-r w-[200px]">Consignee</th>
-                <th className="p-3 border-r flex-1 min-w-[200px]">Ship to Party</th>
+                <th className="p-3 border-r w-[150px]">Ship to Party</th>
                 <th className="p-3 border-r w-[150px]">Route (From → To)</th>
                 <th className="p-3 border-r w-[140px]">Vehicle / Mobile</th>
                 {activeTab !== 'Open Orders' && <th className="p-3 border-r w-[120px]">CN Number/Date</th>}
