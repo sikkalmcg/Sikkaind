@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -22,7 +21,7 @@ const SHARED_HUB_ID = 'Sikkaind';
 /**
  * @fileOverview TR21 – TRIP BOARD.
  * Centralized logistics execution dashboard managing orders from assignment to closure.
- * Includes a high-fidelity CN Preview Popup Protocol.
+ * Includes a high-fidelity CN Preview Popup Protocol with dynamic Carrier Logo and PAN integration.
  */
 export default function TR21Page() {
   const router = useRouter();
@@ -39,7 +38,6 @@ export default function TR21Page() {
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const [gpsLive, setGpsLive] = React.useState<any[]>([]);
-  const [locationMap, setLocationMap] = React.useState<Record<string, string>>({});
 
   const [showAssign, setShowAssign] = React.useState(false);
   const [showCNPortal, setShowCNPortal] = React.useState(false);
@@ -66,13 +64,6 @@ export default function TR21Page() {
   });
 
   const [vehicleData, setVehicleData] = React.useState({ vehicleNo: '', driverMobile: '' });
-
-  const settingsRef = useMemoFirebase(() => {
-    return doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings');
-  }, [db]);
-  const { data: settings } = useDoc(settingsRef);
-
-  const mapRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => { setMounted(true); }, []);
 
@@ -107,11 +98,6 @@ export default function TR21Page() {
     return collection(db, 'users', SHARED_HUB_ID, 'plants');
   }, [db, user, isAuthLoading]);
 
-  const vendorsQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'vendors');
-  }, [db, user, isAuthLoading]);
-
   const companiesQuery = useMemoFirebase(() => {
     if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'companies');
@@ -125,7 +111,6 @@ export default function TR21Page() {
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: plants } = useCollection(plantsQuery);
-  const { data: vendors } = useCollection(vendorsQuery);
   const { data: companies } = useCollection(companiesQuery);
   const { data: customers } = useCollection(customersQuery);
 
@@ -188,7 +173,15 @@ export default function TR21Page() {
     const publicContext = {
       ...selectedTrip,
       ...cnData,
-      carrier: carrier,
+      carrier: carrier ? {
+        companyName: carrier.companyName,
+        address: carrier.address,
+        mobile: carrier.mobile,
+        email: carrier.email,
+        gstNo: carrier.gstNo,
+        panNo: carrier.panNo,
+        logoUrl: carrier.logoUrl
+      } : null,
       consignor: cnr ? { name: cnr.customerName, address: cnr.address, mobile: cnr.mobile, gstNo: cnr.gstNo || cnr.gstin } : null,
       consignee: cne ? { name: cne.customerName, address: cne.address, mobile: cne.mobile, gstNo: cne.gstNo || cne.gstin } : null,
       shipToPartyData: stp ? { name: stp.customerName, address: stp.address, mobile: stp.mobile, gstNo: stp.gstNo || stp.gstin } : null,
@@ -341,10 +334,7 @@ export default function TR21Page() {
         </DialogContent>
       </Dialog>
 
-      {/* Other Portals... */}
-      {/* (Previous portals for Assign, CN Entry, Vehicle, etc. preserved) */}
       <Dialog open={showAssign} onOpenChange={setShowAssign}>
-        {/* ... Preserved Assign Portal Content ... */}
         <DialogContent className="max-w-[900px] rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
              <DialogTitle className="text-[14px] font-black uppercase text-[#1e3a8a] italic mb-4">Vehicle Assignment Protocol</DialogTitle>
@@ -437,7 +427,7 @@ export default function TR21Page() {
 }
 
 function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: any, customers: any[] | null }) {
-  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
+  const logoFallback = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
   const totalPkg = trip.invoices?.reduce((acc: number, inv: any) => acc + (parseInt(inv.pkg) || 0), 0) || 0;
 
@@ -451,11 +441,24 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
         <div key={index} className="relative p-10 bg-white border-b-2 border-dashed border-slate-300 last:border-b-0 print:border-none print:p-10 print:page-break-after-always overflow-hidden text-left w-[210mm] min-h-[297mm] mx-auto box-border">
           <div className="flex justify-between items-start mb-8">
             <div className="flex flex-col gap-5">
-              {logoAsset && <Image src={logoAsset.url} alt="Logo" width={150} height={70} className="object-contain" unoptimized />}
+              {(carrier?.logoUrl || logoFallback?.url) && (
+                <div className="relative w-[150px] h-[70px]">
+                  <Image 
+                    src={carrier?.logoUrl || logoFallback?.url || ''} 
+                    alt="Carrier Logo" 
+                    fill 
+                    className="object-contain" 
+                    unoptimized 
+                  />
+                </div>
+              )}
               <div className="space-y-1">
                 <h1 className="text-xl font-normal uppercase italic tracking-tighter">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
                 <p className="text-[10px] uppercase max-w-[350px] leading-tight text-slate-600 font-normal">{carrier?.address}</p>
-                <p className="text-[10px] uppercase font-normal pt-1">GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</p>
+                <div className="flex gap-4 pt-1">
+                  <p className="text-[10px] uppercase font-normal">GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</p>
+                  {carrier?.panNo && <p className="text-[10px] uppercase font-normal">PAN: {carrier.panNo}</p>}
+                </div>
                 <p className="text-[10px] uppercase font-normal">Contact: {carrier?.mobile} | Email: {carrier?.email}</p>
               </div>
             </div>

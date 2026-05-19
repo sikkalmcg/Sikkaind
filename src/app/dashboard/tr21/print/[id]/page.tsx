@@ -15,8 +15,7 @@ const SHARED_HUB_ID = 'Sikkaind';
 
 /**
  * @fileOverview CNPrintPage - High-fidelity A4 Consignment Note Printing Protocol.
- * Generates a 3-copy system (Consignee, Driver, Consignor) for standard A4 portrait.
- * Includes automated PDF generation, download, and auto-open functionality.
+ * Updated to use FM03 Carrier Logo and display Carrier PAN.
  */
 export default function CNPrintPage() {
   const params = useParams();
@@ -28,7 +27,6 @@ export default function CNPrintPage() {
 
   const [generating, setGenerating] = React.useState(false);
 
-  // DATA HANDSHAKE: Unauthenticated fetch allowed by updated rules
   const tripRef = useMemoFirebase(() => {
     if (!id) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'trip_board', id);
@@ -43,18 +41,12 @@ export default function CNPrintPage() {
 
   const carrier = React.useMemo(() => {
     if (!trip || !companies) return null;
-    return companies.find(c => c.companyName === trip.carrierName) || companies[0];
+    return companies.find(c => c.companyName === trip.carrierName) || companies.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(trip.plantCode)) || companies[0];
   }, [trip, companies]);
 
   const consignor = React.useMemo(() => customers?.find(c => c.customerCode === trip?.consignorCode), [customers, trip]);
   const consignee = React.useMemo(() => customers?.find(c => c.customerCode === trip?.consigneeCode), [customers, trip]);
   const shipToParty = React.useMemo(() => customers?.find(c => c.customerCode === trip?.shipToPartyCode), [customers, trip]);
-
-  const [deliveryAddr, setDeliveryAddr] = React.useState('');
-
-  React.useEffect(() => {
-    if (shipToParty) setDeliveryAddr(shipToParty.address || '');
-  }, [shipToParty]);
 
   const generateAndDownload = React.useCallback(async () => {
     if (!trip || generating) return;
@@ -87,11 +79,8 @@ export default function CNPrintPage() {
         pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
       }
 
-      const fileName = `CN-${trip.cnNumber || 'DRAFT'}.pdf`;
-      pdf.save(fileName);
-
-      const blob = pdf.output('blob');
-      const url = URL.createObjectURL(blob);
+      pdf.save(`CN-${trip.cnNumber || 'DRAFT'}.pdf`);
+      const url = URL.createObjectURL(pdf.output('blob'));
       window.location.replace(url);
     } catch (err) {
       console.error('PDF Protocol Failure:', err);
@@ -116,13 +105,12 @@ export default function CNPrintPage() {
     );
   }
 
-  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
+  const logoFallback = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
   const totalPkg = trip.invoices?.reduce((acc: number, inv: any) => acc + (parseInt(inv.pkg) || 0), 0) || 0;
 
   return (
     <div className="min-h-screen bg-slate-200 p-0 md:p-8 font-sans text-black overflow-y-auto print:bg-white print:p-0">
-      
       {generating && (
         <div className="fixed inset-0 bg-[#323639] z-[200] flex flex-col items-center justify-center gap-6 text-white font-mono">
           <Loader2 className="h-12 w-12 text-blue-400 animate-spin" />
@@ -153,11 +141,24 @@ export default function CNPrintPage() {
           <div key={index} className="cn-page relative p-10 bg-white border-b-2 border-dashed border-slate-200 last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left">
             <div className="flex justify-between items-start mb-8">
               <div className="flex flex-col gap-5">
-                {logoAsset && <Image src={logoAsset.url} alt="Logo" width={150} height={70} className="object-contain" unoptimized />}
+                {(carrier?.logoUrl || logoFallback?.url) && (
+                  <div className="relative w-[150px] h-[70px]">
+                    <Image 
+                      src={carrier?.logoUrl || logoFallback?.url || ''} 
+                      alt="Carrier Logo" 
+                      fill 
+                      className="object-contain" 
+                      unoptimized 
+                    />
+                  </div>
+                )}
                 <div className="space-y-1">
                   <h1 className="text-xl font-normal uppercase italic tracking-tighter">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
                   <p className="text-[10px] uppercase max-w-[350px] leading-tight text-slate-600 font-normal">{carrier?.address}</p>
-                  <p className="text-[10px] uppercase font-normal pt-1">GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</p>
+                  <div className="flex gap-4 pt-1">
+                    <p className="text-[10px] uppercase font-normal">GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</p>
+                    {carrier?.panNo && <p className="text-[10px] uppercase font-normal">PAN: {carrier.panNo}</p>}
+                  </div>
                   <p className="text-[10px] uppercase font-normal">Contact: {carrier?.mobile} | Email: {carrier?.email}</p>
                 </div>
               </div>
@@ -254,42 +255,38 @@ export default function CNPrintPage() {
                         <td colSpan={3} className="p-4 text-right text-slate-400 italic">Total Operational Payload:</td>
                         <td className="p-4 text-center text-blue-900 border-x border-black">{totalPkg} PACKAGES</td>
                         <td className="p-4 text-right text-blue-900">{trip.assignWeight} MT</td>
-                     </tr>
-                  </tfoot>
-               </table>
-            </div>
-
-            <div className="border border-black mb-8">
-               <div className="bg-slate-50 p-2.5 border-b border-black text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Acknowledgement & Trace</div>
-               <div className="p-5 grid grid-cols-2 gap-12">
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-normal text-slate-400 uppercase tracking-widest">Authorized Delivery Point</label>
-                     <textarea value={deliveryAddr} onChange={e => setDeliveryAddr(e.target.value.toUpperCase())} className="w-full h-20 border-none bg-transparent text-[11px] font-normal uppercase resize-none outline-none leading-relaxed p-0 italic text-slate-700" placeholder="SPECIFY EXACT DROP POINT..." />
-                  </div>
-                  <div className="flex flex-col justify-end items-end">
-                     <div className="w-56 border-t border-black pt-2 text-center">
-                        <p className="text-[10px] font-normal uppercase tracking-widest">Authorized Signatory</p>
-                        <p className="text-[8px] text-slate-400 italic pt-0.5">Electronically Verified Node</p>
-                     </div>
-                  </div>
-               </div>
-            </div>
-
-            <div className="space-y-8">
-               <div className="space-y-2.5">
-                  <h5 className="text-[9px] font-normal uppercase text-slate-400 tracking-widest italic">Standard Operational Terms</h5>
-                  <p className="text-[9px] leading-relaxed text-justify text-slate-500 uppercase font-normal">
-                     1. The carrier holds no liability for any undetected shortage or damage not reported at the arrival gate node.
-                     2. All logistical disputes fall under the jurisdiction of the corporate headquarters registered office.
-                     3. The weight registry is based strictly on party declarations and original invoice records.
-                     4. Detention or storage tariffs apply if unloading is not initiated within 24 hours of documented arrival.
-                     5. Transport of prohibited or hazardous items is strictly forbidden without advanced regulatory clearance.
-                  </p>
-               </div>
-            </div>
+                   </tr>
+                </tfoot>
+             </table>
           </div>
-        ))}
-      </div>
+
+          <div className="border border-black mb-8">
+             <div className="bg-slate-50 p-2.5 border-b border-black text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Acknowledgement & Trace</div>
+             <div className="p-5 grid grid-cols-2 gap-12">
+                <div className="space-y-3">
+                   <label className="text-[9px] font-normal text-slate-400 uppercase tracking-widest">Authorized Delivery Point</label>
+                   <p className="text-[11px] font-normal uppercase italic leading-relaxed text-slate-700 whitespace-pre-wrap">{shipToParty?.address || 'AS PER DOCUMENTATION'}</p>
+                </div>
+                <div className="flex flex-col justify-end items-end">
+                   <div className="w-56 border-t border-black pt-2 text-center">
+                      <p className="text-[10px] font-normal uppercase tracking-widest">Authorized Signatory</p>
+                      <p className="text-[8px] text-slate-400 italic pt-0.5">Electronically Verified Node</p>
+                   </div>
+                </div>
+             </div>
+          </div>
+
+          <div className="space-y-8">
+             <div className="space-y-2.5">
+                <h5 className="text-[9px] font-normal uppercase text-slate-400 tracking-widest italic">Standard Operational Terms</h5>
+                <p className="text-[9px] leading-relaxed text-justify text-slate-500 uppercase font-normal">
+                   1. The carrier holds no liability for shortage not reported at arrival. 2. All disputes fall under corporate HQ jurisdiction. 3. Weight based on party declarations.
+                </p>
+             </div>
+          </div>
+        </div>
+      ))}
+    </div>
 
       <style jsx global>{`
         @media print {

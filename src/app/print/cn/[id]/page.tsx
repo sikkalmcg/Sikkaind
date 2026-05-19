@@ -13,9 +13,7 @@ import html2canvas from 'html2canvas';
 
 /**
  * @fileOverview Secure Public CN Preview Protocol.
- * Mimics a PDF viewer interface. Strictly read-only.
- * Synchronizes with a dedicated public execution node to bypass master collection restrictions.
- * Includes automated PDF generation, download, and auto-open functionality.
+ * Updated to use specific FM03 Carrier Logo and display Carrier PAN from public execution node.
  */
 export default function PublicCNPreviewPage() {
   const params = useParams();
@@ -33,7 +31,6 @@ export default function PublicCNPreviewPage() {
     return () => document.removeEventListener('contextmenu', handleContextMenu);
   }, []);
 
-  // Fetch only from the public execution node
   const tripRef = useMemoFirebase(() => {
     if (!id) return null;
     return doc(db, 'public_trips', id);
@@ -71,11 +68,8 @@ export default function PublicCNPreviewPage() {
         pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
       }
 
-      const fileName = `CN-${trip.cnNumber || 'DRAFT'}.pdf`;
-      pdf.save(fileName);
-
-      const blob = pdf.output('blob');
-      const url = URL.createObjectURL(blob);
+      pdf.save(`CN-${trip.cnNumber || 'DRAFT'}.pdf`);
+      const url = URL.createObjectURL(pdf.output('blob'));
       window.location.replace(url);
     } catch (err) {
       console.error('Public PDF Protocol Failure:', err);
@@ -100,13 +94,12 @@ export default function PublicCNPreviewPage() {
     );
   }
 
-  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
+  const logoFallback = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
   const totalPkg = trip.invoices?.reduce((acc: number, inv: any) => acc + (parseInt(inv.pkg) || 0), 0) || 0;
 
   return (
     <div className="min-h-screen bg-[#525659] p-4 md:p-8 font-sans text-black overflow-y-auto select-none">
-      
       {generating && (
         <div className="fixed inset-0 bg-[#323639] z-[200] flex flex-col items-center justify-center gap-6 text-white font-mono">
           <Loader2 className="h-12 w-12 text-blue-400 animate-spin" />
@@ -117,7 +110,6 @@ export default function PublicCNPreviewPage() {
         </div>
       )}
 
-      {/* Simulation of PDF Viewer Chrome */}
       {!generating && !isAuto && (
         <div className="max-w-[210mm] mx-auto bg-[#323639] h-12 flex items-center justify-between px-6 shadow-md mb-1 rounded-t-sm sticky top-0 z-50">
           <div className="flex items-center gap-3 text-white/90">
@@ -135,15 +127,26 @@ export default function PublicCNPreviewPage() {
       <div id="printable-area" className="flex flex-col gap-4 mx-auto w-fit shadow-2xl">
         {copies.map((copyLabel, index) => (
           <div key={index} className="cn-page relative p-10 bg-white border-b border-slate-100 last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left">
-            
-            {/* Header Section */}
             <div className="flex justify-between items-start mb-8">
               <div className="flex flex-col gap-5">
-                {logoAsset && <Image src={logoAsset.url} alt="Logo" width={150} height={70} className="object-contain grayscale" unoptimized />}
+                {(trip.carrier?.logoUrl || logoFallback?.url) && (
+                  <div className="relative w-[150px] h-[70px]">
+                    <Image 
+                      src={trip.carrier?.logoUrl || logoFallback?.url || ''} 
+                      alt="Carrier Logo" 
+                      fill 
+                      className="object-contain grayscale" 
+                      unoptimized 
+                    />
+                  </div>
+                )}
                 <div className="space-y-1">
                   <h1 className="text-xl font-normal uppercase italic tracking-tighter">{trip.carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
                   <p className="text-[10px] uppercase max-w-[350px] leading-tight text-slate-600 font-normal">{trip.carrier?.address}</p>
-                  <p className="text-[10px] uppercase font-normal pt-1">GSTIN: {trip.carrier?.gstNo || 'UNREGISTERED'}</p>
+                  <div className="flex gap-4 pt-1">
+                    <p className="text-[10px] uppercase font-normal">GSTIN: {trip.carrier?.gstNo || 'UNREGISTERED'}</p>
+                    {trip.carrier?.panNo && <p className="text-[10px] uppercase font-normal">PAN: {trip.carrier.panNo}</p>}
+                  </div>
                   <p className="text-[10px] uppercase font-normal">Contact: {trip.carrier?.mobile} | Email: {trip.carrier?.email}</p>
                 </div>
               </div>
@@ -161,7 +164,6 @@ export default function PublicCNPreviewPage() {
               </div>
             </div>
 
-            {/* Vehicle Details Table */}
             <div className="mb-8">
                <table className="w-full border-collapse border border-black text-[11px]">
                   <thead>
@@ -185,7 +187,6 @@ export default function PublicCNPreviewPage() {
                </table>
             </div>
 
-            {/* Party Details Section */}
             <div className="grid grid-cols-3 gap-0 mb-8">
                <div className="border border-black border-r-0 p-5 space-y-4 min-h-[180px]">
                   <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignor</h4>
@@ -215,7 +216,6 @@ export default function PublicCNPreviewPage() {
                </div>
             </div>
 
-            {/* Document & Items Table */}
             <div className="mb-8">
                <table className="w-full border-collapse border border-black text-[11px]">
                   <thead>
@@ -248,7 +248,6 @@ export default function PublicCNPreviewPage() {
                </table>
             </div>
 
-            {/* Acknowledgement Box */}
             <div className="border border-black mb-8">
                <div className="bg-slate-50 p-2.5 border-b border-black text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Reference</div>
                <div className="p-5 min-h-[100px]">
@@ -258,7 +257,6 @@ export default function PublicCNPreviewPage() {
                </div>
             </div>
 
-            {/* Terms & Note Section */}
             <div className="space-y-8">
                <div className="space-y-2.5">
                   <p className="text-[9px] leading-relaxed text-justify text-slate-500 uppercase font-normal">
