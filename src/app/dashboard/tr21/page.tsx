@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { 
   Filter, Search, MapPin, Truck, Radar, 
   X, Trash2, Plus, FileText, ChevronLeft, ChevronRight, Printer,
-  Loader2
+  Loader2, Upload, CheckCircle, AlertTriangle, FileUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useUser } from '@/firebase';
@@ -20,8 +20,7 @@ const SHARED_HUB_ID = 'Sikkaind';
 
 /**
  * @fileOverview TR21 – TRIP BOARD.
- * Centralized logistics execution dashboard managing orders from assignment to closure.
- * Includes a high-fidelity CN Preview Popup Protocol with dynamic Carrier Logo and PAN integration.
+ * Centralized logistics execution dashboard with specific headers and POD upload compression logic.
  */
 export default function TR21Page() {
   const router = useRouter();
@@ -33,20 +32,20 @@ export default function TR21Page() {
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
   
-  const [currentPage, setCurrentPage] = React.useState(1);
   const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
-
-  const [gpsLive, setGpsLive] = React.useState<any[]>([]);
 
   const [showAssign, setShowAssign] = React.useState(false);
   const [showCNPortal, setShowCNPortal] = React.useState(false);
   const [showVehiclePortal, setShowVehiclePortal] = React.useState(false);
-  const [showOutPortal, setShowOutPortal] = React.useState(false);
-  const [showArrivePortal, setShowArrivePortal] = React.useState(false);
-  const [showMapPortal, setShowMapPortal] = React.useState(false);
   const [showCNPreview, setShowCNPreview] = React.useState(false);
+  const [showPODPortal, setShowPODPortal] = React.useState(false);
   
+  // POD Upload State
+  const [podFile, setPodFile] = React.useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = React.useState(false);
+  const podInputRef = React.useRef<HTMLInputElement>(null);
+
   const [assignData, setAssignData] = React.useState<any>({
     fleetType: 'Own Vehicle',
     assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
@@ -66,22 +65,6 @@ export default function TR21Page() {
   const [vehicleData, setVehicleData] = React.useState({ vehicleNo: '', driverMobile: '' });
 
   React.useEffect(() => { setMounted(true); }, []);
-
-  const fetchGps = React.useCallback(async () => {
-    try {
-      const res = await fetch('/api/gps');
-      if (res.ok) {
-        const json = await res.json();
-        if (json?.data?.list) setGpsLive(json.data.list);
-      }
-    } catch (e) { console.error(e); }
-  }, []);
-
-  React.useEffect(() => {
-    fetchGps();
-    const interval = setInterval(fetchGps, 900000);
-    return () => clearInterval(interval);
-  }, [fetchGps]);
 
   const ordersQuery = useMemoFirebase(() => {
     if (isAuthLoading || !user) return null;
@@ -126,7 +109,14 @@ export default function TR21Page() {
         return { ...o, dispatched, balance: weight - dispatched };
       }).filter(o => o.balance > 0.001);
     } else {
-      const statusMap: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' };
+      const statusMap: any = { 
+        'Loading': 'LOADING', 
+        'In-Transit': 'IN-TRANSIT', 
+        'Arrived': 'ARRIVED', 
+        'Reject': 'REJECTION', 
+        'POD Verify': 'POD', 
+        'Closed': 'CLOSED' 
+      };
       baseData = trips.filter(t => t.status === statusMap[activeTab]);
     }
 
@@ -165,30 +155,7 @@ export default function TR21Page() {
   const handlePostCN = () => {
     if (!cnData.cnNumber) return alert('CN Number Mandatory');
     
-    const cnr = customers?.find(c => c.customerCode === selectedTrip.consignorCode);
-    const cne = customers?.find(c => c.customerCode === selectedTrip.consigneeCode);
-    const stp = customers?.find(c => c.customerCode === selectedTrip.shipToPartyCode);
     const carrier = companies?.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies?.[0];
-
-    const publicContext = {
-      ...selectedTrip,
-      ...cnData,
-      carrier: carrier ? {
-        companyName: carrier.companyName,
-        address: carrier.address,
-        mobile: carrier.mobile,
-        email: carrier.email,
-        gstNo: carrier.gstNo,
-        panNo: carrier.panNo,
-        website: carrier.website || '',
-        logoUrl: carrier.logoUrl,
-        termsAndConditions: carrier.termsAndConditions || ''
-      } : null,
-      consignor: cnr ? { name: cnr.customerName, address: cnr.address, mobile: cnr.mobile, gstNo: cnr.gstNo || cnr.gstin } : null,
-      consignee: cne ? { name: cne.customerName, address: cne.address, mobile: cne.mobile, gstNo: cne.gstNo || cne.gstin } : null,
-      shipToPartyData: stp ? { name: stp.customerName, address: stp.address, mobile: stp.mobile, gstNo: stp.gstNo || stp.gstin } : null,
-      updatedAt: new Date().toISOString()
-    };
 
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
       ...cnData, 
@@ -196,9 +163,62 @@ export default function TR21Page() {
       updatedAt: new Date().toISOString() 
     });
 
-    setDocumentNonBlocking(doc(db, 'public_trips', selectedTrip.id), publicContext, { merge: true });
     setShowCNPortal(false);
     alert('Documentation Synchronized');
+  };
+
+  const handleUpdateStatus = (tripId: string, newStatus: string, dateField?: string) => {
+    const updates: any = { status: newStatus, updatedAt: new Date().toISOString() };
+    if (dateField) updates[dateField] = new Date().toISOString();
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', tripId), updates);
+    alert(`Node Status Updated: ${newStatus}`);
+  };
+
+  const handlePODUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('SATELLITE ERROR: File exceeds 2MB limit.');
+      return;
+    }
+
+    if (file.type.startsWith('image/')) {
+      setIsCompressing(true);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new (window as any).Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max dimension 1200px
+          const maxDim = 1200;
+          if (width > height && width > maxDim) { height *= maxDim / width; width = maxDim; }
+          else if (height > maxDim) { width *= maxDim / height; height = maxDim; }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // High compression to hit <200KB target
+          const compressedData = canvas.toDataURL('image/jpeg', 0.5);
+          setPodFile(compressedData);
+          setIsCompressing(false);
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // PDF - just read as is if under 2MB
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setPodFile(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const currentCarrier = React.useMemo(() => {
@@ -236,85 +256,138 @@ export default function TR21Page() {
         </div>
 
         <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner custom-scrollbar">
-          <table className="w-full text-left border-collapse min-w-[1500px] text-[11px]">
+          <table className="w-full text-left border-collapse min-w-[1800px] text-[11px]">
             <thead className="bg-[#f8fafc] sticky top-0 z-20 border-b border-slate-300 font-black uppercase text-slate-500">
-              <tr>
-                <th className="p-3 border-r w-[60px] text-center">Plant</th>
-                <th className="p-3 border-r w-[150px]">Sale Order Details</th>
-                {activeTab !== 'Open Orders' && <th className="p-3 border-r w-[120px]">Trip ID</th>}
-                <th className="p-3 border-r w-[150px]">Ship to Party</th>
-                <th className="p-3 border-r w-[150px]">Route (From → To)</th>
-                <th className="p-3 border-r w-[140px]">Vehicle / Mobile</th>
-                {activeTab !== 'Open Orders' && <th className="p-3 border-r w-[120px]">CN Number/Date</th>}
-                <th className="p-3 border-r w-[80px] text-right">Qty (MT)</th>
-                <th className="p-3 w-[100px] shrink-0 text-center text-[10px]">Action</th>
-              </tr>
+              {activeTab === 'Open Orders' ? (
+                <tr>
+                  <th className="p-3 border-r w-[80px]">Plant</th>
+                  <th className="p-3 border-r w-[180px]">Sale Order/Date</th>
+                  <th className="p-3 border-r w-[200px]">Consignor</th>
+                  <th className="p-3 border-r w-[200px]">Consignee</th>
+                  <th className="p-3 border-r w-[200px]">Ship to Party</th>
+                  <th className="p-3 border-r w-[200px]">Route</th>
+                  <th className="p-3 border-r w-[100px] text-right">Order Qty</th>
+                  <th className="p-3 border-r w-[100px] text-right">Dispatch Qty</th>
+                  <th className="p-3 border-r w-[100px] text-right">Balance Qty</th>
+                  <th className="p-3 text-center">Action</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th className="p-3 border-r w-[60px]">Plant</th>
+                  <th className="p-3 border-r w-[150px]">Sale Order/Date</th>
+                  <th className="p-3 border-r w-[150px]">Trip ID/Date</th>
+                  <th className="p-3 border-r w-[180px]">Consignor</th>
+                  <th className="p-3 border-r w-[180px]">Consignee</th>
+                  <th className="p-3 border-r w-[180px]">Ship to Party</th>
+                  <th className="p-3 border-r w-[180px]">Route</th>
+                  <th className="p-3 border-r w-[150px]">Vehicle/Mobile</th>
+                  <th className="p-3 border-r w-[150px]">Carrier/Vendor</th>
+                  <th className="p-3 border-r w-[100px]">Fleet Type</th>
+                  <th className="p-3 border-r w-[150px]">CN No/Date</th>
+                  {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
+                    <>
+                      <th className="p-3 border-r w-[120px]">Out Date/Time</th>
+                      <th className="p-3 border-r w-[120px]">Arrived Date/Time</th>
+                    </>
+                  )}
+                  <th className="p-3 text-center">Action</th>
+                </tr>
+              )}
             </thead>
             <tbody>
               {filteredData.map((item: any) => (
-                <tr key={item.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors group h-[60px]">
+                <tr key={item.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors group h-[60px] font-bold uppercase">
                   <td className="p-3 border-r text-center font-black">{item.plantCode}</td>
                   <td className="p-3 border-r">
-                    <div className="flex flex-col justify-center h-full leading-tight">
+                    <div className="flex flex-col leading-tight">
                       <span className="font-black text-slate-800">{item.orderNo}</span>
                       <span className="text-[9px] text-slate-400">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                     </div>
                   </td>
+                  
                   {activeTab !== 'Open Orders' && (
                     <td className="p-3 border-r">
-                      <div className="flex flex-col justify-center h-full leading-tight">
+                      <div className="flex flex-col leading-tight">
                         <span className="font-black text-blue-700">{item.tripNo || '-'}</span>
                         <span className="text-[9px] text-slate-400">{item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '-'}</span>
                       </div>
                     </td>
                   )}
-                  <td className="p-3 border-r truncate font-bold uppercase" title={item.shipToParty}>{item.shipToParty}</td>
-                  <td className="p-3 border-r italic text-[10px]">
-                    <div className="flex flex-col justify-center h-full leading-tight">
-                      <span className="uppercase">{item.from} → {item.destination}</span>
-                      {item.via && <span className="text-[8px] font-black text-blue-600 not-italic uppercase">VIA: {item.via}</span>}
-                    </div>
-                  </td>
-                  <td className="p-3 border-r">
-                     <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline group h-full justify-center">
-                        <span className="font-black text-blue-800 group-hover:text-blue-600 uppercase">{item.vehicleNo || 'ADD VEHICLE'}</span>
-                        <span className="text-[9px] text-slate-400 font-bold">{item.driverMobile || '-'}</span>
-                     </button>
-                  </td>
-                  {activeTab !== 'Open Orders' && (
-                    <td className="p-3 border-r">
-                       <div className="flex flex-col justify-center h-full leading-tight">
-                         {item.cnNumber ? (
-                           <button onClick={() => { setSelectedTrip(item); setShowCNPreview(true); }} className="text-left group">
-                              <span className="font-black text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
-                              <span className="text-[9px] text-slate-400">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
-                           </button>
-                         ) : <span className="text-slate-300 italic text-[9px]">PENDING</span>}
-                       </div>
-                    </td>
-                  )}
-                  <td className="p-3 border-r text-right font-black text-blue-600">{parseFloat(item.assignWeight || item.quantity || 0).toFixed(3)}</td>
-                  <td className="p-3 text-center flex flex-col gap-1 items-center justify-center w-[100px] shrink-0 h-full">
-                    {activeTab === 'Open Orders' ? (
-                      <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), paymentTerms: 'PAID' }); setShowAssign(true); }} className="h-7 w-[80px] text-[9px] font-black bg-[#1e3a8a] rounded-none">Assign</Button>
-                    ) : (
-                      <>
-                        <Button onClick={() => { 
-                          setSelectedTrip(item); 
-                          setCNData(item.cnNumber ? item : { ...cnData, invoices: item.invoices || [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }] }); 
-                          setShowCNPortal(true); 
-                        }} className="h-6 w-[80px] text-[8px] font-black bg-blue-600 text-white rounded-none">{item.cnNumber ? 'Edit CN' : 'CN Entry'}</Button>
-                        {activeTab === 'Loading' && <Button onClick={() => { setSelectedTrip(item); setShowOutPortal(true); }} className="h-6 w-[80px] text-[8px] font-black bg-[#1e3a8a] text-white rounded-none">OUT</Button>}
-                        {activeTab === 'In-Transit' && (
-                          <div className="flex flex-col gap-1">
-                            <Button onClick={() => { setSelectedTrip(item); setShowArrivePortal(true); }} className="h-6 w-[80px] text-[8px] font-black bg-emerald-600 text-white rounded-none">ARRIVE</Button>
-                            <Button onClick={() => { setSelectedTrip(item); setShowMapPortal(true); }} className="h-6 w-[80px] text-[8px] font-black bg-black text-white rounded-none">MAP</Button>
-                          </div>
+
+                  <td className="p-3 border-r truncate max-w-[200px]">{item.consignorName || item.consignorCode}</td>
+                  <td className="p-3 border-r truncate max-w-[200px]">{item.consigneeName || item.consigneeCode}</td>
+                  <td className="p-3 border-r truncate max-w-[200px]">{item.shipToParty || item.shipToPartyCode}</td>
+                  <td className="p-3 border-r italic text-[10px] uppercase">{item.from} → {item.destination}</td>
+
+                  {activeTab === 'Open Orders' ? (
+                    <>
+                      <td className="p-3 border-r text-right text-slate-400">{parseFloat(item.quantity || 0).toFixed(3)}</td>
+                      <td className="p-3 border-r text-right text-emerald-600">{parseFloat(item.dispatched || 0).toFixed(3)}</td>
+                      <td className="p-3 border-r text-right font-black text-blue-600">{parseFloat(item.balance || 0).toFixed(3)}</td>
+                      <td className="p-3 text-center">
+                        <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3) }); setShowAssign(true); }} className="h-7 w-20 text-[9px] font-black bg-[#1e3a8a] rounded-none">Assign</Button>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-3 border-r">
+                        <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline">
+                          <span className="font-black text-blue-800">{item.vehicleNo || 'ADD'}</span>
+                          <span className="text-[9px] text-slate-400 font-bold">{item.driverMobile || '-'}</span>
+                        </button>
+                      </td>
+                      <td className="p-3 border-r truncate max-w-[150px]">{item.carrierName || item.vendorName || '-'}</td>
+                      <td className="p-3 border-r text-[9px] font-black text-slate-400">{item.fleetType}</td>
+                      <td className="p-3 border-r">
+                         <div className="flex flex-col leading-tight">
+                           {item.cnNumber ? (
+                             <button onClick={() => { setSelectedTrip(item); setShowCNPreview(true); }} className="text-left group">
+                                <span className="font-black text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
+                                <span className="text-[9px] text-slate-400">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
+                             </button>
+                           ) : <span className="text-slate-300 italic text-[9px]">PENDING</span>}
+                         </div>
+                      </td>
+                      {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
+                        <>
+                          <td className="p-3 border-r text-slate-400 text-[9px]">{item.outDate ? format(new Date(item.outDate), 'dd-MM HH:mm') : '-'}</td>
+                          <td className="p-3 border-r text-slate-400 text-[9px]">{item.arrivedDate ? format(new Date(item.arrivedDate), 'dd-MM HH:mm') : '-'}</td>
+                        </>
+                      )}
+                      <td className="p-3 text-center flex flex-col gap-1 items-center justify-center min-w-[100px]">
+                        {activeTab === 'Loading' && (
+                          <>
+                            <Button onClick={() => handleUpdateStatus(item.id, 'IN-TRANSIT', 'outDate')} className="h-6 w-20 text-[8px] font-black bg-[#1e3a8a] text-white rounded-none">OUT</Button>
+                            <Button onClick={() => { setSelectedTrip(item); setCNData(item.cnNumber ? item : { ...cnData, invoices: item.invoices || [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }] }); setShowCNPortal(true); }} className="h-6 w-20 text-[8px] font-black bg-emerald-600 text-white rounded-none">CN ENTRY</Button>
+                          </>
                         )}
-                        {(activeTab === 'Arrived' || activeTab === 'POD Verify') && <Button onClick={() => { setSelectedTrip(item); setShowMapPortal(true); }} className="h-6 w-[80px] text-[8px] font-black bg-black text-white rounded-none">MAP</Button>}
-                      </>
-                    )}
-                  </td>
+                        {activeTab === 'In-Transit' && (
+                          <>
+                            <Button onClick={() => handleUpdateStatus(item.id, 'ARRIVED', 'arrivedDate')} className="h-6 w-20 text-[8px] font-black bg-emerald-600 text-white rounded-none">ARRIVED</Button>
+                            <Button onClick={() => { setSelectedTrip(item); setCNData(item); setShowCNPortal(true); }} variant="outline" className="h-6 w-20 text-[8px] font-black border-slate-300 rounded-none">CN EDIT</Button>
+                          </>
+                        )}
+                        {activeTab === 'Arrived' && (
+                          <>
+                            <Button onClick={() => handleUpdateStatus(item.id, 'POD')} className="h-6 w-20 text-[8px] font-black bg-emerald-600 text-white rounded-none">UNLOAD</Button>
+                            <Button onClick={() => handleUpdateStatus(item.id, 'REJECTION')} className="h-6 w-20 text-[8px] font-black bg-red-600 text-white rounded-none">REJECT</Button>
+                            <Button onClick={() => { setSelectedTrip(item); setCNData(item); setShowCNPortal(true); }} variant="outline" className="h-6 w-20 text-[8px] font-black border-slate-300 rounded-none">CN EDIT</Button>
+                          </>
+                        )}
+                        {activeTab === 'Reject' && (
+                          <>
+                            <Button className="h-6 w-20 text-[8px] font-black bg-blue-600 text-white rounded-none">RESENT</Button>
+                            <Button className="h-6 w-20 text-[8px] font-black bg-slate-800 text-white rounded-none">SRN</Button>
+                          </>
+                        )}
+                        {(activeTab === 'POD Verify' || activeTab === 'Closed') && (
+                          <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className={cn("h-6 w-24 text-[8px] font-black rounded-none", item.podUrl ? "bg-emerald-600" : "bg-orange-600")}>
+                             {item.podUrl ? 'VIEW POD' : 'UPLOAD POD'}
+                          </Button>
+                        )}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -322,9 +395,71 @@ export default function TR21Page() {
         </div>
       </div>
 
+      {/* POD Upload Portal */}
+      <Dialog open={showPODPortal} onOpenChange={setShowPODPortal}>
+        <DialogContent className="max-w-md rounded-none border-[3px] border-orange-600 font-mono p-0 overflow-hidden text-left">
+           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
+              <DialogTitle className="text-[12px] font-black uppercase text-orange-700 italic">POD Matrix Synchronization</DialogTitle>
+           </DialogHeader>
+           <div className="p-8 space-y-6">
+              <div 
+                onClick={() => podInputRef.current?.click()}
+                className="border-2 border-dashed border-slate-200 p-10 text-center bg-slate-50 hover:bg-white hover:border-orange-400 transition-all cursor-pointer relative"
+              >
+                <input type="file" ref={podInputRef} className="hidden" accept="image/*,application/pdf" onChange={handlePODUpload} />
+                {isCompressing ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-8 w-8 text-orange-600 animate-spin" />
+                    <span className="text-[10px] font-black uppercase text-orange-400 animate-pulse">Compressing Registry Data...</span>
+                  </div>
+                ) : podFile ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <CheckCircle className="h-10 w-10 text-emerald-500" />
+                    <span className="text-[10px] font-black uppercase text-emerald-600 italic">Payload Ready (&lt;200KB)</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3 text-slate-400">
+                    <FileUp className="h-10 w-10" />
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase">Attach POD Image or PDF</p>
+                      <p className="text-[8px] italic font-bold">Protocol: Max 2MB File size</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {selectedTrip?.podUrl && (
+                <div className="p-4 bg-emerald-50 border border-emerald-100 flex items-center justify-between">
+                   <span className="text-[9px] font-black uppercase text-emerald-700">Current POD Active</span>
+                   <Button variant="outline" className="h-6 text-[8px] font-black rounded-none border-emerald-300" onClick={() => window.open(selectedTrip.podUrl, '_blank')}>View Original</Button>
+                </div>
+              )}
+           </div>
+           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
+              <Button onClick={() => { setPodFile(null); setShowPODPortal(false); }} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-black px-10">Exit</Button>
+              <Button 
+                disabled={!podFile || isCompressing}
+                onClick={() => {
+                  updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
+                    podUrl: podFile, 
+                    status: 'CLOSED',
+                    updatedAt: new Date().toISOString() 
+                  });
+                  setPodFile(null);
+                  setShowPODPortal(false);
+                  alert('POD Synchronized: Workflow Termination Successful.');
+                }} 
+                className="bg-emerald-600 text-white rounded-none h-10 uppercase text-[10px] font-black px-16 shadow-lg"
+              >
+                Sync & Close
+              </Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* CN Preview Portal */}
       <Dialog open={showCNPreview} onOpenChange={setShowCNPreview}>
-        <DialogContent className="max-w-[1000px] h-[90vh] rounded-none border-[3px] border-blue-900 font-sans p-0 overflow-hidden flex flex-col">
+        <DialogContent className="max-w-[1000px] h-[90vh] rounded-none border-[3px] border-blue-900 font-sans p-0 overflow-hidden flex flex-col text-left">
           <DialogHeader className="bg-slate-50 p-4 border-b border-slate-200 flex flex-row items-center justify-between shrink-0 no-print">
              <div className="flex flex-col text-left">
                 <DialogTitle className="text-sm font-black uppercase italic text-blue-900">Consignment Note Preview</DialogTitle>
@@ -350,8 +485,8 @@ export default function TR21Page() {
       </Dialog>
 
       <Dialog open={showAssign} onOpenChange={setShowAssign}>
-        <DialogContent className="max-w-[900px] rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden">
-          <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
+        <DialogContent className="max-w-[900px] rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden text-left">
+          <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
              <DialogTitle className="text-[14px] font-black uppercase text-[#1e3a8a] italic mb-4">Vehicle Assignment Protocol</DialogTitle>
              <div className="grid grid-cols-4 gap-6 bg-white border border-slate-200 p-4 shadow-inner text-[10px] font-black uppercase">
                 <div><span className="text-slate-400 text-[8px]">Consignee</span><p className="truncate">{selectedOrder?.consigneeName}</p></div>
@@ -360,12 +495,12 @@ export default function TR21Page() {
                 <div><span className="text-slate-400 text-[8px]">Registry Qty</span><p className="text-blue-700">{selectedOrder?.quantity} MT</p></div>
              </div>
           </DialogHeader>
-          <div className="p-8 grid grid-cols-2 gap-x-10 gap-y-6 text-left">
+          <div className="p-8 grid grid-cols-2 gap-x-10 gap-y-6">
              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Vehicle Number *</label><input value={assignData.vehicleNo || ''} onChange={e => setAssignData({...assignData, vehicleNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-yellow-50" /></div>
              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Driver Mobile</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-bold" /></div>
              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Fleet Type</label><select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-black uppercase outline-none"><option value="Own Vehicle">Own Vehicle</option><option value="Market Vehicle">Market Vehicle</option></select></div>
              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Transport Mode</label><select value={assignData.mode} onChange={e => setAssignData({...assignData, mode: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-black uppercase outline-none"><option value="Road">Road</option><option value="Road from Rail">Road from Rail</option></select></div>
-             {assignData.mode === 'Road from Rail' && <div className="space-y-1.5"><label className="text-[10px] font-black text-[#0056d2] uppercase">Via (Trans-shipment Point) *</label><input value={assignData.via || ''} onChange={e => setAssignData({...assignData, via: e.target.value.toUpperCase()})} className="h-9 w-full border border-[#0056d2] px-3 text-xs font-black" /></div>}
+             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Carrier/Vendor Name</label><input value={assignData.vendorName || ''} onChange={e => setAssignData({...assignData, vendorName: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black uppercase" placeholder="ENTER NAME..." /></div>
              <div className="space-y-1.5"><label className="text-[10px] font-black text-[#0056d2] uppercase">Assign Qty (MT) *</label><input type="number" step="0.001" value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-9 w-full border border-[#0056d2] px-3 text-xs font-black outline-none" /></div>
           </div>
           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
@@ -445,7 +580,6 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
   const logoFallback = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
   
-  // Calculate Intelligent Package Summary
   const packageSummary = React.useMemo(() => {
     if (!trip.invoices || trip.invoices.length === 0) return "0 PKG";
     const groups: Record<string, number> = {};
@@ -579,7 +713,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                          <td className="p-3 text-right">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
                       </tr>
                    ))}
-                   {/* 4 Line Blank Space for manual notes/receiving */}
+                   {/* 4 Line Blank Space */}
                    {[1, 2, 3, 4].map(n => (
                      <tr key={`blank-${n}`} className="border-b border-black last:border-b-0 h-10">
                         <td className="border-r border-black"></td>
