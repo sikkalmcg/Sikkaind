@@ -45,7 +45,6 @@ export default function TR21Page() {
 
   const [lastGeneratedCN, setLastGeneratedCN] = React.useState<string>('N/A');
 
-  // Client-side initialization to avoid hydration errors
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
   const [registryId, setRegistryId] = React.useState<string | null>(null);
 
@@ -74,7 +73,6 @@ export default function TR21Page() {
     setIsBootstrapAdmin(isAd);
     setRegistryId(rId);
 
-    // Set dates after mount to match client locale/time
     setAssignData(prev => ({ ...prev, assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }));
     setCNData(prev => ({ ...prev, cnDate: format(new Date(), 'yyyy-MM-dd') }));
 
@@ -103,7 +101,6 @@ export default function TR21Page() {
   const { data: customers } = useCollection(customersQuery);
   const { data: vendors } = useCollection(vendorsQuery);
 
-  // Auto-calculation logic for Freight Amount
   React.useEffect(() => {
     if (!assignData.fixRate) {
       const weight = parseFloat(assignData.assignWeight) || 0;
@@ -113,7 +110,7 @@ export default function TR21Page() {
     }
   }, [assignData.rate, assignData.assignWeight, assignData.fixRate]);
 
-  // Logic to calculate next CN Number based on Carrier
+  // Updated logic to calculate next CN Number following pattern exactly
   React.useEffect(() => {
     if (showCNPortal && selectedTrip && trips && companies) {
       const carrier = companies.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies[0];
@@ -121,33 +118,48 @@ export default function TR21Page() {
       
       const carrierCNs = (trips || [])
         .filter(t => (t.carrierName === carrierName || (!t.carrierName && t.plantCode === selectedTrip.plantCode)) && t.cnNumber)
-        .map(t => t.cnNumber);
+        .map(t => t.cnNumber as string);
 
       if (carrierCNs.length > 0) {
-        let maxNum = 0;
-        let lastFull = 'N/A';
+        let lastFull = '';
+        let maxVal = -1;
+
+        // Find the CN with the highest numeric component at the end
         carrierCNs.forEach(cn => {
-          const match = cn.match(/\d+$/);
+          const match = cn.match(/(\d+)$/);
           if (match) {
-            const num = parseInt(match[0]);
-            if (num > maxNum) {
-              maxNum = num;
+            const val = parseInt(match[1], 10);
+            if (val > maxVal) {
+              maxVal = val;
               lastFull = cn;
             }
           }
         });
 
-        setLastGeneratedCN(lastFull);
-
-        if (!selectedTrip.cnNumber) {
-          const nextNum = (maxNum + 1).toString().padStart(6, '0');
-          const prefix = lastFull.match(/^[A-Za-z]+/)?.[0] || 'CN';
-          setCNData(prev => ({ ...prev, cnNumber: `${prefix}${nextNum}` }));
+        if (lastFull) {
+          setLastGeneratedCN(lastFull);
+          if (!selectedTrip.cnNumber) {
+            const match = lastFull.match(/^(.*?)(\d+)$/);
+            if (match) {
+              const prefix = match[1];
+              const digits = match[2];
+              const nextVal = (parseInt(digits, 10) + 1).toString();
+              const padded = nextVal.padStart(digits.length, '0');
+              setCNData(prev => ({ ...prev, cnNumber: prefix + padded }));
+            } else {
+              setCNData(prev => ({ ...prev, cnNumber: lastFull }));
+            }
+          }
+        } else {
+          setLastGeneratedCN('NONE (NUMERIC REQ)');
+          if (!selectedTrip.cnNumber) {
+            setCNData(prev => ({ ...prev, cnNumber: '000001' }));
+          }
         }
       } else {
         setLastGeneratedCN('NONE (INITIAL)');
         if (!selectedTrip.cnNumber) {
-          setCNData(prev => ({ ...prev, cnNumber: 'CN000001' }));
+          setCNData(prev => ({ ...prev, cnNumber: '000001' }));
         }
       }
     }
@@ -734,7 +746,7 @@ export default function TR21Page() {
           </DialogHeader>
           <div className="p-8 space-y-6">
              <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Update Vehicle No *</label><input autoFocus value={vehicleData.vehicleNo} onChange={e => setVehicleData({...vehicleData, vehicleNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal uppercase" /></div>
-             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Update Driver Mobile</label><input value={vehicleData.driverMobile} onChange={e => setVehicleData({...vehicleData, driverMobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" /></div>
+             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Update Driver Mobile</label><input value={vehicleData.driverMobile} onChange={setVehicleData({...vehicleData, driverMobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" /></div>
           </div>
           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
              <Button onClick={() => setShowVehiclePortal(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-normal px-10">Cancel</Button>
@@ -745,4 +757,3 @@ export default function TR21Page() {
     </div>
   );
 }
-
