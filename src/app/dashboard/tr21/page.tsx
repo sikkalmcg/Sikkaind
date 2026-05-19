@@ -1,14 +1,13 @@
+
 'use client';
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  Save, ChevronLeft, ChevronRight, Filter, Search, MapPin, Truck, Radar, 
-  CheckCircle, Loader2, X, Upload, Info, Map as MapIcon, RefreshCw,
-  User, Phone, Calculator, CheckSquare, Square, FilePlus, Edit, Printer, Plus, Trash2, FileText
+  Filter, Search, MapPin, Truck, Radar, 
+  X, Trash2, Plus, FileText, ChevronLeft, ChevronRight, Printer
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -16,13 +15,12 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 const SHARED_HUB_ID = 'Sikkaind';
-const PAGE_SIZE = 25;
 
 export default function TR21Page() {
+  const router = useRouter();
   const db = useFirestore();
   const [mounted, setMounted] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('Open Orders');
-  const [currentPage, setCurrentPage] = React.useState(1);
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
   
@@ -31,16 +29,13 @@ export default function TR21Page() {
 
   const [gpsLive, setGpsLive] = React.useState<any[]>([]);
   const [locationMap, setLocationMap] = React.useState<Record<string, string>>({});
-  const [isGpsLoading, setIsGpsLoading] = React.useState(true);
 
-  // Portals
   const [showAssign, setShowAssign] = React.useState(false);
   const [showCNPortal, setShowCNPortal] = React.useState(false);
   const [showVehiclePortal, setShowVehiclePortal] = React.useState(false);
   const [showOutPortal, setShowOutPortal] = React.useState(false);
   const [showArrivePortal, setShowArrivePortal] = React.useState(false);
   const [showMapPortal, setShowMapPortal] = React.useState(false);
-  const [showPrintView, setShowPrintView] = React.useState(false);
   
   const [assignData, setAssignData] = React.useState<any>({
     fleetType: 'Own Vehicle',
@@ -55,19 +50,15 @@ export default function TR21Page() {
     cnNumber: '',
     cnDate: format(new Date(), 'yyyy-MM-dd'),
     paymentTerms: 'PAID',
-    mode: 'Road',
-    ratePoint: '',
     invoices: [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }]
   });
 
   const [vehicleData, setVehicleData] = React.useState({ vehicleNo: '', driverMobile: '' });
-  const [actionData, setActionData] = React.useState({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
 
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
   const mapRef = React.useRef<HTMLDivElement>(null);
-  const googleMapInstance = React.useRef<any>(null);
 
   React.useEffect(() => { setMounted(true); }, []);
 
@@ -94,7 +85,7 @@ export default function TR21Page() {
         const json = await res.json();
         if (json?.data?.list) setGpsLive(json.data.list);
       }
-    } catch (e) { console.error(e); } finally { setIsGpsLoading(false); }
+    } catch (e) { console.error(e); }
   }, []);
 
   React.useEffect(() => {
@@ -195,21 +186,25 @@ export default function TR21Page() {
       const liveNode = gpsLive.find(n => n.vehicleNumber?.trim() === selectedTrip.vehicleNo?.trim());
       const lat = liveNode ? parseFloat(liveNode.latitude) : 20.5937;
       const lng = liveNode ? parseFloat(liveNode.longitude) : 78.9629;
-      googleMapInstance.current = new window.google.maps.Map(mapRef.current, {
+      const map = new window.google.maps.Map(mapRef.current, {
         center: { lat, lng }, zoom: 14, disableDefaultUI: true,
         styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
       });
       new window.google.maps.Marker({
-        position: { lat, lng }, map: googleMapInstance.current,
+        position: { lat, lng }, map,
         icon: { url: liveNode?.status === 'RUNNING' ? (settings?.activeIcon || '') : (settings?.stoppedIcon || ''), scaledSize: new window.google.maps.Size(42, 42), anchor: new window.google.maps.Point(21, 21) }
       });
     }
   }, [showMapPortal, selectedTrip, gpsLive, settings]);
 
+  const handleOpenPrint = (tripId: string) => {
+    window.open(`/dashboard/tr21/print/${tripId}`, '_blank');
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden text-black">
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
-        <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD</h2>
+        <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic text-shadow-none no-bold">TR21 – TRIP BOARD</h2>
         <div className="flex gap-4 bg-[#f8fafc] border border-slate-200 p-1 px-4 shadow-inner">
            <div className="flex items-center gap-2">
              <Filter className="h-3.5 w-3.5 text-slate-400" />
@@ -260,22 +255,22 @@ export default function TR21Page() {
                     <span className="text-[9px] text-slate-400">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                   </td>
                   {activeTab !== 'Open Orders' && <td className="p-3 border-r font-black text-blue-700">{item.tripNo || '-'}</td>}
-                  <td className="p-3 border-r truncate font-bold" title={item.consigneeName}>{item.consigneeName}</td>
-                  <td className="p-3 border-r truncate font-bold" title={item.shipToParty}>{item.shipToParty}</td>
+                  <td className="p-3 border-r truncate font-bold uppercase" title={item.consigneeName}>{item.consigneeName}</td>
+                  <td className="p-3 border-r truncate font-bold uppercase" title={item.shipToParty}>{item.shipToParty}</td>
                   <td className="p-3 border-r italic text-[10px] leading-tight flex flex-col justify-center min-h-[60px]">
-                    <span>{item.from} → {item.destination}</span>
+                    <span className="uppercase">{item.from} → {item.destination}</span>
                     {item.via && <span className="text-[8px] font-black text-blue-600 not-italic uppercase">VIA: {item.via}</span>}
                   </td>
                   <td className="p-3 border-r min-h-[60px]">
                      <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline group">
-                        <span className="font-black text-blue-800 group-hover:text-blue-600">{item.vehicleNo || 'ADD VEHICLE'}</span>
+                        <span className="font-black text-blue-800 group-hover:text-blue-600 uppercase">{item.vehicleNo || 'ADD VEHICLE'}</span>
                         <span className="text-[9px] text-slate-400 font-bold">{item.driverMobile || '-'}</span>
                      </button>
                   </td>
                   {activeTab !== 'Open Orders' && (
                     <td className="p-3 border-r leading-tight flex flex-col justify-center min-h-[60px]">
                        {item.cnNumber ? (
-                         <button onClick={() => { setSelectedTrip(item); setShowPrintView(true); }} className="text-left group">
+                         <button onClick={() => handleOpenPrint(item.id)} className="text-left group">
                             <span className="font-black text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
                             <span className="text-[9px] text-slate-400">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
                          </button>
@@ -283,14 +278,14 @@ export default function TR21Page() {
                     </td>
                   )}
                   <td className="p-3 border-r text-right font-black text-blue-600">{item.assignWeight || item.quantity}</td>
-                  <td className="p-3 text-center flex flex-col gap-1 items-center justify-center">
+                  <td className="p-3 text-center flex flex-col gap-1 items-center justify-center w-[100px]">
                     {activeTab === 'Open Orders' ? (
                       <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), paymentTerms: 'PAID' }); setShowAssign(true); }} className="h-7 w-[80px] text-[9px] font-black bg-[#1e3a8a] rounded-none">Assign</Button>
                     ) : (
                       <>
                         <Button onClick={() => { 
                           setSelectedTrip(item); 
-                          setCNData(item.cnNumber ? item : { ...cnData, mode: item.mode, via: item.via, paymentTerms: item.paymentTerms || 'PAID' }); 
+                          setCNData(item.cnNumber ? item : { ...cnData, invoices: item.invoices || [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }] }); 
                           setShowCNPortal(true); 
                         }} className="h-6 w-[80px] text-[8px] font-black bg-blue-600 text-white rounded-none">{item.cnNumber ? 'Edit CN' : 'CN Entry'}</Button>
                         {activeTab === 'Loading' && <Button onClick={() => { setSelectedTrip(item); setShowOutPortal(true); }} className="h-6 w-[80px] text-[8px] font-black bg-[#1e3a8a] text-white rounded-none">OUT</Button>}
@@ -300,7 +295,7 @@ export default function TR21Page() {
                             <Button onClick={() => { setSelectedTrip(item); setShowMapPortal(true); }} className="h-6 w-[80px] text-[8px] font-black bg-black text-white rounded-none">MAP</Button>
                           </div>
                         )}
-                        {activeTab === 'Arrived' && <Button onClick={() => { setSelectedTrip(item); setShowMapPortal(true); }} className="h-6 w-[80px] text-[8px] font-black bg-black text-white rounded-none">MAP</Button>}
+                        {(activeTab === 'Arrived' || activeTab === 'POD Verify') && <Button onClick={() => { setSelectedTrip(item); setShowMapPortal(true); }} className="h-6 w-[80px] text-[8px] font-black bg-black text-white rounded-none">MAP</Button>}
                       </>
                     )}
                   </td>
@@ -315,7 +310,7 @@ export default function TR21Page() {
       <Dialog open={showAssign} onOpenChange={setShowAssign}>
         <DialogContent className="max-w-[900px] rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
-             <DialogTitle className="text-[14px] font-black uppercase text-[#1e3a8a] italic mb-4">Vehicle Assignment Protocol</DialogTitle>
+             <DialogTitle className="text-[14px] font-black uppercase text-[#1e3a8a] italic mb-4 no-bold">Vehicle Assignment Protocol</DialogTitle>
              <div className="grid grid-cols-4 gap-6 bg-white border border-slate-200 p-4 shadow-inner text-[10px] font-black uppercase">
                 <div><span className="text-slate-400 text-[8px]">Consignee</span><p className="truncate">{selectedOrder?.consigneeName}</p></div>
                 <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedOrder?.shipToParty}</p></div>
@@ -364,7 +359,7 @@ export default function TR21Page() {
       <Dialog open={showCNPortal} onOpenChange={setShowCNPortal}>
         <DialogContent className="max-w-[1000px] rounded-none border-[3px] border-emerald-600 font-mono p-0 overflow-hidden text-left">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
-             <DialogTitle className="text-[14px] font-black uppercase text-emerald-700 italic mb-4">Documentation Execution: Consignment Note</DialogTitle>
+             <DialogTitle className="text-[14px] font-black uppercase text-emerald-700 italic mb-4 no-bold">Documentation Execution: Consignment Note</DialogTitle>
              <div className="grid grid-cols-4 gap-6 bg-white border border-slate-200 p-4 text-[10px] font-black uppercase">
                 <div><span className="text-slate-400 text-[8px]">Plant</span><p>{selectedTrip?.plantCode}</p></div>
                 <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedTrip?.shipToParty}</p></div>
@@ -374,7 +369,6 @@ export default function TR21Page() {
           </DialogHeader>
           <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto green-scrollbar">
              <div className="grid grid-cols-3 gap-6">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Previous CN (Auto)</label><input readOnly className="h-9 w-full border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-400" value="AUTO-DETECTING..." /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">CN Number *</label><input value={cnData.cnNumber || ''} onChange={e => setCNData({...cnData, cnNumber: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">CN Date *</label><input type="date" value={cnData.cnDate} onChange={e => setCNData({...cnData, cnDate: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Payment Terms</label><select value={cnData.paymentTerms} onChange={e => setCNData({...cnData, paymentTerms: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-black uppercase outline-none"><option value="PAID">PAID</option><option value="TO PAY">TO PAY</option></select></div>
@@ -414,7 +408,7 @@ export default function TR21Page() {
       <Dialog open={showVehiclePortal} onOpenChange={setShowVehiclePortal}>
         <DialogContent className="max-w-md rounded-none border-[3px] border-blue-900 font-mono p-0 overflow-hidden text-left">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
-             <DialogTitle className="text-[12px] font-black uppercase text-blue-900 italic mb-4">Vehicle Data Handshake</DialogTitle>
+             <DialogTitle className="text-[12px] font-black uppercase text-blue-900 italic mb-4 no-bold">Vehicle Data Handshake</DialogTitle>
              <div className="space-y-1 text-[10px] font-black uppercase bg-white border border-slate-200 p-4 shadow-inner">
                 <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedTrip?.shipToParty}</p></div>
                 <div className="pt-2"><span className="text-slate-400 text-[8px]">Route</span><p className="italic text-emerald-600">{selectedTrip?.from} → {selectedTrip?.destination}</p></div>
@@ -432,13 +426,13 @@ export default function TR21Page() {
       </Dialog>
 
       {/* Action Portals (Out / Arrive) */}
-      <ActionPortal open={showOutPortal} onOpenChange={setShowOutPortal} title="Dispatch Synchronization (OUT)" trip={selectedTrip} onPost={() => {
-          const ts = `${actionData.date}T${actionData.time}:00`;
+      <ActionPortal open={showOutPortal} onOpenChange={setShowOutPortal} title="Dispatch Synchronization (OUT)" trip={selectedTrip} onPost={(d, t) => {
+          const ts = `${d}T${t}:00`;
           updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { status: 'IN-TRANSIT', dispatchDate: ts, updatedAt: new Date().toISOString() });
           setShowOutPortal(false);
       }} />
-      <ActionPortal open={showArrivePortal} onOpenChange={setShowArrivePortal} title="Arrival Synchronization" trip={selectedTrip} onPost={() => {
-          const ts = `${actionData.date}T${actionData.time}:00`;
+      <ActionPortal open={showArrivePortal} onOpenChange={setShowArrivePortal} title="Arrival Synchronization" trip={selectedTrip} onPost={(d, t) => {
+          const ts = `${d}T${t}:00`;
           updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { status: 'ARRIVED', arrivalDate: ts, updatedAt: new Date().toISOString() });
           setShowArrivePortal(false);
       }} />
@@ -447,100 +441,23 @@ export default function TR21Page() {
       <Dialog open={showMapPortal} onOpenChange={setShowMapPortal}>
         <DialogContent className="max-w-4xl rounded-none border-[3px] border-[#0056d2] font-mono p-0 h-[600px] flex flex-col text-left">
           <DialogHeader className="bg-slate-50 p-4 border-b flex flex-row items-center justify-between shrink-0">
-             <DialogTitle className="text-xs font-black uppercase text-[#1e3a8a] italic">Live Tracking: {selectedTrip?.vehicleNo}</DialogTitle>
+             <DialogTitle className="text-xs font-black uppercase text-[#1e3a8a] italic no-bold">Live Tracking: {selectedTrip?.vehicleNo}</DialogTitle>
              <Button variant="ghost" onClick={() => setShowMapPortal(false)} className="h-8 w-8 p-0"><X className="h-4 w-4" /></Button>
           </DialogHeader>
           <div ref={mapRef} className="flex-1 bg-slate-100" />
         </DialogContent>
       </Dialog>
-
-      {/* 3-Page Print View */}
-      {showPrintView && selectedTrip && (
-        <Dialog open={showPrintView} onOpenChange={setShowPrintView}>
-           <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto rounded-none border-[3px] border-[#333] font-mono p-0 text-left">
-              <div className="bg-slate-100 p-4 border-b sticky top-0 z-50 flex justify-between items-center no-print">
-                 <span className="text-[10px] font-black uppercase italic">SAP-LMC CONSIGNEE NOTE PREVIEW (3 COPIES)</span>
-                 <div className="flex gap-2">
-                    <Button onClick={() => window.print()} className="h-8 bg-blue-700 text-white rounded-none text-[10px] font-black uppercase px-6"><Printer className="h-3 w-3 mr-2" /> Print All</Button>
-                    <Button onClick={() => setShowPrintView(false)} variant="outline" className="h-8 rounded-none text-[10px] font-black uppercase px-6">Close</Button>
-                 </div>
-              </div>
-              <div id="printable-area" className="bg-white p-0">
-                 {['CONSIGNOR COPY', 'CONSIGNEE COPY', 'CARRIER COPY'].map((copy, idx) => (
-                    <div key={idx} className={cn("cn-print-page p-10 border-b-2 border-dashed border-slate-300 relative", idx === 2 && "border-b-0")}>
-                       <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-8">
-                          <div className="space-y-1">
-                             <h1 className="text-2xl font-black italic tracking-tighter">SIKKA INDUSTRIES & LOGISTICS</h1>
-                             <p className="text-[9px] font-black uppercase text-slate-500">Logistics Hub • Ghaziabad, Uttar Pradesh • 201009</p>
-                             <p className="text-[10px] font-bold">Contact: +91 120 4290010 • queries@sikkaenterprises.com</p>
-                          </div>
-                          <div className="text-right space-y-1">
-                             <div className="bg-black text-white px-4 py-1 text-[10px] font-black uppercase italic inline-block">{copy}</div>
-                             <p className="text-[11px] font-black pt-2">CN NO: {selectedTrip.cnNumber}</p>
-                             <p className="text-[10px] font-bold">DATE: {selectedTrip.cnDate ? format(new Date(selectedTrip.cnDate), 'dd-MMM-yyyy') : '-'}</p>
-                          </div>
-                       </div>
-                       <div className="grid grid-cols-2 gap-10 text-[11px] mb-8">
-                          <div className="space-y-4">
-                             <div className="space-y-0.5 border-l-2 border-blue-900 pl-3">
-                                <span className="text-[8px] font-black text-slate-400 uppercase">From (Consignor)</span>
-                                <p className="font-black leading-tight uppercase">{selectedTrip.consignorName}</p>
-                                <p className="text-slate-600 font-bold">{selectedTrip.from}</p>
-                             </div>
-                             <div className="space-y-0.5 border-l-2 border-blue-900 pl-3">
-                                <span className="text-[8px] font-black text-slate-400 uppercase">Consignee</span>
-                                <p className="font-black leading-tight uppercase">{selectedTrip.consigneeName}</p>
-                             </div>
-                             <div className="space-y-0.5 border-l-2 border-blue-900 pl-3 bg-slate-50 p-2 border border-slate-100">
-                                <span className="text-[8px] font-black text-slate-400 uppercase">Ship To Party</span>
-                                <p className="font-black leading-tight uppercase">{selectedTrip.shipToParty}</p>
-                                <p className="text-slate-600 font-bold">{selectedTrip.destination}</p>
-                             </div>
-                          </div>
-                          <div className="space-y-4">
-                             <div className="space-y-0.5 border-l-2 border-emerald-600 pl-3">
-                                <span className="text-[8px] font-black text-slate-400 uppercase">Execution Details</span>
-                                <p className="font-black">VEHICLE: <span className="text-blue-800">{selectedTrip.vehicleNo}</span></p>
-                                <p className="font-black">MODE: <span className="text-blue-800">{selectedTrip.mode}</span></p>
-                                <p className="font-black">WEIGHT: <span className="text-blue-800">{selectedTrip.assignWeight} MT</span></p>
-                             </div>
-                             <div className="space-y-0.5 border-l-2 border-emerald-600 pl-3">
-                                <span className="text-[8px] font-black text-slate-400 uppercase">Financial Protocol</span>
-                                <p className="font-black uppercase">{selectedTrip.paymentTerms}</p>
-                             </div>
-                          </div>
-                       </div>
-                       <table className="w-full border-collapse border border-slate-300 text-[10px] mb-10">
-                          <thead className="bg-slate-50 font-black uppercase text-slate-500 border-b border-slate-300">
-                             <tr><th className="p-3 border-r">INV NO</th><th className="p-3 border-r">E-WAYBILL</th><th className="p-3 border-r">GOODS DESCRIPTION</th><th className="p-3">PKG/UOM</th></tr>
-                          </thead>
-                          <tbody className="font-bold">
-                             {selectedTrip.invoices?.map((inv: any, i: number) => (
-                               <tr key={i} className="border-b border-slate-200"><td className="p-3 border-r uppercase">{inv.invNo}</td><td className="p-3 border-r">{inv.ewaybillNo}</td><td className="p-3 border-r uppercase">{inv.desc}</td><td className="p-3 uppercase">{inv.pkg} {inv.uom}</td></tr>
-                             ))}
-                          </tbody>
-                       </table>
-                       <div className="grid grid-cols-2 gap-20 pt-20">
-                          <div className="text-center border-t border-slate-300 pt-3"><p className="text-[9px] font-black uppercase">Consignor Seal/Sign</p></div>
-                          <div className="text-center border-t border-slate-300 pt-3"><p className="text-[9px] font-black uppercase">For Sikka Industries & Logistics</p></div>
-                       </div>
-                    </div>
-                 ))}
-              </div>
-           </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
 
-function ActionPortal({ open, onOpenChange, title, onPost, trip }: { open: boolean, onOpenChange: (v: boolean) => void, title: string, onPost: () => void, trip: any }) {
+function ActionPortal({ open, onOpenChange, title, onPost, trip }: { open: boolean, onOpenChange: (v: boolean) => void, title: string, onPost: (d: string, t: string) => void, trip: any }) {
   const [data, setData] = React.useState({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden text-left">
         <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
-           <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2] mb-4">{title}</DialogTitle>
+           <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2] mb-4 no-bold">{title}</DialogTitle>
            <div className="grid grid-cols-2 gap-4 text-[10px] font-black uppercase bg-white border border-slate-200 p-4">
               <div><span className="text-slate-400 text-[8px]">VEHICLE</span><p className="text-blue-700">{trip?.vehicleNo}</p></div>
               <div><span className="text-slate-400 text-[8px]">TRIP ID</span><p>{trip?.tripNo}</p></div>
@@ -552,7 +469,7 @@ function ActionPortal({ open, onOpenChange, title, onPost, trip }: { open: boole
         </div>
         <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
            <Button onClick={() => onOpenChange(false)} variant="outline" className="h-10 rounded-none text-[10px] font-black uppercase px-8">Exit</Button>
-           <Button onClick={onPost} className="h-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase px-16">Post</Button>
+           <Button onClick={() => onPost(data.date, data.time)} className="h-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase px-16">Post</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
