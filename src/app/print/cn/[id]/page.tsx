@@ -147,7 +147,7 @@ export default function PublicCNPreviewPage() {
         {copies.map((copyLabel, index) => (
           <div key={index} className="cn-page relative p-10 bg-white border-b border-black last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left flex flex-col text-black font-normal">
             <div className="flex justify-between items-start mb-6">
-              <div className="flex gap-4 items-start">
+              <div className="flex gap-2 items-start">
                 {(trip.carrier?.logoUrl || logoFallback?.url) && (
                   <div className="relative w-[90px] h-[42px] shrink-0">
                     <Image 
@@ -171,7 +171,7 @@ export default function PublicCNPreviewPage() {
                   </div>
                 </div>
               </div>
-              <div className="border border-black px-5 py-2 text-[9px] font-normal uppercase italic bg-white tracking-widest shrink-0 text-black">{copyLabel}</div>
+              <div className="border border-black px-5 py-2 text-[10px] font-normal uppercase italic bg-white tracking-widest shrink-0 text-black">{copyLabel}</div>
             </div>
 
             <div className="mb-4">
@@ -186,8 +186,8 @@ export default function PublicCNPreviewPage() {
                      </tr>
                   </thead>
                   <tbody>
-                     <tr className="uppercase font-normal text-black">
-                        <td className="p-2 border-r border-black text-center">{trip.cnNumber || 'DRAFT'}</td>
+                     <tr className="uppercase font-normal text-black text-[12px]">
+                        <td className="p-2 border-r border-black text-center">CN No: {trip.cnNumber || 'DRAFT'}</td>
                         <td className="p-2 border-r border-black text-center">{trip.cnDate ? format(new Date(trip.cnDate), 'dd-MMM-yyyy') : '-'}</td>
                         <td className="p-2 border-r border-black text-center text-[10px]">{trip.from}</td>
                         <td className="p-2 border-r border-black text-center text-[10px]">{trip.via || trip.ratePoint || '-'}</td>
@@ -209,7 +209,7 @@ export default function PublicCNPreviewPage() {
                      </tr>
                   </thead>
                   <tbody>
-                     <tr className="uppercase font-normal text-black">
+                     <tr className="uppercase font-normal text-black text-[12px]">
                         <td className="p-2 border-r border-black text-center">{trip.vehicleNo}</td>
                         <td className="p-2 border-r border-black text-center">{trip.driverMobile || '-'}</td>
                         <td className="p-2 border-r border-black text-center text-[10px]">{trip.paymentTerms}</td>
@@ -222,26 +222,26 @@ export default function PublicCNPreviewPage() {
 
             <div className="grid grid-cols-3 gap-0 mb-6 border-none text-black">
                <div className="border-r border-black p-4 space-y-4 min-h-[160px]">
-                  <h4 className="text-[9px] font-normal uppercase text-black italic mb-2 tracking-widest">Consignor</h4>
+                  <h4 className="text-[10px] font-normal uppercase text-black italic mb-2 tracking-widest">Consignor</h4>
                   <div className="text-[10px] uppercase font-normal space-y-1.5 text-black">
-                     <p className="text-[11px] font-normal">{trip.consignor?.name || trip.consignorName}</p>
+                     <p className="text-[10px] font-normal">{trip.consignor?.name || trip.consignorName}</p>
                      <p className="leading-relaxed text-black whitespace-pre-wrap">{trip.consignor?.address}</p>
                      <p>MOB: {trip.consignor?.mobile}</p>
                      <p className="text-[10px] pt-1 text-black font-normal">GSTIN: {trip.consignor?.gstNo}</p>
                   </div>
                </div>
                <div className="border-r border-black p-4 space-y-4 min-h-[160px]">
-                  <h4 className="text-[9px] font-normal uppercase text-black italic mb-2 tracking-widest">Consignee</h4>
+                  <h4 className="text-[10px] font-normal uppercase text-black italic mb-2 tracking-widest">Consignee</h4>
                   <div className="text-[10px] uppercase font-normal space-y-1.5 text-black">
-                     <p className="text-[11px] font-normal">{trip.consignee?.name || trip.consigneeName}</p>
+                     <p className="text-[10px] font-normal">{trip.consignee?.name || trip.consigneeName}</p>
                      <p className="leading-relaxed text-black whitespace-pre-wrap">{trip.consignee?.address}</p>
                      <p className="text-[10px] pt-1 text-black font-normal">GSTIN: {trip.consignee?.gstNo}</p>
                   </div>
                </div>
                <div className="p-4 space-y-4 min-h-[160px] bg-white text-black">
-                  <h4 className="text-[9px] font-normal uppercase text-black italic mb-2 tracking-widest">Ship To Party</h4>
+                  <h4 className="text-[10px] font-normal uppercase text-black italic mb-2 tracking-widest">Ship To Party</h4>
                   <div className="text-[10px] uppercase font-normal space-y-1.5 text-black">
-                     <p className="text-[11px] font-normal">{trip.shipToPartyData?.name || trip.shipToParty}</p>
+                     <p className="text-[10px] font-normal">{trip.shipToPartyData?.name || trip.shipToParty}</p>
                      <p className="leading-relaxed text-black whitespace-pre-wrap">{trip.shipToPartyData?.address}</p>
                      <p>MOB: {trip.shipToPartyData?.mobile}</p>
                      <p className="text-[10px] pt-1 text-black font-normal">GSTIN: {trip.shipToPartyData?.gstNo}</p>
@@ -261,18 +261,18 @@ export default function PublicCNPreviewPage() {
                      </tr>
                   </thead>
                   <tbody>
-                     {trip.invoices?.map((inv: any, i: number) => (
-                        <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black">
+                     {trip.invoices?.filter((inv: any) => inv.invNo).map((inv: any, i: number) => (
+                        <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black text-[11px]">
                            <td className="p-3 border-r border-black">{inv.invNo}</td>
                            <td className="p-3 border-r border-black">{inv.ewaybillNo}</td>
-                           <td className="p-3 border-r border-black leading-snug text-[10px]">{inv.desc}</td>
+                           <td className="p-3 border-r border-black leading-snug text-[11px]">{inv.desc}</td>
                            <td className="p-3 border-r border-black text-center">{inv.pkg} {inv.uom}</td>
                            <td className="p-3 text-right">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
                         </tr>
                      ))}
                   </tbody>
                   <tfoot>
-                     <tr className="bg-white font-normal text-[9px] uppercase border-t border-black text-black">
+                     <tr className="bg-white font-normal text-[12px] uppercase border-t border-black text-black">
                         <td colSpan={3} className="p-4 text-right text-black italic border-none">Gross Total:</td>
                         <td className="p-4 text-center border-none font-normal">{packageSummary}</td>
                         <td className="p-4 text-right border-none font-normal">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
