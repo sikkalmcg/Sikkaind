@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { 
   Filter, Search, MapPin, Truck, Radar, 
   X, Trash2, Plus, FileText, ChevronLeft, ChevronRight, Printer,
-  Loader2, CheckCircle, FileUp, ExternalLink, Calculator
+  Loader2, CheckCircle, FileUp, ExternalLink, Calculator, History
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useUser } from '@/firebase';
@@ -42,6 +42,8 @@ export default function TR21Page() {
   const [podFile, setPodFile] = React.useState<string | null>(null);
   const [isCompressing, setIsCompressing] = React.useState(false);
   const podInputRef = React.useRef<HTMLInputElement>(null);
+
+  const [lastGeneratedCN, setLastGeneratedCN] = React.useState<string>('N/A');
 
   const registryId = typeof window !== 'undefined' ? localStorage.getItem('sap_registry_id') : null;
   const isBootstrapAdmin = typeof window !== 'undefined' ? localStorage.getItem('sap_bootstrap_session') === 'true' : false;
@@ -98,6 +100,49 @@ export default function TR21Page() {
       setAssignData(prev => ({ ...prev, freightAmount: total }));
     }
   }, [assignData.rate, assignData.assignWeight, assignData.fixRate]);
+
+  // Logic to calculate next CN Number based on Carrier
+  React.useEffect(() => {
+    if (showCNPortal && selectedTrip && trips && companies) {
+      const carrier = companies.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies[0];
+      const carrierName = carrier?.companyName || '';
+      
+      // Filter all trips matching this carrier that have a CN assigned
+      const carrierCNs = (trips || [])
+        .filter(t => (t.carrierName === carrierName || (!t.carrierName && t.plantCode === selectedTrip.plantCode)) && t.cnNumber)
+        .map(t => t.cnNumber);
+
+      if (carrierCNs.length > 0) {
+        // Find highest numeric suffix
+        let maxNum = 0;
+        let lastFull = 'N/A';
+        carrierCNs.forEach(cn => {
+          const match = cn.match(/\d+$/);
+          if (match) {
+            const num = parseInt(match[0]);
+            if (num > maxNum) {
+              maxNum = num;
+              lastFull = cn;
+            }
+          }
+        });
+
+        setLastGeneratedCN(lastFull);
+
+        // Only auto-fill if the current trip doesn't have a CN yet
+        if (!selectedTrip.cnNumber) {
+          const nextNum = (maxNum + 1).toString().padStart(6, '0');
+          const prefix = lastFull.match(/^[A-Za-z]+/)?.[0] || 'CN';
+          setCNData(prev => ({ ...prev, cnNumber: `${prefix}${nextNum}` }));
+        }
+      } else {
+        setLastGeneratedCN('NONE (INITIAL)');
+        if (!selectedTrip.cnNumber) {
+          setCNData(prev => ({ ...prev, cnNumber: 'CN000001' }));
+        }
+      }
+    }
+  }, [showCNPortal, selectedTrip, trips, companies]);
 
   const authorizedPlantCodes = React.useMemo(() => {
     if (isBootstrapAdmin) return null;
@@ -627,8 +672,19 @@ export default function TR21Page() {
              </div>
           </DialogHeader>
           <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto green-scrollbar">
-             <div className="grid grid-cols-3 gap-6">
-                <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">CN Number *</label><input value={cnData.cnNumber || ''} onChange={e => setCNData({...cnData, cnNumber: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" /></div>
+             <div className="grid grid-cols-3 gap-8">
+                <div className="space-y-1.5 relative">
+                   <div className="flex items-center gap-1.5 mb-1">
+                      <History className="h-3 w-3 text-slate-400" />
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Last Generated CN: <span className="text-blue-600">{lastGeneratedCN}</span></label>
+                   </div>
+                   <label className="text-[10px] font-normal text-slate-400 uppercase">CN Number *</label>
+                   <input 
+                     value={cnData.cnNumber || ''} 
+                     onChange={e => setCNData({...cnData, cnNumber: e.target.value.toUpperCase()})} 
+                     className="h-9 w-full border border-slate-400 px-3 text-xs font-normal bg-white focus:bg-yellow-50 outline-none" 
+                   />
+                </div>
                 <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">CN Date *</label><input type="date" value={cnData.cnDate} onChange={e => setCNData({...cnData, cnDate: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Payment Terms</label><select value={cnData.paymentTerms} onChange={e => setCNData({...cnData, paymentTerms: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"><option value="PAID">PAID</option><option value="TO PAY">TO PAY</option></select></div>
              </div>
