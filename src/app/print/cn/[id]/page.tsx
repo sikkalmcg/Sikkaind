@@ -260,15 +260,6 @@ export default function PublicCNPreviewPage() {
                </table>
             </div>
 
-            <div className="mb-8">
-               <div className="bg-slate-50 p-2.5 text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Reference</div>
-               <div className="p-5 min-h-[100px]">
-                  <p className="text-[11px] font-normal uppercase italic leading-relaxed text-slate-700 whitespace-pre-wrap">
-                    {trip.shipToPartyData?.address || 'AS PER DOCUMENTATION'}
-                  </p>
-               </div>
-            </div>
-
             <div className="space-y-8">
                <div className="space-y-2.5">
                   <p className="text-[9px] font-normal leading-relaxed text-justify text-slate-500 uppercase">
@@ -277,7 +268,7 @@ export default function PublicCNPreviewPage() {
                </div>
                <div className="text-center pt-6 border-t border-slate-100">
                   <p className="text-[11px] font-normal uppercase tracking-tighter italic text-slate-400">
-                     Note: This Consignment Note was generated digitally and is to be considered as original.
+                     This Consignment Note was generated digitally and is to be considered as original.
                   </p>
                </div>
             </div>

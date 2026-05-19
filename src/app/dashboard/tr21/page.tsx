@@ -573,27 +573,16 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
              </table>
           </div>
 
-          <div className="mb-8">
-             <div className="bg-slate-50 p-2.5 text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Acknowledgement & Trace</div>
-             <div className="p-5 grid grid-cols-2 gap-12">
-                <div className="space-y-3">
-                   <label className="text-[9px] font-normal text-slate-400 uppercase tracking-widest">Authorized Delivery Point</label>
-                   <p className="text-[11px] font-normal uppercase italic leading-relaxed text-slate-700 whitespace-pre-wrap">{shipToParty?.address || 'AS PER DOCUMENTATION'}</p>
-                </div>
-                <div className="flex flex-col justify-end items-end">
-                   <div className="w-56 border-t border-black pt-2 text-center">
-                      <p className="text-[10px] font-normal uppercase tracking-widest">Authorized Signatory</p>
-                      <p className="text-[8px] text-slate-400 italic pt-0.5">Electronically Verified Node</p>
-                   </div>
-                </div>
-             </div>
-          </div>
-
           <div className="space-y-8">
              <div className="space-y-2.5">
                 <h5 className="text-[9px] font-normal uppercase text-slate-400 tracking-widest italic">Standard Operational Terms</h5>
                 <p className="text-[9px] leading-relaxed text-justify text-slate-500 uppercase font-normal">
                    1. The carrier holds no liability for shortage not reported at arrival. 2. All disputes fall under corporate HQ jurisdiction. 3. Weight based on party declarations.
+                </p>
+             </div>
+             <div className="text-center pt-6 border-t border-slate-100">
+                <p className="text-[11px] font-normal uppercase tracking-tighter italic text-slate-400">
+                   This Consignment Note was generated digitally and is to be considered as original.
                 </p>
              </div>
           </div>
