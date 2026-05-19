@@ -14,10 +14,15 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
-    // Shared Company Hub: Allow all authorized employees to access Sikka Industries shared data
-    // Global Uniqueness is enforced at the application level to prevent collisions.
-    match /users/Sikkaind/{allPaths=**} {
+    // Shared Company Hub: Sikka Industries
+    // Restricted access to user master, but public read allowed for logistics nodes to support tracking/CN preview.
+    match /users/Sikkaind/users_master/{docId} {
       allow read, write: if isSignedIn();
+    }
+
+    match /users/Sikkaind/{collectionName}/{docId} {
+      allow read: if collectionName != 'users_master';
+      allow write: if isSignedIn();
     }
 
     // Private User Nodes

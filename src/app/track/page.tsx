@@ -6,7 +6,7 @@ import * as React from 'react';
 import { 
   Radar, ShoppingCart, Package, Truck, MapPin, 
   CheckCircle, Loader2, ArrowLeft, AlertTriangle, Search,
-  Map as MapIcon
+  Map as MapIcon, ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -77,7 +77,7 @@ export default function TrackPage() {
 
       <div className="max-w-6xl mx-auto w-full px-8 flex-1 pb-20">
         {view === 'search' && (
-          <div className="bg-white border border-slate-300 p-12 space-y-10 shadow-lg mt-20 animate-fade-in">
+          <div className="bg-white border border-slate-300 p-12 space-y-10 shadow-lg mt-20 animate-fade-in text-black">
              <div className="flex flex-col items-center gap-4 mb-6">
                 <Radar className="h-12 w-12 text-[#0056d2]" />
                 <h2 className="text-lg font-black uppercase italic tracking-widest text-[#1e3a8a]">Shipment Trace Protocol</h2>
@@ -95,7 +95,7 @@ export default function TrackPage() {
         )}
 
         {view === 'order_details' && (
-          <div className="bg-white border border-slate-300 p-10 space-y-12 shadow-lg animate-fade-in">
+          <div className="bg-white border border-slate-300 p-10 space-y-12 shadow-lg animate-fade-in text-black">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-b pb-10">
                <div className="flex justify-between items-center bg-slate-50 p-4 border border-slate-100">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Consignor:</span>
@@ -115,26 +115,27 @@ export default function TrackPage() {
                 {linkedTrips.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {linkedTrips.map(t => (
-                      <button 
+                      <div 
                         key={t.id} 
-                        onClick={() => handleSelectTrip(t)} 
-                        className="p-6 bg-white border-2 border-slate-100 text-left hover:border-[#0056d2] hover:bg-blue-50/30 transition-all shadow-sm group"
+                        className="p-6 bg-white border-2 border-slate-100 text-left hover:border-[#0056d2] transition-all shadow-sm group relative"
                       >
                         <div className="flex justify-between items-center mb-4">
                            <span className="text-[#0056d2] font-black text-[14px]">{t.tripNo}</span>
-                           <Radar className="h-4 w-4 text-slate-200 group-hover:text-blue-500 transition-colors" />
+                           <Radar className="h-4 w-4 text-slate-200" />
                         </div>
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                            <div className="space-y-0.5">
                               <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Vehicle</span>
                               <p className="text-[11px] font-black text-slate-700">{t.vehicleNo}</p>
                            </div>
-                           <div className="flex justify-between items-end border-t border-slate-50 pt-3">
-                              <span className="text-[10px] font-black text-emerald-600">{t.status}</span>
-                              <span className="text-[9px] font-bold text-slate-400 italic">View Map &rarr;</span>
+                           <div className="flex justify-between items-center border-t border-slate-50 pt-4 gap-2">
+                              <Button onClick={() => handleSelectTrip(t)} variant="outline" className="flex-1 h-8 rounded-none text-[9px] font-black uppercase border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">Live Map</Button>
+                              {t.cnNumber && (
+                                <Button onClick={() => window.open(`/print/cn/${t.id}`, '_blank')} className="flex-1 h-8 rounded-none text-[9px] font-black uppercase bg-emerald-600 text-white"><ExternalLink className="h-3 w-3 mr-1" /> View CN</Button>
+                              )}
                            </div>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -150,7 +151,7 @@ export default function TrackPage() {
         )}
 
         {view === 'mapping' && selectedTrip && (
-          <div className="bg-white border border-slate-300 p-10 shadow-xl space-y-12 animate-fade-in">
+          <div className="bg-white border border-slate-300 p-10 shadow-xl space-y-12 animate-fade-in text-black">
              <div className="flex justify-between items-start border-b border-slate-100 pb-8">
                 <div className="space-y-1">
                    <h3 className="text-[16px] font-black uppercase text-[#1e3a8a] italic tracking-tighter">Live Movement Trace: {selectedTrip.tripNo}</h3>
@@ -160,7 +161,12 @@ export default function TrackPage() {
                       <span>{selectedTrip.mode}</span>
                    </div>
                 </div>
-                <Badge className="bg-[#0056d2] rounded-none font-black text-[10px] px-8 py-1.5 uppercase shadow-lg tracking-widest">{selectedTrip.status}</Badge>
+                <div className="flex gap-2">
+                  {selectedTrip.cnNumber && (
+                    <Button onClick={() => window.open(`/print/cn/${selectedTrip.id}`, '_blank')} variant="outline" className="rounded-none font-black text-[10px] px-6 h-9 uppercase border-emerald-600 text-emerald-600">View CN</Button>
+                  )}
+                  <Badge className="bg-[#0056d2] rounded-none font-black text-[10px] px-8 py-1.5 uppercase shadow-lg tracking-widest">{selectedTrip.status}</Badge>
+                </div>
              </div>
 
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">

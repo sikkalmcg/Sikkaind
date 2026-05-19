@@ -141,7 +141,6 @@ export default function TR21Page() {
   const { data: vendors } = useCollection(vendorsQuery);
   const { data: companies } = useCollection(companiesQuery);
 
-  // Identity logic for the documentation popup
   const currentCarrier = React.useMemo(() => {
     if (!selectedTrip || !companies) return null;
     return companies.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies[0];
@@ -247,7 +246,7 @@ export default function TR21Page() {
   }, [showMapPortal, selectedTrip, gpsLive, settings]);
 
   const handleOpenPrint = (tripId: string) => {
-    window.open(`/dashboard/tr21/print/${tripId}`, '_blank');
+    window.open(`/print/cn/${tripId}`, '_blank');
   };
 
   return (

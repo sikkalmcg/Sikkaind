@@ -20,8 +20,10 @@ export default function RootLayoutClient({ children }: { children: ReactNode }) 
   }, []);
 
   // Show header/footer on website pages including /track
-  // Hide only on login and dashboard pages
-  const isDashboardOrLogin = pathname?.startsWith('/login') || pathname?.startsWith('/dashboard');
+  // Hide only on login, dashboard, and print pages
+  const isDashboardOrLogin = pathname?.startsWith('/login') || 
+                             pathname?.startsWith('/dashboard') || 
+                             pathname?.startsWith('/print');
   
   // Use 'mounted' to ensure client-specific UI (Header/Footer) only renders after hydration
   const showHeaderFooter = mounted && !isDashboardOrLogin;
