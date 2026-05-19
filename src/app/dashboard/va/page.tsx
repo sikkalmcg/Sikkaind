@@ -1,11 +1,10 @@
-
 'use client';
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Download, Upload, Loader2, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -111,6 +110,7 @@ export default function VAPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const db = useFirestore();
+  const { user, isUserLoading: isAuthLoading } = useUser();
   const activeTCode = searchParams.get('tcode') || 'VA03';
   const isReadOnly = activeTCode === 'VA03';
   
@@ -122,9 +122,20 @@ export default function VAPage() {
   const [uploadLog, setUploadLog] = React.useState<{ status: 'success' | 'failed', msg: string, id: string }[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
-  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const plantsQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'plants');
+  }, [db, user, isAuthLoading]);
+
+  const ordersQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'sales_orders');
+  }, [db, user, isAuthLoading]);
+
+  const customersQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'customers');
+  }, [db, user, isAuthLoading]);
 
   const { data: plants } = useCollection(plantsQuery);
   const { data: orders } = useCollection(ordersQuery);

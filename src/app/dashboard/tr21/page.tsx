@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -8,7 +7,7 @@ import {
   X, Trash2, Plus, FileText, ChevronLeft, ChevronRight, Printer
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useUser } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -24,6 +23,7 @@ export default function TR21Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const db = useFirestore();
+  const { user, isUserLoading: isAuthLoading } = useUser();
   const [mounted, setMounted] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('Open Orders');
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
@@ -61,7 +61,10 @@ export default function TR21Page() {
 
   const [vehicleData, setVehicleData] = React.useState({ vehicleNo: '', driverMobile: '' });
 
-  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
+  const settingsRef = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings');
+  }, [db, user, isAuthLoading]);
   const { data: settings } = useDoc(settingsRef);
 
   const mapRef = React.useRef<HTMLDivElement>(null);
@@ -107,11 +110,30 @@ export default function TR21Page() {
     });
   }, [gpsLive, reverseGeocode]);
 
-  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
-  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
-  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
-  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
+  const ordersQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'sales_orders');
+  }, [db, user, isAuthLoading]);
+
+  const tripsQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'trip_board');
+  }, [db, user, isAuthLoading]);
+
+  const plantsQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'plants');
+  }, [db, user, isAuthLoading]);
+
+  const vendorsQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'vendors');
+  }, [db, user, isAuthLoading]);
+
+  const companiesQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'companies');
+  }, [db, user, isAuthLoading]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
@@ -410,7 +432,7 @@ export default function TR21Page() {
 
              <div className="space-y-4">
                 <div className="flex justify-between items-end border-b border-slate-200 pb-2">
-                   <h4 className="text-[10px] font-black uppercase text-slate-500">Invoice Registry</h4>
+                   <h4 className="text-[10px] font-black uppercase italic text-slate-600 border-b-2 border-blue-100 w-fit pb-1">Invoice Registry</h4>
                    <Button onClick={() => setCNData({...cnData, invoices: [...cnData.invoices, { id: Math.random().toString(), invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }]})} variant="outline" className="h-7 text-[8px] uppercase font-black px-4 rounded-none"><Plus className="h-3 w-3 mr-1" /> Add Row</Button>
                 </div>
                 <table className="w-full text-left text-[10px]">

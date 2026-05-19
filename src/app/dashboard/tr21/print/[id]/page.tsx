@@ -1,9 +1,8 @@
-
 'use client';
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase, useCollection, useUser } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Image from 'next/image';
@@ -23,22 +22,32 @@ export default function CNPrintPage() {
   const router = useRouter();
   const db = useFirestore();
   const id = params.id as string;
+  const { user, isUserLoading: isAuthLoading } = useUser();
 
-  // Data Fetching
-  const tripRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'trip_board', id), [db, id]);
+  // Data Fetching - Memoized to wait for authenticated user
+  const tripRef = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return doc(db, 'users', SHARED_HUB_ID, 'trip_board', id);
+  }, [db, id, user, isAuthLoading]);
   const { data: trip, isLoading: isTripLoading } = useDoc(tripRef);
 
-  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
+  const companiesQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'companies');
+  }, [db, user, isAuthLoading]);
   const { data: companies } = useCollection(companiesQuery);
   
+  const customersQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'customers');
+  }, [db, user, isAuthLoading]);
+  const { data: customers } = useCollection(customersQuery);
+
   // Lookup associated carrier based on trip carrier name or plant code
   const carrier = React.useMemo(() => {
     if (!trip || !companies) return null;
     return companies.find(c => c.companyName === trip.carrierName) || companies[0];
   }, [trip, companies]);
-
-  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
-  const { data: customers } = useCollection(customersQuery);
 
   const consignor = React.useMemo(() => customers?.find(c => c.customerCode === trip?.consignorCode), [customers, trip]);
   const consignee = React.useMemo(() => customers?.find(c => c.customerCode === trip?.consigneeCode), [customers, trip]);
@@ -52,7 +61,7 @@ export default function CNPrintPage() {
     }
   }, [shipToParty]);
 
-  if (isTripLoading || !trip) {
+  if (isTripLoading || isAuthLoading || !trip) {
     return (
       <div className="h-screen flex items-center justify-center bg-slate-50 font-mono">
         <div className="flex flex-col items-center gap-4">
@@ -167,7 +176,7 @@ export default function CNPrintPage() {
                   </div>
                </div>
                <div className="border border-black p-5 space-y-4 min-h-[180px] bg-slate-50/20">
-                  <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Ship To Party</h4>
+                  <h4 className="text-[10px) font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Ship To Party</h4>
                   <div className="text-[11px] uppercase font-normal space-y-1.5">
                      <p className="text-[12px]">{trip.shipToParty}</p>
                      <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{shipToParty?.address}</p>

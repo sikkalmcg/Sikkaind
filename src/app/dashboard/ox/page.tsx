@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ export default function OXPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const db = useFirestore();
+  const { user, isUserLoading: isAuthLoading } = useUser();
   const activeTCode = searchParams.get('tcode') || 'OX03';
   const isReadOnly = activeTCode === 'OX03';
   
@@ -24,7 +25,10 @@ export default function OXPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [errors, setErrors] = React.useState<string[]>([]);
 
-  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const plantsQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
+    return collection(db, 'users', SHARED_HUB_ID, 'plants');
+  }, [db, user, isAuthLoading]);
   const { data: plants } = useCollection(plantsQuery);
 
   const handleSave = React.useCallback(() => {
