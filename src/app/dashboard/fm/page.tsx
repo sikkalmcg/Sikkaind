@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -224,6 +225,16 @@ export default function FMPage() {
                      </button>
                    ))}
                  </div>
+               </div>
+               <div className="flex items-start gap-8 col-span-2">
+                 <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase pt-2">Terms & Conditions:</label>
+                 <textarea
+                   value={formData.termsAndConditions || ''}
+                   onChange={e => setFormData({...formData, termsAndConditions: e.target.value.toUpperCase()})}
+                   disabled={isReadOnly}
+                   className="h-24 w-full max-w-[700px] border border-slate-400 px-2 py-1 text-[12px] font-bold outline-none uppercase"
+                   placeholder="ENTER STANDARD TERMS FOR THE CARRIER..."
+                 />
                </div>
                <div className="flex items-start gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase pt-2">Company Logo:</label>

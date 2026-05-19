@@ -41,7 +41,8 @@
         "email": { "type": "string" },
         "mobile": { "type": "string" },
         "logoUrl": { "type": "string" },
-        "status": { "type": "string" }
+        "status": { "type": "string" },
+        "termsAndConditions": { "type": "string" }
       }
     },
     "Vendor": {

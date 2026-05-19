@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -13,7 +14,7 @@ import html2canvas from 'html2canvas';
 
 /**
  * @fileOverview Secure Public CN Preview Protocol.
- * Updated to use specific FM03 Carrier Logo and display Carrier PAN from public execution node.
+ * Updated with terms from FM03, 4-line blank buffer, and right-aligned signature.
  */
 export default function PublicCNPreviewPage() {
   const params = useParams();
@@ -138,7 +139,7 @@ export default function PublicCNPreviewPage() {
 
       <div id="printable-area" className="flex flex-col gap-4 mx-auto w-fit shadow-2xl">
         {copies.map((copyLabel, index) => (
-          <div key={index} className="cn-page relative p-10 bg-white border-b border-slate-100 last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left">
+          <div key={index} className="cn-page relative p-10 bg-white border-b border-slate-100 last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left flex flex-col">
             <div className="flex justify-between items-start mb-8">
               <div className="flex flex-col gap-5">
                 {(trip.carrier?.logoUrl || logoFallback?.url) && (
@@ -249,6 +250,16 @@ export default function PublicCNPreviewPage() {
                            <td className="p-3 text-right">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
                         </tr>
                      ))}
+                     {/* 4 Line Blank Space */}
+                     {[1, 2, 3, 4].map(n => (
+                        <tr key={`blank-${n}`} className="border-b border-black last:border-b-0 h-10">
+                           <td className="border-r border-black"></td>
+                           <td className="border-r border-black"></td>
+                           <td className="border-r border-black"></td>
+                           <td className="border-r border-black"></td>
+                           <td></td>
+                        </tr>
+                     ))}
                   </tbody>
                   <tfoot>
                      <tr className="bg-slate-50 font-normal text-[10px] uppercase">
@@ -260,11 +271,21 @@ export default function PublicCNPreviewPage() {
                </table>
             </div>
 
-            <div className="space-y-8">
-               <div className="space-y-2.5">
-                  <p className="text-[9px] font-normal leading-relaxed text-justify text-slate-500 uppercase">
-                     1. The carrier holds no liability for shortage not reported at arrival. 2. All disputes fall under corporate HQ jurisdiction. 3. Weight based on party declarations.
-                  </p>
+            <div className="mt-auto space-y-10">
+               <div className="flex justify-between items-end">
+                  <div className="space-y-4 max-w-[60%]">
+                     <h5 className="text-[9px] font-normal uppercase text-slate-400 tracking-widest italic border-b border-slate-100 w-fit pb-1">Terms & Conditions (Ref: FM03)</h5>
+                     <p className="text-[9px] font-normal leading-relaxed text-justify text-slate-500 uppercase whitespace-pre-wrap">
+                        {trip.carrier?.termsAndConditions || '1. THE CARRIER HOLDS NO LIABILITY FOR SHORTAGE NOT REPORTED AT ARRIVAL.\n2. ALL DISPUTES FALL UNDER CORPORATE HQ JURISDICTION.\n3. WEIGHT BASED ON PARTY DECLARATIONS.'}
+                     </p>
+                  </div>
+                  <div className="text-right space-y-12 pr-4">
+                     <div className="h-10"></div>
+                     <div className="space-y-1">
+                        <p className="text-[10px] font-normal uppercase tracking-widest">FOR {trip.carrier?.companyName || 'THE CARRIER'}</p>
+                        <p className="text-[11px] font-normal uppercase italic tracking-tighter">Authorized Signature</p>
+                     </div>
+                  </div>
                </div>
                <div className="text-center pt-6 border-t border-slate-100">
                   <p className="text-[11px] font-normal uppercase tracking-tighter italic text-slate-400">
