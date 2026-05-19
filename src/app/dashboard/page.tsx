@@ -6,8 +6,8 @@ import {
   Grid2X2, Package, Truck, Radar, ShoppingBag, XCircle,
   Activity, BarChart3
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, onSnapshot, doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
@@ -16,12 +16,37 @@ const SHARED_HUB_ID = 'Sikkaind';
 export default function DashboardPage() {
   const router = useRouter();
   const db = useFirestore();
+  const { user } = useUser();
+  const registryId = typeof window !== 'undefined' ? localStorage.getItem('sap_registry_id') : null;
+  const isBootstrapAdmin = typeof window !== 'undefined' ? localStorage.getItem('sap_bootstrap_session') === 'true' : false;
+
+  const profileRef = useMemoFirebase(() => {
+    if (!registryId || isBootstrapAdmin) return null;
+    return doc(db, 'users', SHARED_HUB_ID, 'users_master', registryId);
+  }, [db, registryId, isBootstrapAdmin]);
+  
+  const { data: userProfile } = useDoc(profileRef);
   
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); 
   const [counts, setCounts] = React.useState({ open: 0, loading: 0, transit: 0, arrived: 0, pod: 0 });
 
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const { data: plants } = useCollection(plantsQuery);
+  const { data: allPlants } = useCollection(plantsQuery);
+
+  const authorizedPlants = React.useMemo(() => {
+    if (isBootstrapAdmin) return allPlants || [];
+    const codes = userProfile?.plantAccess || [];
+    return (allPlants || []).filter(p => codes.includes(p.plantCode));
+  }, [allPlants, userProfile, isBootstrapAdmin]);
+
+  // Set initial filter based on authorization
+  React.useEffect(() => {
+    if (authorizedPlants.length > 0 && homePlantFilter === 'ALL') {
+      if (!isBootstrapAdmin) {
+        setHomePlantFilter(authorizedPlants[0].plantCode);
+      }
+    }
+  }, [authorizedPlants, homePlantFilter, isBootstrapAdmin]);
 
   React.useEffect(() => {
     const tripsRef = collection(db, 'users', SHARED_HUB_ID, 'trip_board');
@@ -29,25 +54,30 @@ export default function DashboardPage() {
 
     const unsubscribeTrips = onSnapshot(tripsRef, (snapshot) => {
       const data = snapshot.docs.map(doc => doc.data());
+      // DATA LEVEL SECURITY: If user is not admin, only process data for authorized plants
+      const authCodes = authorizedPlants.map(p => p.plantCode);
+      
       setCounts(prev => ({
         ...prev,
-        loading: data.filter((t: any) => t.status === 'LOADING' && (homePlantFilter === 'ALL' || t.plantCode === homePlantFilter)).length,
-        transit: data.filter((t: any) => t.status === 'IN-TRANSIT' && (homePlantFilter === 'ALL' || t.plantCode === homePlantFilter)).length,
-        arrived: data.filter((t: any) => t.status === 'ARRIVED' && (homePlantFilter === 'ALL' || t.plantCode === homePlantFilter)).length,
-        pod: data.filter((t: any) => t.status === 'POD' && (homePlantFilter === 'ALL' || t.plantCode === homePlantFilter)).length,
+        loading: data.filter((t: any) => t.status === 'LOADING' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
+        transit: data.filter((t: any) => t.status === 'IN-TRANSIT' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
+        arrived: data.filter((t: any) => t.status === 'ARRIVED' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
+        pod: data.filter((t: any) => t.status === 'POD' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
       }));
     });
 
     const unsubscribeOrders = onSnapshot(ordersRef, (snapshot) => {
       const data = snapshot.docs.map(doc => doc.data());
+      const authCodes = authorizedPlants.map(p => p.plantCode);
+      
       setCounts(prev => ({
         ...prev,
-        open: data.filter((o: any) => o.status === 'Open' && (homePlantFilter === 'ALL' || o.plantCode === homePlantFilter)).length,
+        open: data.filter((o: any) => o.status === 'Open' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(o.plantCode)) : o.plantCode === homePlantFilter)).length,
       }));
     });
 
     return () => { unsubscribeTrips(); unsubscribeOrders(); };
-  }, [db, homePlantFilter]);
+  }, [db, homePlantFilter, authorizedPlants, isBootstrapAdmin]);
 
   return (
     <div className="flex-1 overflow-y-auto p-8 bg-[#f2f2f2] animate-fade-in text-[#333]">
@@ -62,12 +92,17 @@ export default function DashboardPage() {
         </div>
         <div className="flex gap-4">
            <div className="flex flex-col gap-1">
-             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Global Plant Filter</label>
-             <select className="h-8 border border-slate-300 bg-white px-2 text-[10px] font-black uppercase outline-none focus:ring-1 focus:bg-yellow-50" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}>
-               <option value="ALL">ALL</option>
-               {plants?.map(p => (
+             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Authorized Plant Filter</label>
+             <select 
+               className="h-8 border border-slate-300 bg-white px-2 text-[10px] font-black uppercase outline-none focus:ring-1 focus:bg-yellow-50 min-w-[150px]" 
+               value={homePlantFilter} 
+               onChange={e => setHomePlantFilter(e.target.value)}
+             >
+               {isBootstrapAdmin && <option value="ALL">ALL PLANTS</option>}
+               {authorizedPlants.map(p => (
                  <option key={p.id} value={p.plantCode}>PLANT {p.plantCode}</option>
                ))}
+               {!isBootstrapAdmin && authorizedPlants.length === 0 && <option value="">NO ACCESS</option>}
              </select>
            </div>
         </div>

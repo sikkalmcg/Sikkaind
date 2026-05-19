@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Download, Upload, Loader2, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, useUser, useDoc } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -122,30 +122,39 @@ export default function VAPage() {
   const [uploadLog, setUploadLog] = React.useState<{ status: 'success' | 'failed', msg: string, id: string }[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const plantsQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'plants');
-  }, [db, user, isAuthLoading]);
+  const registryId = typeof window !== 'undefined' ? localStorage.getItem('sap_registry_id') : null;
+  const isBootstrapAdmin = typeof window !== 'undefined' ? localStorage.getItem('sap_bootstrap_session') === 'true' : false;
 
-  const ordersQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'sales_orders');
-  }, [db, user, isAuthLoading]);
+  const profileRef = useMemoFirebase(() => {
+    if (!registryId || isBootstrapAdmin) return null;
+    return doc(db, 'users', SHARED_HUB_ID, 'users_master', registryId);
+  }, [db, registryId, isBootstrapAdmin]);
+  const { data: userProfile } = useDoc(profileRef);
 
-  const customersQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'customers');
-  }, [db, user, isAuthLoading]);
+  const authorizedPlantCodes = React.useMemo(() => {
+    if (isBootstrapAdmin) return null;
+    return userProfile?.plantAccess || [];
+  }, [isBootstrapAdmin, userProfile]);
 
-  const { data: plants } = useCollection(plantsQuery);
-  const { data: orders } = useCollection(ordersQuery);
-  const { data: customers } = useCollection(customersQuery);
+  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
+  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+
+  const { data: allPlants } = useCollection(plantsQuery);
+  const { data: allOrders } = useCollection(ordersQuery);
+  const { data: allCustomers } = useCollection(customersQuery);
+
+  const filteredPlants = React.useMemo(() => {
+    if (!allPlants) return [];
+    if (!authorizedPlantCodes) return allPlants;
+    return allPlants.filter(p => authorizedPlantCodes.includes(p.plantCode));
+  }, [allPlants, authorizedPlantCodes]);
 
   const filteredCustomersForSelection = React.useMemo(() => {
-    if (!customers) return [];
-    if (!formData.plantCode) return customers;
-    return customers.filter(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(formData.plantCode));
-  }, [customers, formData.plantCode]);
+    if (!allCustomers) return [];
+    if (!formData.plantCode) return allCustomers;
+    return allCustomers.filter(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(formData.plantCode));
+  }, [allCustomers, formData.plantCode]);
 
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;
@@ -158,7 +167,7 @@ export default function VAPage() {
       return;
     }
 
-    const isDuplicate = (orders || []).some(o => o.orderNo === formData.orderNo && o.id !== formData.id);
+    const isDuplicate = (allOrders || []).some(o => o.orderNo === formData.orderNo && o.id !== formData.id);
     if (isDuplicate) {
       alert(`Duplicate Sale Order not allowed`);
       return;
@@ -177,7 +186,7 @@ export default function VAPage() {
     setFormData({});
     setErrors([]);
     alert('Successfully Saved');
-  }, [db, formData, isReadOnly, orders]);
+  }, [db, formData, isReadOnly, allOrders]);
 
   React.useEffect(() => {
     const handleGlobalSave = () => handleSave();
@@ -247,16 +256,19 @@ export default function VAPage() {
         if (!plant || !orderNo || !orderDate || !cnrCode || !cneCode || !stpCode || !material || !weight) {
           errorReason = 'Mandatory column missing';
         } 
+        else if (authorizedPlantCodes && !authorizedPlantCodes.includes(plant)) {
+          errorReason = `Authorization failure for plant ${plant}`;
+        }
         else if (fileOrderNos.has(orderNo)) {
           errorReason = 'Duplicate Sale Order in File';
         }
-        else if (orders?.some(o => o.orderNo === orderNo)) {
+        else if (allOrders?.some(o => o.orderNo === orderNo)) {
           errorReason = 'Duplicate Sale Order in Database';
         }
         else {
-          const cnr = customers?.find(c => c.customerCode === cnrCode);
-          const cne = customers?.find(c => c.customerCode === cneCode);
-          const stp = customers?.find(c => c.customerCode === stpCode);
+          const cnr = allCustomers?.find(c => c.customerCode === cnrCode);
+          const cne = allCustomers?.find(c => c.customerCode === cneCode);
+          const stp = allCustomers?.find(c => c.customerCode === stpCode);
 
           if (!cnr) errorReason = 'Consignor Code Not Found';
           else if (!cne) errorReason = 'Consignee Code Not Found';
@@ -300,8 +312,11 @@ export default function VAPage() {
   };
 
   const filteredOrders = React.useMemo(() => {
-    return (orders || [])
+    return (allOrders || [])
       .filter(o => {
+        // AUTH FILTER: Only show orders from authorized plants
+        if (authorizedPlantCodes && !authorizedPlantCodes.includes(o.plantCode)) return false;
+
         const isValid = o.plantCode && o.orderNo && o.orderDate && o.consignorCode && o.consigneeCode && o.shipToPartyCode && o.quantity && o.materialName;
         if (!isValid) return false;
         
@@ -310,9 +325,9 @@ export default function VAPage() {
         return o.orderNo?.includes(term) || (o.consigneeName || '').toUpperCase().includes(term);
       })
       .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  }, [orders, searchId, currentPage]);
+  }, [allOrders, searchId, currentPage, authorizedPlantCodes]);
 
-  const totalPages = Math.ceil((orders || []).filter(o => o.plantCode && o.orderNo).length / PAGE_SIZE);
+  const totalPages = Math.ceil((allOrders || []).filter(o => o.plantCode && o.orderNo && (!authorizedPlantCodes || authorizedPlantCodes.includes(o.plantCode))).length / PAGE_SIZE);
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
@@ -398,7 +413,18 @@ export default function VAPage() {
         ) : (
           <div className="animate-slide-up space-y-10 bg-white p-12 border border-slate-300 shadow-inner text-black">
              <div className="grid grid-cols-2 gap-x-24 gap-y-6">
-               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Plant Code:</label><select value={formData.plantCode || ''} onChange={e => setFormData({...formData, plantCode: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border bg-white px-2 text-[12px] font-black outline-none", errors.includes('plantCode') ? "border-red-500 bg-red-50" : "border-slate-400")}>{plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Plant Code:</label>
+                 <select 
+                   value={formData.plantCode || ''} 
+                   onChange={e => setFormData({...formData, plantCode: e.target.value})} 
+                   disabled={isReadOnly || (!isBootstrapAdmin && authorizedPlantCodes?.length === 1)} 
+                   className={cn("h-8 w-80 border bg-white px-2 text-[12px] font-black outline-none", errors.includes('plantCode') ? "border-red-500 bg-red-50" : "border-slate-400")}
+                 >
+                   <option value="">Select Plant...</option>
+                   {filteredPlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+                 </select>
+               </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Sale Order No:</label>
                  <input value={formData.orderNo || ''} onChange={e => setFormData({...formData, orderNo: e.target.value.toUpperCase()})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderNo') ? "border-red-500 bg-red-50" : "border-slate-400")} />

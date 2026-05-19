@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { 
   Filter, Search, MapPin, Truck, Radar, 
   X, Trash2, Plus, FileText, ChevronLeft, ChevronRight, Printer,
-  Loader2, Upload, CheckCircle, AlertTriangle, FileUp
+  Loader2, Upload, CheckCircle, AlertTriangle, FileUp, ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useUser } from '@/firebase';
@@ -19,10 +19,6 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
 
-/**
- * @fileOverview TR21 – TRIP BOARD.
- * Centralized logistics execution dashboard with specific headers and POD upload compression logic.
- */
 export default function TR21Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -47,6 +43,15 @@ export default function TR21Page() {
   const [isCompressing, setIsCompressing] = React.useState(false);
   const podInputRef = React.useRef<HTMLInputElement>(null);
 
+  const registryId = typeof window !== 'undefined' ? localStorage.getItem('sap_registry_id') : null;
+  const isBootstrapAdmin = typeof window !== 'undefined' ? localStorage.getItem('sap_bootstrap_session') === 'true' : false;
+
+  const profileRef = useMemoFirebase(() => {
+    if (!registryId || isBootstrapAdmin) return null;
+    return doc(db, 'users', SHARED_HUB_ID, 'users_master', registryId);
+  }, [db, registryId, isBootstrapAdmin]);
+  const { data: userProfile } = useDoc(profileRef);
+
   const [assignData, setAssignData] = React.useState<any>({
     fleetType: 'Own Vehicle',
     assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
@@ -67,36 +72,28 @@ export default function TR21Page() {
 
   React.useEffect(() => { setMounted(true); }, []);
 
-  const ordersQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'sales_orders');
-  }, [db, user, isAuthLoading]);
-
-  const tripsQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'trip_board');
-  }, [db, user, isAuthLoading]);
-
-  const plantsQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'plants');
-  }, [db, user, isAuthLoading]);
-
-  const companiesQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'companies');
-  }, [db, user, isAuthLoading]);
-
-  const customersQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'customers');
-  }, [db, user, isAuthLoading]);
+  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
+  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
+  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
+  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: plants } = useCollection(plantsQuery);
   const { data: companies } = useCollection(companiesQuery);
   const { data: customers } = useCollection(customersQuery);
+
+  const authorizedPlantCodes = React.useMemo(() => {
+    if (isBootstrapAdmin) return null;
+    return userProfile?.plantAccess || [];
+  }, [isBootstrapAdmin, userProfile]);
+
+  React.useEffect(() => {
+    if (authorizedPlantCodes && authorizedPlantCodes.length > 0 && plantFilter === 'ALL') {
+      setPlantFilter(authorizedPlantCodes[0]);
+    }
+  }, [authorizedPlantCodes, plantFilter]);
 
   const filteredData = React.useMemo(() => {
     if (!orders || !trips || !mounted) return [];
@@ -111,14 +108,14 @@ export default function TR21Page() {
       }).filter(o => o.balance > 0.001);
     } else {
       const statusMap: any = { 
-        'Loading': 'LOADING', 
-        'In-Transit': 'IN-TRANSIT', 
-        'Arrived': 'ARRIVED', 
-        'Reject': 'REJECTION', 
-        'POD Verify': 'POD', 
-        'Closed': 'CLOSED' 
+        'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 
+        'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' 
       };
       baseData = trips.filter(t => t.status === statusMap[activeTab]);
+    }
+
+    if (authorizedPlantCodes) {
+      baseData = baseData.filter(d => authorizedPlantCodes.includes(d.plantCode));
     }
 
     if (plantFilter !== 'ALL') baseData = baseData.filter(d => d.plantCode === plantFilter);
@@ -127,7 +124,7 @@ export default function TR21Page() {
       baseData = baseData.filter(d => (d.orderNo || '').includes(query) || (d.tripNo || '').includes(query) || (d.vehicleNo || '').includes(query));
     }
     return baseData;
-  }, [orders, trips, activeTab, mounted, plantFilter, searchQuery]);
+  }, [orders, trips, activeTab, mounted, plantFilter, searchQuery, authorizedPlantCodes]);
 
   const paginated = React.useMemo(() => {
     return filteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -222,9 +219,16 @@ export default function TR21Page() {
         <div className="flex gap-4 bg-[#f8fafc] border border-slate-200 p-1 px-4 shadow-inner">
            <div className="flex items-center gap-2">
              <Filter className="h-3.5 w-3.5 text-slate-400" />
-             <select value={plantFilter} onChange={e => setPlantFilter(e.target.value)} className="h-7 bg-transparent text-[10px] font-normal uppercase outline-none">
-               <option value="ALL">All Plants</option>
-               {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+             <select 
+               value={plantFilter} 
+               onChange={e => setPlantFilter(e.target.value)} 
+               disabled={!isBootstrapAdmin && authorizedPlantCodes?.length === 1}
+               className="h-7 bg-transparent text-[10px] font-normal uppercase outline-none"
+             >
+               {isBootstrapAdmin && <option value="ALL">All Plants</option>}
+               {plants?.filter(p => !authorizedPlantCodes || authorizedPlantCodes.includes(p.plantCode)).map(p => (
+                 <option key={p.id} value={p.plantCode}>{p.plantCode}</option>
+               ))}
              </select>
            </div>
            <div className="w-[1px] h-4 bg-slate-300" />
@@ -246,7 +250,7 @@ export default function TR21Page() {
 
         <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner custom-scrollbar relative flex flex-col">
           <div className="flex-1 overflow-auto">
-            <table className="w-full text-left border-collapse min-w-[1800px] text-[11px]">
+            <table className="w-full text-left border-collapse min-w-[2000px] text-[11px]">
               <thead className="bg-[#f8fafc] sticky top-0 z-20 border-b border-slate-300 font-normal uppercase text-slate-500">
                 {activeTab === 'Open Orders' ? (
                   <tr>
@@ -428,7 +432,7 @@ export default function TR21Page() {
                 ) : podFile ? (
                   <div className="flex flex-col items-center gap-2">
                     <CheckCircle className="h-10 w-10 text-emerald-500" />
-                    <span className="text-[10px] font-normal uppercase text-emerald-600 italic">Payload Ready (&lt;200KB)</span>
+                    <span className="text-[10px] font-normal uppercase text-emerald-600 italic">Payload Ready (&lt; 200KB)</span>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3 text-slate-400">
@@ -672,7 +676,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
              </table>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-6 text-black">
              <table className="w-full border-collapse border border-black text-[12px]">
                 <thead>
                    <tr className="bg-white uppercase text-[8px] font-normal text-black border-b border-black">
@@ -748,9 +752,9 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                 </tbody>
                 <tfoot>
                    <tr className="bg-white font-normal text-[12px] uppercase border-t border-black">
-                      <td colSpan={3} className="p-3 text-right text-black italic">Gross Total:</td>
-                      <td className="p-3 text-center text-black font-normal">{packageSummary}</td>
-                      <td className="p-3 text-right text-black font-normal">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
+                      <td colSpan={3} className="p-3 text-right text-black italic border-none">Gross Total:</td>
+                      <td className="p-3 text-center text-black font-normal border-none">{packageSummary}</td>
+                      <td className="p-3 text-right text-black font-normal border-none">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
                    </tr>
                 </tfoot>
              </table>
