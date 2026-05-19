@@ -107,7 +107,19 @@ export default function CNPrintPage() {
 
   const logoFallback = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
-  const totalPkg = trip.invoices?.reduce((acc: number, inv: any) => acc + (parseInt(inv.pkg) || 0), 0) || 0;
+  
+  const packageSummary = (() => {
+    if (!trip.invoices || trip.invoices.length === 0) return "0 PKG";
+    const groups: Record<string, number> = {};
+    trip.invoices.forEach((inv: any) => {
+      const uom = (inv.uom || "PKG").toUpperCase();
+      const qty = parseInt(inv.pkg) || 0;
+      groups[uom] = (groups[uom] || 0) + qty;
+    });
+    return Object.entries(groups)
+      .map(([uom, sum]) => `${sum} ${uom}`)
+      .join(", ");
+  })();
 
   return (
     <div className="min-h-screen bg-slate-200 p-0 md:p-8 font-sans text-black overflow-y-auto print:bg-white print:p-0">
@@ -246,22 +258,22 @@ export default function CNPrintPage() {
                            <td className="p-3 border-r border-black">{inv.ewaybillNo}</td>
                            <td className="p-3 border-r border-black leading-snug">{inv.desc}</td>
                            <td className="p-3 border-r border-black text-center">{inv.pkg} {inv.uom}</td>
-                           <td className="p-3 text-right">{i === 0 ? trip.assignWeight : '-'}</td>
+                           <td className="p-3 text-right">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
                         </tr>
                      ))}
                   </tbody>
                   <tfoot>
-                     <tr className="bg-slate-50 border-t border-black font-normal text-[10px] uppercase">
-                        <td colSpan={3} className="p-4 text-right text-slate-400 italic">Total Operational Payload:</td>
-                        <td className="p-4 text-center text-blue-900 border-x border-black">{totalPkg} PACKAGES</td>
-                        <td className="p-4 text-right text-blue-900">{trip.assignWeight} MT</td>
+                     <tr className="bg-slate-50 font-normal text-[10px] uppercase">
+                        <td colSpan={3} className="p-4 text-right text-slate-400 italic">Gross Total:</td>
+                        <td className="p-4 text-center text-blue-900">{packageSummary}</td>
+                        <td className="p-4 text-right text-blue-900">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
                    </tr>
                 </tfoot>
              </table>
           </div>
 
-          <div className="border border-black mb-8">
-             <div className="bg-slate-50 p-2.5 border-b border-black text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Acknowledgement & Trace</div>
+          <div className="mb-8">
+             <div className="bg-slate-50 p-2.5 text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Acknowledgement & Trace</div>
              <div className="p-5 grid grid-cols-2 gap-12">
                 <div className="space-y-3">
                    <label className="text-[9px] font-normal text-slate-400 uppercase tracking-widest">Authorized Delivery Point</label>

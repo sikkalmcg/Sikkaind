@@ -278,7 +278,7 @@ export default function TR21Page() {
                        ) : <span className="text-slate-300 italic text-[9px]">PENDING</span>}
                     </td>
                   )}
-                  <td className="p-3 border-r text-right font-black text-blue-600">{item.assignWeight || item.quantity}</td>
+                  <td className="p-3 border-r text-right font-black text-blue-600">{parseFloat(item.assignWeight || item.quantity || 0).toFixed(3)}</td>
                   <td className="p-3 text-center flex flex-col gap-1 items-center justify-center w-[100px] shrink-0">
                     {activeTab === 'Open Orders' ? (
                       <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), paymentTerms: 'PAID' }); setShowAssign(true); }} className="h-7 w-[80px] text-[9px] font-black bg-[#1e3a8a] rounded-none">Assign</Button>
@@ -429,7 +429,20 @@ export default function TR21Page() {
 function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: any, customers: any[] | null }) {
   const logoFallback = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
-  const totalPkg = trip.invoices?.reduce((acc: number, inv: any) => acc + (parseInt(inv.pkg) || 0), 0) || 0;
+  
+  // Calculate Intelligent Package Summary
+  const packageSummary = React.useMemo(() => {
+    if (!trip.invoices || trip.invoices.length === 0) return "0 PKG";
+    const groups: Record<string, number> = {};
+    trip.invoices.forEach((inv: any) => {
+      const uom = (inv.uom || "PKG").toUpperCase();
+      const qty = parseInt(inv.pkg) || 0;
+      groups[uom] = (groups[uom] || 0) + qty;
+    });
+    return Object.entries(groups)
+      .map(([uom, sum]) => `${sum} ${uom}`)
+      .join(", ");
+  }, [trip.invoices]);
 
   const consignor = customers?.find(c => c.customerCode === trip.consignorCode);
   const consignee = customers?.find(c => c.customerCode === trip.consigneeCode);
@@ -546,22 +559,22 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                          <td className="p-3 border-r border-black">{inv.ewaybillNo}</td>
                          <td className="p-3 border-r border-black leading-snug">{inv.desc}</td>
                          <td className="p-3 border-r border-black text-center">{inv.pkg} {inv.uom}</td>
-                         <td className="p-3 text-right">{i === 0 ? trip.assignWeight : '-'}</td>
+                         <td className="p-3 text-right">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
                       </tr>
                    ))}
                 </tbody>
                 <tfoot>
-                   <tr className="bg-slate-50 border-t border-black font-normal text-[10px] uppercase">
-                      <td colSpan={3} className="p-4 text-right text-slate-400 italic">Total Operational Payload:</td>
-                      <td className="p-4 text-center text-blue-900 border-x border-black">{totalPkg} PACKAGES</td>
-                      <td className="p-4 text-right text-blue-900">{trip.assignWeight} MT</td>
+                   <tr className="bg-slate-50 font-normal text-[10px] uppercase">
+                      <td colSpan={3} className="p-4 text-right text-slate-400 italic">Gross Total:</td>
+                      <td className="p-4 text-center text-blue-900">{packageSummary}</td>
+                      <td className="p-4 text-right text-blue-900">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
                    </tr>
                 </tfoot>
              </table>
           </div>
 
-          <div className="border border-black mb-8">
-             <div className="bg-slate-50 p-2.5 border-b border-black text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Acknowledgement & Trace</div>
+          <div className="mb-8">
+             <div className="bg-slate-50 p-2.5 text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Acknowledgement & Trace</div>
              <div className="p-5 grid grid-cols-2 gap-12">
                 <div className="space-y-3">
                    <label className="text-[9px] font-normal text-slate-400 uppercase tracking-widest">Authorized Delivery Point</label>
