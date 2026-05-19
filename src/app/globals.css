@@ -31,7 +31,6 @@
     --chart-5: 340.1 75% 55.1%;
     --radius: 0.5rem;
 
-    /* Updated Sidebar Theme to match reference screenshot */
     --sidebar-background: 210 40% 98%;
     --sidebar-foreground: 215 25% 27%;
     --sidebar-primary: 217 91% 60%;
@@ -41,55 +40,18 @@
     --sidebar-border: 214.3 31.8% 91.4%;
     --sidebar-ring: 217 91% 60%;
 
-    /* Font Variables - SAP Base Specification */
     --font-family: '72', 'Inter', system-ui, sans-serif;
     --font-mono: '72 Monospace', 'Cascadia Code', 'JetBrains Mono', monospace;
     --font-weight: 400;
     --font-style: normal;
-    --font-size-base: 13px; /* Exactly 80% of 16px standard */
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --chart-1: 221.2 83.2% 53.3%;
-    --chart-2: 160.1 50% 45.1%;
-    --chart-3: 30.1 80% 55.1%;
-    --chart-4: 280.1 65% 60.1%;
-    --chart-5: 340.1 75% 55.1%;
-
-    --sidebar-background: 222.2 84% 4.9%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 222.2 84% 4.9%;
-    --sidebar-accent: 217.2 91.2% 59.8%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --font-size-base: 13px;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
-    user-select: text !important; /* Ensure all text is copyable per mission requirement */
+    user-select: text !important;
   }
   body {
     @apply bg-background text-foreground;
@@ -99,7 +61,6 @@
     font-size: var(--font-size-base);
   }
 
-  /* Custom SAP UI behavior: Highlight focused columns in light yellow */
   input:focus, 
   textarea:focus, 
   select:focus {
@@ -109,158 +70,80 @@
 }
 
 @layer utilities {
-  .text-shadow {
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .green-scrollbar::-webkit-scrollbar { width: 6px; }
+  .green-scrollbar::-webkit-scrollbar-thumb { background-color: #22c55e; border-radius: 10px; }
   
-  /* Hide scrollbar utility */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+  .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full; }
 
-  /* Custom Green Scrollbar for Sidebar */
-  .green-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
-  .green-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .green-scrollbar::-webkit-scrollbar-thumb {
-    background-color: #22c55e;
-    border-radius: 10px;
-  }
-  .green-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: #22c55e transparent;
-  }
-
-  /* Subtle professional scrollbar */
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-slate-300 rounded-full;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    @apply bg-slate-400;
-  }
-
-  @keyframes slide-down {
-    from { transform: translateY(-20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  .animate-slide-down { animation: slide-down 0.5s ease-out forwards; }
-
-  @keyframes slide-up {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  .animate-slide-up { animation: slide-up 0.5s ease-out forwards 0.2s; opacity: 0; }
-  
   @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
   .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
   
-  @keyframes slide-in-right {
-    from { transform: translateX(100%); }
-    to { transform: translateX(0); }
-  }
-  .animate-slide-in-right { animation: slide-in-right 0.3s ease-out forwards; }
+  @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .animate-slide-up { animation: slide-up 0.5s ease-out forwards 0.2s; opacity: 0; }
 }
 
 @media print {
   @page {
     size: A4 portrait;
-    margin: 0.5in;
+    margin: 0 !important; /* CRITICAL: Removes browser headers (Date/URL/Title) */
   }
-  
+
   html, body {
     width: 210mm !important;
     height: auto !important;
-    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: visible !important;
-    background-color: white !important;
+    background: white !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Reset all elements to hidden by default */
+  /* Hide everything by default */
   body * {
     visibility: hidden;
   }
 
-  /* Selectively show the printable area and its content tree */
+  /* Show only the printable area and its children */
   #printable-area, 
   #printable-area * {
     visibility: visible;
-    color: black !important; /* Force all text to black in print */
+    color: black !important;
+    background: transparent !important;
   }
 
-  /* Allow the portal containers to be rendered during the capture phase */
-  .fixed, [role="dialog"], .overflow-hidden, .overflow-auto {
-    position: static !important;
-    overflow: visible !important;
-    display: block !important;
-    width: auto !important;
-    height: auto !important;
-    visibility: visible !important;
-  }
-
-  /* Anchor the printable area to the top-left of the A4 page */
   #printable-area {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 210mm !important;
-    margin: 0 !important;
     padding: 0 !important;
-    transform: none !important; /* Neutralize preview zoom scaling */
+    margin: 0 !important;
+    box-shadow: none !important;
+    display: block !important;
+  }
+
+  .cn-page {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    padding: 15mm !important; /* Internal safe margin */
+    page-break-after: always !important;
+    page-break-inside: avoid !important;
+    border-bottom: 1px solid black !important;
     box-sizing: border-box !important;
     display: block !important;
-    visibility: visible !important;
-  }
-
-  .cn-print-page {
-    width: 190mm !important;
-    min-height: 277mm !important;
-    margin: 0 auto !important;
-    page-break-after: always !important;
-    break-after: page !important;
-    overflow: hidden !important;
-    background: white !important;
-    visibility: visible !important;
-    display: block !important;
     position: relative !important;
-    border: 1px solid black !important;
   }
 
-  .cn-print-page:last-child {
+  .cn-page:last-child {
     page-break-after: auto !important;
-    break-after: auto !important;
+    border-bottom: none !important;
   }
 
-  .print\:hidden, .no-print {
+  .no-print, .print\:hidden {
     display: none !important;
-  }
-
-  .print\:page-break-after-always {
-    page-break-after: always !important;
-    break-after: page !important;
-    display: block !important;
-    clear: both !important;
-  }
-  
-  table, tr, td, th {
-    border-color: black !important;
-    color: black !important;
   }
 }

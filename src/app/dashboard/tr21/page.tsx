@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { 
   Filter, Search, MapPin, Truck, Radar, 
   X, Trash2, Plus, FileText, ChevronLeft, ChevronRight, Printer,
-  Loader2, Upload, CheckCircle, AlertTriangle, FileUp, ExternalLink
+  Loader2, CheckCircle, FileUp, ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useUser } from '@/firebase';
@@ -23,7 +23,7 @@ export default function TR21Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const db = useFirestore();
-  const { user, isUserLoading: isAuthLoading } = useUser();
+  const { user } = useUser();
   const [mounted, setMounted] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('Open Orders');
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
@@ -300,7 +300,7 @@ export default function TR21Page() {
                     </td>
                     
                     {activeTab !== 'Open Orders' && (
-                      <td className="p-3 border-r">
+                      <td className="p-3 border-r text-left">
                         <div className="flex flex-col leading-tight">
                           <span className="font-normal text-blue-700">{item.tripNo || '-'}</span>
                           <span className="text-[9px] text-slate-400 font-normal">{item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '-'}</span>
@@ -324,13 +324,13 @@ export default function TR21Page() {
                       </>
                     ) : (
                       <>
-                        <td className="p-3 border-r">
+                        <td className="p-3 border-r text-left">
                           <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline">
                             <span className="font-normal text-blue-800">{item.vehicleNo || 'ADD'}</span>
                             <span className="text-[9px] text-slate-400 font-normal">{item.driverMobile || '-'}</span>
                           </button>
                         </td>
-                        <td className="p-3 border-r">
+                        <td className="p-3 border-r text-left">
                            {(() => {
                               const carrier = (companies || []).find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(item.plantCode));
                               return (
@@ -346,7 +346,7 @@ export default function TR21Page() {
                            })()}
                         </td>
                         <td className="p-3 border-r text-[9px] font-normal text-slate-400">{item.fleetType}</td>
-                        <td className="p-3 border-r">
+                        <td className="p-3 border-r text-left">
                            <div className="flex flex-col leading-tight">
                              {item.cnNumber ? (
                                <button onClick={() => { setSelectedTrip(item); setShowCNPreview(true); }} className="text-left group font-normal">
@@ -412,7 +412,6 @@ export default function TR21Page() {
         </div>
       </div>
 
-      {/* POD Upload Portal */}
       <Dialog open={showPODPortal} onOpenChange={setShowPODPortal}>
         <DialogContent className="max-w-md rounded-none border-[3px] border-orange-600 font-mono p-0 overflow-hidden text-left text-black">
            <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
@@ -474,7 +473,6 @@ export default function TR21Page() {
         </DialogContent>
       </Dialog>
 
-      {/* CN Preview Portal */}
       <Dialog open={showCNPreview} onOpenChange={setShowCNPreview}>
         <DialogContent className="max-w-[1000px] h-[90vh] rounded-none border-[3px] border-black font-sans p-0 overflow-hidden flex flex-col text-left text-black">
           <DialogHeader className="bg-white p-4 border-b border-black flex flex-row items-center justify-between shrink-0 no-print text-left">
@@ -624,7 +622,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
   return (
     <div className="flex flex-col gap-0 bg-white text-black font-normal">
       {copies.map((copyLabel, index) => (
-        <div key={index} className="relative p-10 bg-white border-b-2 border-black last:border-b-0 print:border-none print:p-10 print:page-break-after-always overflow-hidden text-left w-[210mm] min-h-[297mm] mx-auto box-border flex flex-col text-black font-normal">
+        <div key={index} className="cn-page bg-white overflow-hidden text-left flex flex-col text-black font-normal border-b last:border-b-0">
           <div className="flex justify-between items-start mb-6">
             <div className="flex gap-2 items-start">
               {(carrier?.logoUrl || logoFallback?.url) && (

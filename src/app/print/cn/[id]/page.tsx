@@ -8,12 +8,10 @@ import { format } from 'date-fns';
 import Image from 'next/image';
 import { Loader2, FileText, AlertCircle } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 
 /**
  * @fileOverview Secure Public CN Preview Protocol.
- * Refined with reduced font sizes and consolidated detail tables.
+ * Optimized for standard browser print (Ctrl+P) with zero browser margins.
  */
 export default function PublicCNPreviewPage() {
   const params = useParams();
@@ -21,8 +19,6 @@ export default function PublicCNPreviewPage() {
   const db = useFirestore();
   const id = params.id as string;
   const isAuto = searchParams.get('auto') === 'true';
-
-  const [generating, setGenerating] = React.useState(false);
 
   // Interaction Lockdown
   React.useEffect(() => {
@@ -37,51 +33,11 @@ export default function PublicCNPreviewPage() {
   }, [db, id]);
   const { data: trip, isLoading: isTripLoading } = useDoc(tripRef);
 
-  const generateAndDownload = React.useCallback(async () => {
-    if (!trip || generating) return;
-    
-    const images = document.querySelectorAll('img');
-    await Promise.all(Array.from(images).map(img => {
-      if (img.complete) return Promise.resolve();
-      return new Promise(resolve => {
-        img.onload = resolve;
-        img.onerror = resolve;
-      });
-    }));
-
-    await new Promise(r => setTimeout(r, 1000));
-    setGenerating(true);
-
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pages = document.querySelectorAll('.cn-page');
-      
-      for (let i = 0; i < pages.length; i++) {
-        const canvas = await html2canvas(pages[i] as HTMLElement, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-        });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
-      }
-
-      pdf.save(`CN-${trip.cnNumber || 'DRAFT'}.pdf`);
-      const url = URL.createObjectURL(pdf.output('blob'));
-      window.location.replace(url);
-    } catch (err) {
-      console.error('Public PDF Protocol Failure:', err);
-      setGenerating(false);
-    }
-  }, [trip, generating]);
-
   React.useEffect(() => {
-    if (isAuto && trip && !isTripLoading && !generating) {
-      generateAndDownload();
+    if (isAuto && trip && !isTripLoading) {
+      setTimeout(() => window.print(), 1000);
     }
-  }, [isAuto, trip, isTripLoading, generating, generateAndDownload]);
+  }, [isAuto, trip, isTripLoading]);
 
   if (isTripLoading || !trip) {
     return (
@@ -118,19 +74,9 @@ export default function PublicCNPreviewPage() {
   })();
 
   return (
-    <div className="min-h-screen bg-[#525659] p-4 md:p-8 font-sans text-black overflow-y-auto select-none text-left font-normal">
-      {generating && (
-        <div className="fixed inset-0 bg-[#323639] z-[200] flex flex-col items-center justify-center gap-6 text-white font-mono">
-          <Loader2 className="h-12 w-12 text-blue-400 animate-spin" />
-          <div className="text-center space-y-2">
-            <p className="text-[12px] font-normal uppercase tracking-[0.4em]">Secure Execution: PDF Generation</p>
-            <p className="text-[9px] font-normal text-slate-400 uppercase italic tracking-widest">Processing Secure Preview. Do not close tab.</p>
-          </div>
-        </div>
-      )}
-
-      {!generating && !isAuto && (
-        <div className="max-w-[210mm] mx-auto bg-[#323639] h-12 flex items-center justify-between px-6 shadow-md mb-1 rounded-t-sm sticky top-0 z-50 text-white">
+    <div className="min-h-screen bg-[#525659] font-sans text-black overflow-y-auto select-none text-left font-normal no-scrollbar">
+      {!isAuto && (
+        <div className="max-w-[210mm] mx-auto bg-[#323639] h-12 flex items-center justify-between px-6 shadow-md mb-1 rounded-t-sm sticky top-0 z-50 text-white no-print">
           <div className="flex items-center gap-3 text-white/90">
             <FileText className="h-4 w-4 text-blue-400" />
             <span className="text-[10px] font-medium uppercase tracking-[0.2em] truncate max-w-[300px]">
@@ -138,14 +84,14 @@ export default function PublicCNPreviewPage() {
             </span>
           </div>
           <div className="flex items-center gap-2 text-[9px] font-normal text-white/40 uppercase tracking-widest italic">
-            <AlertCircle className="h-3 w-3" /> Secure Preview Only
+            <AlertCircle className="h-3 w-3" /> Secure Preview Protocol Active
           </div>
         </div>
       )}
 
-      <div id="printable-area" className="flex flex-col gap-4 mx-auto w-fit shadow-2xl text-black font-normal">
+      <div id="printable-area" className="flex flex-col gap-0 mx-auto w-[210mm] print:w-full shadow-2xl text-black font-normal bg-white">
         {copies.map((copyLabel, index) => (
-          <div key={index} className="cn-page relative p-10 bg-white border-b border-black last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left flex flex-col text-black font-normal">
+          <div key={index} className="cn-page bg-white text-black font-normal">
             <div className="flex justify-between items-start mb-6">
               <div className="flex gap-2 items-start">
                 {(trip.carrier?.logoUrl || logoFallback?.url) && (
@@ -309,22 +255,6 @@ export default function PublicCNPreviewPage() {
           </div>
         ))}
       </div>
-
-      <style jsx global>{`
-        .cn-page {
-           width: 210mm;
-           min-height: 297mm;
-           box-sizing: border-box;
-           background-color: white;
-           color: black;
-           font-weight: normal;
-        }
-        .cn-page * {
-           color: black !important;
-           border-color: black !important;
-           font-weight: normal !important;
-        }
-      `}</style>
     </div>
   );
 }

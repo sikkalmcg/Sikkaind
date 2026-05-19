@@ -2,20 +2,18 @@
 
 import * as React from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, useCollection, useUser } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { Loader2, Printer, X } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
 /**
  * @fileOverview CNPrintPage - High-fidelity A4 Consignment Note Printing Protocol.
- * Refined with reduced font sizes and consolidated detail tables.
+ * Optimized for standard browser print (Ctrl+P) with zero margins.
  */
 export default function CNPrintPage() {
   const params = useParams();
@@ -24,8 +22,6 @@ export default function CNPrintPage() {
   const db = useFirestore();
   const id = params.id as string;
   const isAuto = searchParams.get('auto') === 'true';
-
-  const [generating, setGenerating] = React.useState(false);
 
   const tripRef = useMemoFirebase(() => {
     if (!id) return null;
@@ -39,60 +35,11 @@ export default function CNPrintPage() {
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const { data: customers } = useCollection(customersQuery);
 
-  const carrier = React.useMemo(() => {
-    if (!trip || !companies) return null;
-    return companies.find(c => c.companyName === trip.carrierName) || companies.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(trip.plantCode)) || companies[0];
-  }, [trip, companies]);
-
-  const consignor = React.useMemo(() => customers?.find(c => c.customerCode === trip?.consignorCode), [customers, trip]);
-  const consignee = React.useMemo(() => customers?.find(c => c.customerCode === trip?.consigneeCode), [customers, trip]);
-  const shipToParty = React.useMemo(() => customers?.find(c => c.customerCode === trip?.shipToPartyCode), [customers, trip]);
-
-  const generateAndDownload = React.useCallback(async () => {
-    if (!trip || generating) return;
-    
-    const images = document.querySelectorAll('img');
-    await Promise.all(Array.from(images).map(img => {
-      if (img.complete) return Promise.resolve();
-      return new Promise(resolve => {
-        img.onload = resolve;
-        img.onerror = resolve;
-      });
-    }));
-
-    await new Promise(r => setTimeout(r, 1500));
-    setGenerating(true);
-
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const elements = document.querySelectorAll('.cn-page');
-      
-      for (let i = 0; i < elements.length; i++) {
-        const canvas = await html2canvas(elements[i] as HTMLElement, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-        });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
-      }
-
-      pdf.save(`CN-${trip.cnNumber || 'DRAFT'}.pdf`);
-      const url = URL.createObjectURL(pdf.output('blob'));
-      window.location.replace(url);
-    } catch (err) {
-      console.error('PDF Protocol Failure:', err);
-      setGenerating(false);
-    }
-  }, [trip, generating]);
-
   React.useEffect(() => {
-    if (isAuto && trip && !isTripLoading && !generating) {
-      generateAndDownload();
+    if (isAuto && trip && !isTripLoading) {
+      setTimeout(() => window.print(), 1000);
     }
-  }, [isAuto, trip, isTripLoading, generating, generateAndDownload]);
+  }, [isAuto, trip, isTripLoading]);
 
   if (isTripLoading || !trip) {
     return (
@@ -106,6 +53,11 @@ export default function CNPrintPage() {
   }
 
   const logoFallback = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
+  const carrier = companies?.find(c => c.companyName === trip.carrierName) || companies?.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(trip.plantCode)) || companies?.[0];
+  const consignor = customers?.find(c => c.customerCode === trip.consignorCode);
+  const consignee = customers?.find(c => c.customerCode === trip.consigneeCode);
+  const shipToParty = customers?.find(c => c.customerCode === trip.shipToPartyCode);
+
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
   
   const packageSummary = (() => {
@@ -129,35 +81,23 @@ export default function CNPrintPage() {
   })();
 
   return (
-    <div className="min-h-screen bg-slate-200 p-0 md:p-8 font-sans text-black overflow-y-auto print:bg-white print:p-0 text-left font-normal">
-      {generating && (
-        <div className="fixed inset-0 bg-[#323639] z-[200] flex flex-col items-center justify-center gap-6 text-white font-mono">
-          <Loader2 className="h-12 w-12 text-blue-400 animate-spin" />
-          <div className="text-center space-y-2">
-            <p className="text-[12px] font-normal uppercase tracking-[0.4em]">Protocol Execution: PDF Generation</p>
-            <p className="text-[9px] font-normal text-slate-400 uppercase italic tracking-widest">Generating CN-{trip.cnNumber}. Do not close this tab.</p>
-          </div>
-        </div>
-      )}
+    <div className="min-h-screen bg-slate-200 font-sans text-black overflow-y-auto print:bg-white print:p-0 text-left font-normal no-scrollbar">
+      <div className="max-w-[210mm] mx-auto bg-white shadow-2xl no-print mb-8 rounded-sm border border-slate-300 sticky top-0 z-[100]">
+         <div className="p-4 flex justify-between items-center bg-slate-50 text-black">
+            <div className="flex flex-col text-left">
+               <span className="text-[11px] font-normal uppercase italic text-blue-900 tracking-tighter">Sikka Logistics Management Protocol</span>
+               <span className="text-[9px] font-normal text-slate-400 uppercase">A4 Multi-Copy Matrix (Headerless Protocol)</span>
+            </div>
+            <div className="flex gap-3">
+               <button onClick={() => window.print()} className="h-9 bg-blue-700 hover:bg-blue-800 text-white px-8 text-[11px] font-normal uppercase rounded-none transition-all flex items-center gap-2 shadow-md active:scale-95"><Printer className="h-4 w-4" /> Print Protocol</button>
+               <button onClick={() => window.close()} className="h-9 bg-white border border-slate-300 text-slate-600 px-8 text-[11px] font-normal uppercase rounded-none hover:bg-slate-100 transition-all flex items-center gap-2 active:scale-95"><X className="h-4 w-4" /> Exit</button>
+            </div>
+         </div>
+      </div>
 
-      {!generating && !isAuto && (
-        <div className="max-w-[850px] mx-auto bg-white shadow-2xl no-print mb-8 rounded-sm border border-slate-300 sticky top-0 z-[100]">
-           <div className="p-4 flex justify-between items-center bg-slate-50 text-black">
-              <div className="flex flex-col text-left">
-                 <span className="text-[11px] font-normal uppercase italic text-blue-900 tracking-tighter">Sikka Logistics Management Protocol</span>
-                 <span className="text-[9px] font-normal text-slate-400 uppercase">A4 Multi-Copy Matrix</span>
-              </div>
-              <div className="flex gap-3">
-                 <button onClick={() => window.print()} className="h-9 bg-blue-700 hover:bg-blue-800 text-white px-8 text-[11px] font-normal uppercase rounded-none transition-all flex items-center gap-2 shadow-md active:scale-95"><Printer className="h-4 w-4" /> Print Protocol</button>
-                 <button onClick={() => window.close()} className="h-9 bg-white border border-slate-300 text-slate-600 px-8 text-[11px] font-normal uppercase rounded-none hover:bg-slate-100 transition-all flex items-center gap-2 active:scale-95"><X className="h-4 w-4" /> Exit</button>
-              </div>
-           </div>
-        </div>
-      )}
-
-      <div id="printable-area" className="flex flex-col gap-0 bg-white shadow-inner mx-auto w-fit print:shadow-none print:w-full text-black font-normal">
+      <div id="printable-area" className="flex flex-col gap-0 bg-white mx-auto w-[210mm] print:w-full text-black font-normal">
         {copies.map((copyLabel, index) => (
-          <div key={index} className="cn-page relative p-10 bg-white border-b-2 border-black last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left flex flex-col text-black font-normal">
+          <div key={index} className="cn-page bg-white text-black font-normal">
             <div className="flex justify-between items-start mb-6">
               <div className="flex gap-2 items-start">
                 {(carrier?.logoUrl || logoFallback?.url) && (
@@ -321,17 +261,6 @@ export default function CNPrintPage() {
         </div>
       ))}
     </div>
-
-      <style jsx global>{`
-        @media print {
-          @page { size: A4 portrait; margin: 0; }
-          body { background-color: white !important; color: black !important; }
-          .no-print { display: none !important; }
-          .cn-page { width: 210mm; height: 297mm; margin: 0 auto; border: none !important; padding: 20mm !important; page-break-after: always; box-shadow: none !important; color: black !important; }
-          .cn-page * { color: black !important; border-color: black !important; font-weight: normal !important; }
-        }
-        .cn-page { width: 210mm; min-height: 297mm; box-sizing: border-box; background-color: white; font-weight: normal; }
-      `}</style>
     </div>
   );
 }
