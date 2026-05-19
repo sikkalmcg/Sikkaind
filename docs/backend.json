@@ -136,6 +136,20 @@
         "cnNumber": { "type": "string" },
         "cnDate": { "type": "string" },
         "dispatchDate": { "type": "string" },
+        "ratePoint": { "type": "string" },
+        "invoices": { 
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "invNo": { "type": "string" },
+              "ewaybillNo": { "type": "string" },
+              "desc": { "type": "string" },
+              "pkg": { "type": "number" },
+              "uom": { "type": "string" }
+            }
+          }
+        },
         "status": { "type": "string", "enum": ["LOADING", "IN-TRANSIT", "ARRIVED", "POD", "CLOSED", "REJECTION"] }
       }
     }
@@ -152,6 +166,7 @@
     "/users/Sikkaind/trip_board/{tripId}": { "schema": "TripBoard", "description": "Trip execution board." },
     "/users/Sikkaind/users_master/{employeeId}": { "schema": "object", "description": "System access control." },
     "/users/Sikkaind/gps_tracking/{gpsId}": { "schema": "object", "description": "Live GPS node data." },
-    "/users/Sikkaind/reports/{reportId}": { "schema": "object", "description": "System analytics reports." }
+    "/users/Sikkaind/reports/{reportId}": { "schema": "object", "description": "System analytics reports." },
+    "/users/Sikkaind/gps_tracking/settings": { "schema": "object", "description": "Global GPS UI settings." }
   }
 }
