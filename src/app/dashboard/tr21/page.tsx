@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -253,41 +252,49 @@ export default function TR21Page() {
             </thead>
             <tbody>
               {filteredData.map((item: any) => (
-                <tr key={item.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors group">
+                <tr key={item.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors group h-[60px]">
                   <td className="p-3 border-r text-center font-black">{item.plantCode}</td>
-                  <td className="p-3 border-r leading-tight flex flex-col justify-center min-h-[60px]">
-                    <span className="font-black text-slate-800">{item.orderNo}</span>
-                    <span className="text-[9px] text-slate-400">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
+                  <td className="p-3 border-r">
+                    <div className="flex flex-col justify-center h-full leading-tight">
+                      <span className="font-black text-slate-800">{item.orderNo}</span>
+                      <span className="text-[9px] text-slate-400">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
+                    </div>
                   </td>
                   {activeTab !== 'Open Orders' && (
-                    <td className="p-3 border-r leading-tight flex flex-col justify-center min-h-[60px]">
-                      <span className="font-black text-blue-700">{item.tripNo || '-'}</span>
-                      <span className="text-[9px] text-slate-400">{item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '-'}</span>
+                    <td className="p-3 border-r">
+                      <div className="flex flex-col justify-center h-full leading-tight">
+                        <span className="font-black text-blue-700">{item.tripNo || '-'}</span>
+                        <span className="text-[9px] text-slate-400">{item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '-'}</span>
+                      </div>
                     </td>
                   )}
                   <td className="p-3 border-r truncate font-bold uppercase" title={item.shipToParty}>{item.shipToParty}</td>
-                  <td className="p-3 border-r italic text-[10px] leading-tight flex flex-col justify-center min-h-[60px]">
-                    <span className="uppercase">{item.from} → {item.destination}</span>
-                    {item.via && <span className="text-[8px] font-black text-blue-600 not-italic uppercase">VIA: {item.via}</span>}
+                  <td className="p-3 border-r italic text-[10px]">
+                    <div className="flex flex-col justify-center h-full leading-tight">
+                      <span className="uppercase">{item.from} → {item.destination}</span>
+                      {item.via && <span className="text-[8px] font-black text-blue-600 not-italic uppercase">VIA: {item.via}</span>}
+                    </div>
                   </td>
-                  <td className="p-3 border-r min-h-[60px]">
-                     <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline group">
+                  <td className="p-3 border-r">
+                     <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline group h-full justify-center">
                         <span className="font-black text-blue-800 group-hover:text-blue-600 uppercase">{item.vehicleNo || 'ADD VEHICLE'}</span>
                         <span className="text-[9px] text-slate-400 font-bold">{item.driverMobile || '-'}</span>
                      </button>
                   </td>
                   {activeTab !== 'Open Orders' && (
-                    <td className="p-3 border-r leading-tight flex flex-col justify-center min-h-[60px]">
-                       {item.cnNumber ? (
-                         <button onClick={() => { setSelectedTrip(item); setShowCNPreview(true); }} className="text-left group">
-                            <span className="font-black text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
-                            <span className="text-[9px] text-slate-400">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
-                         </button>
-                       ) : <span className="text-slate-300 italic text-[9px]">PENDING</span>}
+                    <td className="p-3 border-r">
+                       <div className="flex flex-col justify-center h-full leading-tight">
+                         {item.cnNumber ? (
+                           <button onClick={() => { setSelectedTrip(item); setShowCNPreview(true); }} className="text-left group">
+                              <span className="font-black text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
+                              <span className="text-[9px] text-slate-400">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
+                           </button>
+                         ) : <span className="text-slate-300 italic text-[9px]">PENDING</span>}
+                       </div>
                     </td>
                   )}
                   <td className="p-3 border-r text-right font-black text-blue-600">{parseFloat(item.assignWeight || item.quantity || 0).toFixed(3)}</td>
-                  <td className="p-3 text-center flex flex-col gap-1 items-center justify-center w-[100px] shrink-0">
+                  <td className="p-3 text-center flex flex-col gap-1 items-center justify-center w-[100px] shrink-0 h-full">
                     {activeTab === 'Open Orders' ? (
                       <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), paymentTerms: 'PAID' }); setShowAssign(true); }} className="h-7 w-[80px] text-[9px] font-black bg-[#1e3a8a] rounded-none">Assign</Button>
                     ) : (
