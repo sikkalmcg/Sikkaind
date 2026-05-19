@@ -67,6 +67,8 @@ export default function TR21Page() {
     invoices: [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }]
   });
 
+  const [vehicleData, setVehicleData] = React.useState({ vehicleNo: '', driverMobile: '' });
+
   React.useEffect(() => { 
     const isAd = localStorage.getItem('sap_bootstrap_session') === 'true';
     const rId = localStorage.getItem('sap_registry_id');
@@ -78,8 +80,6 @@ export default function TR21Page() {
 
     setMounted(true); 
   }, []);
-
-  const [vehicleData, setVehicleData] = React.useState({ vehicleNo: '', driverMobile: '' });
 
   const profileRef = useMemoFirebase(() => {
     if (!registryId || isBootstrapAdmin) return null;
@@ -333,7 +333,7 @@ export default function TR21Page() {
 
         <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner custom-scrollbar relative flex flex-col">
           <div className="flex-1 overflow-auto">
-            <table className="w-full text-left border-collapse min-w-[2000px] text-[11px]">
+            <table className="w-full text-left border-collapse min-w-[2200px] text-[11px]">
               <thead className="bg-[#f8fafc] sticky top-0 z-20 border-b border-slate-300 font-normal uppercase text-slate-500">
                 {activeTab === 'Open Orders' ? (
                   <tr>
@@ -746,7 +746,7 @@ export default function TR21Page() {
           </DialogHeader>
           <div className="p-8 space-y-6">
              <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Update Vehicle No *</label><input autoFocus value={vehicleData.vehicleNo} onChange={e => setVehicleData({...vehicleData, vehicleNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal uppercase" /></div>
-             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Update Driver Mobile</label><input value={vehicleData.driverMobile} onChange={setVehicleData({...vehicleData, driverMobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" /></div>
+             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Update Driver Mobile</label><input value={vehicleData.driverMobile} onChange={e => setVehicleData({...vehicleData, driverMobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" /></div>
           </div>
           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
              <Button onClick={() => setShowVehiclePortal(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-normal px-10">Cancel</Button>
