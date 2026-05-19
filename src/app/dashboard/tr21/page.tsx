@@ -1,7 +1,8 @@
+
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Filter, Search, MapPin, Truck, Radar, 
   X, Trash2, Plus, FileText, ChevronLeft, ChevronRight, Printer
@@ -15,8 +16,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 
 const SHARED_HUB_ID = 'Sikkaind';
 
+/**
+ * @fileOverview TR21 – TRIP BOARD.
+ * Centralized logistics execution dashboard managing orders from assignment to closure.
+ */
 export default function TR21Page() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const db = useFirestore();
   const [mounted, setMounted] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('Open Orders');
@@ -113,14 +119,15 @@ export default function TR21Page() {
   const { data: vendors } = useCollection(vendorsQuery);
   const { data: companies } = useCollection(companiesQuery);
 
+  // Identity logic for the documentation popup
   const currentCarrier = React.useMemo(() => {
     if (!selectedTrip || !companies) return null;
-    return companies.find(c => c.plantCodes?.includes(selectedTrip.plantCode));
+    return companies.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies[0];
   }, [selectedTrip, companies]);
 
   const lastCarrierCN = React.useMemo(() => {
     if (!currentCarrier || !trips) return '-';
-    const carrierTrips = trips.filter(t => (t.carrierName === currentCarrier.companyName || t.plantCode === selectedTrip.plantCode) && t.cnNumber);
+    const carrierTrips = trips.filter(t => (t.carrierName === currentCarrier.companyName) && t.cnNumber);
     if (carrierTrips.length === 0) return '-';
     const sorted = [...carrierTrips].sort((a, b) => {
        const da = new Date(a.updatedAt).getTime() || 0;
@@ -128,7 +135,7 @@ export default function TR21Page() {
        return db - da;
     });
     return sorted[0].cnNumber;
-  }, [currentCarrier, trips, selectedTrip]);
+  }, [currentCarrier, trips]);
 
   const filteredData = React.useMemo(() => {
     if (!orders || !trips || !mounted) return [];
@@ -224,7 +231,7 @@ export default function TR21Page() {
   return (
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden text-black">
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
-        <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic text-shadow-none no-bold">TR21 – TRIP BOARD</h2>
+        <h2 className="text-[16px] font-black text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD</h2>
         <div className="flex gap-4 bg-[#f8fafc] border border-slate-200 p-1 px-4 shadow-inner">
            <div className="flex items-center gap-2">
              <Filter className="h-3.5 w-3.5 text-slate-400" />
@@ -330,7 +337,7 @@ export default function TR21Page() {
       <Dialog open={showAssign} onOpenChange={setShowAssign}>
         <DialogContent className="max-w-[900px] rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
-             <DialogTitle className="text-[14px] font-black uppercase text-[#1e3a8a] italic mb-4 no-bold">Vehicle Assignment Protocol</DialogTitle>
+             <DialogTitle className="text-[14px] font-black uppercase text-[#1e3a8a] italic mb-4">Vehicle Assignment Protocol</DialogTitle>
              <div className="grid grid-cols-4 gap-6 bg-white border border-slate-200 p-4 shadow-inner text-[10px] font-black uppercase">
                 <div><span className="text-slate-400 text-[8px]">Consignee</span><p className="truncate">{selectedOrder?.consigneeName}</p></div>
                 <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedOrder?.shipToParty}</p></div>
@@ -379,7 +386,7 @@ export default function TR21Page() {
       <Dialog open={showCNPortal} onOpenChange={setShowCNPortal}>
         <DialogContent className="max-w-[1000px] rounded-none border-[3px] border-emerald-600 font-mono p-0 overflow-hidden text-left">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
-             <DialogTitle className="text-[14px] font-black uppercase text-emerald-700 italic mb-4 no-bold">Documentation Execution: Consignment Note</DialogTitle>
+             <DialogTitle className="text-[14px] font-black uppercase text-emerald-700 italic mb-4">Documentation Execution: Consignment Note</DialogTitle>
              <div className="grid grid-cols-5 gap-6 bg-white border border-slate-200 p-4 text-[10px] font-black uppercase">
                 <div><span className="text-slate-400 text-[8px]">Plant</span><p>{selectedTrip?.plantCode}</p></div>
                 <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedTrip?.shipToParty}</p></div>
@@ -435,7 +442,7 @@ export default function TR21Page() {
       <Dialog open={showVehiclePortal} onOpenChange={setShowVehiclePortal}>
         <DialogContent className="max-w-md rounded-none border-[3px] border-blue-900 font-mono p-0 overflow-hidden text-left">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
-             <DialogTitle className="text-[12px] font-black uppercase text-blue-900 italic mb-4 no-bold">Vehicle Data Handshake</DialogTitle>
+             <DialogTitle className="text-[12px] font-black uppercase text-blue-900 italic mb-4">Vehicle Data Handshake</DialogTitle>
              <div className="space-y-1 text-[10px] font-black uppercase bg-white border border-slate-200 p-4 shadow-inner">
                 <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedTrip?.shipToParty}</p></div>
                 <div className="pt-2"><span className="text-slate-400 text-[8px]">Route</span><p className="italic text-emerald-600">{selectedTrip?.from} → {selectedTrip?.destination}</p></div>
@@ -468,7 +475,7 @@ export default function TR21Page() {
       <Dialog open={showMapPortal} onOpenChange={setShowMapPortal}>
         <DialogContent className="max-w-4xl rounded-none border-[3px] border-[#0056d2] font-mono p-0 h-[600px] flex flex-col text-left">
           <DialogHeader className="bg-slate-50 p-4 border-b flex flex-row items-center justify-between shrink-0">
-             <DialogTitle className="text-xs font-black uppercase text-[#1e3a8a] italic no-bold">Live Tracking: {selectedTrip?.vehicleNo}</DialogTitle>
+             <DialogTitle className="text-xs font-black uppercase text-[#1e3a8a] italic">Live Tracking: {selectedTrip?.vehicleNo}</DialogTitle>
              <Button variant="ghost" onClick={() => setShowMapPortal(false)} className="h-8 w-8 p-0"><X className="h-4 w-4" /></Button>
           </DialogHeader>
           <div ref={mapRef} className="flex-1 bg-slate-100" />
@@ -484,7 +491,7 @@ function ActionPortal({ open, onOpenChange, title, onPost, trip }: { open: boole
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden text-left">
         <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
-           <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2] mb-4 no-bold">{title}</DialogTitle>
+           <DialogTitle className="text-sm font-black uppercase italic text-[#0056d2] mb-4">{title}</DialogTitle>
            <div className="grid grid-cols-2 gap-4 text-[10px] font-black uppercase bg-white border border-slate-200 p-4">
               <div><span className="text-slate-400 text-[8px]">VEHICLE</span><p className="text-blue-700">{trip?.vehicleNo}</p></div>
               <div><span className="text-slate-400 text-[8px]">TRIP ID</span><p>{trip?.tripNo}</p></div>
