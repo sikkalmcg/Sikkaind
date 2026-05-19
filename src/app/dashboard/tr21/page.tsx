@@ -596,15 +596,18 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
           <div className="mt-auto space-y-10">
              <div className="flex justify-between items-end">
                 <div className="space-y-4 max-w-[60%]">
-                   <h5 className="text-[9px] font-normal uppercase text-slate-400 tracking-widest italic border-b border-slate-100 w-fit pb-1">Terms & Conditions (Ref: FM03)</h5>
-                   <p className="text-[9px] leading-relaxed text-justify text-slate-500 uppercase font-normal whitespace-pre-wrap">
-                      {carrier?.termsAndConditions || '1. THE CARRIER HOLDS NO LIABILITY FOR SHORTAGE NOT REPORTED AT ARRIVAL.\n2. ALL DISPUTES FALL UNDER CORPORATE HQ JURISDICTION.\n3. WEIGHT BASED ON PARTY DECLARATIONS.'}
-                   </p>
+                   <h5 className="text-[9px] font-normal uppercase text-slate-400 tracking-widest italic border-b border-slate-100 w-fit pb-1">Terms & Conditions</h5>
+                   <div className="space-y-1">
+                      {(carrier?.termsAndConditions || '1. THE CARRIER HOLDS NO LIABILITY FOR SHORTAGE NOT REPORTED AT ARRIVAL.\n2. ALL DISPUTES FALL UNDER CORPORATE HQ JURISDICTION.\n3. WEIGHT BASED ON PARTY DECLARATIONS.').split('\n').map((term: string, i: number) => (
+                        <p key={i} className="text-[9px] leading-relaxed text-justify text-slate-500 uppercase font-normal">
+                          {term.trim()}
+                        </p>
+                      ))}
+                   </div>
                 </div>
                 <div className="text-right space-y-12 pr-4">
-                   <div className="h-10"></div>
+                   <div className="h-14"></div>
                    <div className="space-y-1">
-                      <p className="text-[10px] font-normal uppercase tracking-widest">FOR {carrier?.companyName || 'THE CARRIER'}</p>
                       <p className="text-[11px] font-normal uppercase italic tracking-tighter">Authorized Signature</p>
                    </div>
                 </div>
