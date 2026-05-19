@@ -12,8 +12,8 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 const SHARED_HUB_ID = 'Sikkaind';
 
 /**
- * @fileOverview CNPrintPage - Multi-copy CN documentation portal.
- * Sequentially renders Consignee, Driver, and Consignor copies for single print job execution.
+ * @fileOverview CNPrintPage - Multi-copy Sequential CN Protocol.
+ * Generates Consignee, Driver, and Consignor copies in high-fidelity ERP format.
  */
 export default function CNPrintPage() {
   const params = useParams();
@@ -99,6 +99,7 @@ export default function CNPrintPage() {
       <div id="printable-area" className="flex flex-col gap-0 bg-white mx-auto w-[210mm] print:w-full text-black font-normal shadow-xl print:shadow-none print:block print:overflow-visible">
         {copies.map((copyLabel, index) => (
           <div key={index} className="cn-page bg-white text-black font-normal p-[15mm] min-h-[297mm] flex flex-col relative overflow-hidden print:overflow-visible print:border-none">
+            {/* Header branding section */}
             <div className="flex justify-between items-start mb-4 shrink-0">
               <div className="flex gap-1.5 items-start">
                 {(carrier?.logoUrl || logoFallback?.url) && (
@@ -126,6 +127,7 @@ export default function CNPrintPage() {
               <div className="border border-black px-4 py-1.5 text-[10px] font-normal uppercase italic bg-white tracking-widest shrink-0 text-black">{copyLabel}</div>
             </div>
 
+            {/* Protocol Header Table */}
             <div className="mb-4 text-black shrink-0">
                <table className="w-full border-collapse border border-black text-[12px]">
                   <thead>
@@ -149,6 +151,7 @@ export default function CNPrintPage() {
                </table>
             </div>
 
+            {/* Vehicle Detail Table */}
             <div className="mb-4 text-black shrink-0">
                <table className="w-full border-collapse border border-black text-[12px]">
                   <thead>
@@ -172,6 +175,7 @@ export default function CNPrintPage() {
                </table>
             </div>
 
+            {/* Consignor/Consignee Info Blocks */}
             <div className="grid grid-cols-3 gap-0 mb-4 border border-black text-black shrink-0">
                <div className="border-r border-black p-3 space-y-3 min-h-[140px]">
                   <h4 className="text-[10px] font-normal uppercase text-black italic mb-1 tracking-widest border-b border-black/10 w-fit">Consignor</h4>
@@ -199,6 +203,7 @@ export default function CNPrintPage() {
                </div>
             </div>
 
+            {/* Items and Weights Table */}
             <div className="mb-4 text-black shrink-0">
                <table className="w-full border-collapse border border-black text-[11px]">
                   <thead>
@@ -231,6 +236,7 @@ export default function CNPrintPage() {
                </table>
             </div>
 
+            {/* Legal and Signatures - pushed to bottom */}
             <div className="mt-auto space-y-8 text-black pt-8 shrink-0">
                <div className="flex justify-between items-end text-black">
                   <div className="space-y-3 max-w-[70%] text-black">

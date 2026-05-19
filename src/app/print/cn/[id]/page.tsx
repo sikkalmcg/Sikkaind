@@ -70,7 +70,7 @@ export default function PublicCNPreviewPage() {
 
   const termsList = (() => {
     const rawTerms = trip.carrier?.termsAndConditions || trip.carrierTerms;
-    const defaultTerms = '1. THE CARRIER HOLDS NO LIABILITY FOR SHORTAGE NOT REPORTED AT ARRIVAL.\n2. ALL DISPUTES FALL UNDER CORPORATE HQ JURISDICTION.\n3. WEIGHT BASED ON PARTY DECLARATIONS.';
+    const defaultTerms = '1. AGENCY IS NOT RESPONSIBLE FOR RAIN OR ANY NATURAL CALAMITY.\n2. ANY DISCREPANCY REGARDING MATERIAL HAS TO BE INTIMATED WITHIN 24 HOURS OF THE RECEIPT MATERIAL.\n3. AGENCY IS NOT RESPONSIBLE FOR THE GOODS AFTER LIFTING GOODS.\n4. OWNER OF THE VEHICLE (TRUCK) IS RESPONSIBLE FOR THE GOODS AFTER LIFTING THE GOODS.\n5. AGENCY HAS THE RIGHT TO HOLD THE MATERIAL UPON SHORTAGE OF VEHICLE.\n6. TRADERS IS RESPONSIBLE FOR CONTRABAND GOODS OR GOODS WHICH ARE NOT AUTHORISED.\n7. AGENCY HOLDS NO RESPONSIBILITY AFTER GOODS HAVE BEEN DELIVERED.\n8. ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION.';
     const termsString = typeof rawTerms === 'string' && rawTerms.trim() ? rawTerms : defaultTerms;
     return termsString.split('\n').filter((t: string) => t.trim());
   })();
@@ -96,7 +96,8 @@ export default function PublicCNPreviewPage() {
 
       <div id="printable-area" className="flex flex-col gap-0 mx-auto w-[210mm] print:w-full shadow-2xl text-black font-normal bg-white print:block print:overflow-visible">
         {copies.map((copyLabel, index) => (
-          <div key={index} className="cn-page bg-white text-black font-normal p-[15mm] min-h-[297mm] flex flex-col print:overflow-visible print:border-none">
+          <div key={index} className="cn-page bg-white text-black font-normal p-[15mm] min-h-[297mm] flex flex-col relative print:overflow-visible print:border-none">
+            {/* Header branding section */}
             <div className="flex justify-between items-start mb-4">
               <div className="flex gap-1.5 items-start">
                 {(trip.carrier?.logoUrl || logoFallback?.url) && (
@@ -124,6 +125,7 @@ export default function PublicCNPreviewPage() {
               <div className="border border-black px-4 py-1.5 text-[10px] font-normal uppercase italic bg-white tracking-widest shrink-0 text-black">{copyLabel}</div>
             </div>
 
+            {/* Protocol Header Table */}
             <div className="mb-4">
                <table className="w-full border-collapse border border-black text-[12px]">
                   <thead>
@@ -147,6 +149,7 @@ export default function PublicCNPreviewPage() {
                </table>
             </div>
 
+            {/* Vehicle Detail Table */}
             <div className="mb-4">
                <table className="w-full border-collapse border border-black text-[12px]">
                   <thead>
@@ -170,6 +173,7 @@ export default function PublicCNPreviewPage() {
                </table>
             </div>
 
+            {/* Consignor/Consignee Info Blocks */}
             <div className="grid grid-cols-3 gap-0 mb-4 border border-black text-black">
                <div className="border-r border-black p-3 space-y-3 min-h-[140px]">
                   <h4 className="text-[10px] font-normal uppercase text-black italic mb-1 tracking-widest border-b border-black/10 w-fit">Consignor</h4>
@@ -197,6 +201,7 @@ export default function PublicCNPreviewPage() {
                </div>
             </div>
 
+            {/* Items and Weights Table */}
             <div className="mb-4 text-black">
                <table className="w-full border-collapse border border-black text-[11px]">
                   <thead>
@@ -229,6 +234,7 @@ export default function PublicCNPreviewPage() {
                </table>
             </div>
 
+            {/* Legal and Signatures - pushed to bottom */}
             <div className="mt-auto space-y-8 text-black pt-8 shrink-0">
                <div className="flex justify-between items-end text-black">
                   <div className="space-y-3 max-w-[70%] text-black">

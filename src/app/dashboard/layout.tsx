@@ -8,7 +8,7 @@ import {
   Truck, Radar, FileText, ShieldAlert, XCircle, Save, ArrowLeft, LogOut as ExitIcon, Printer, Search,
   Plus, Minus, Lock
 } from 'lucide-react';
-import { useUser, initializeFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import placeholderData from '@/app/lib/placeholder-images.json';
 import { cn } from '@/lib/utils';
@@ -53,7 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useUser();
-  const { firestore: db } = React.useMemo(() => initializeFirebase(), []);
+  const db = useFirestore();
   
   const [mounted, setMounted] = React.useState(false);
   const [tCode, setTCode] = React.useState('');
@@ -227,7 +227,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setSelectedFavCode(null);
   };
 
-  // Important: for printing to work correctly for multiple pages, we must not restrict height
   if (pathname?.includes('/print/')) return <div className="h-auto w-full bg-white print:overflow-visible">{children}</div>;
 
   return (

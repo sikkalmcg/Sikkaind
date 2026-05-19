@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -9,7 +8,7 @@ import { Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import placeholderData from '@/app/lib/placeholder-images.json';
-import { useAuth, initializeFirebase } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
@@ -21,7 +20,7 @@ import { cn } from '@/lib/utils';
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
-  const { firestore: db } = React.useMemo(() => initializeFirebase(), []);
+  const db = useFirestore();
 
   const [credentials, setCredentials] = React.useState({ username: '', password: '' });
   const [showPassword, setShowPassword] = React.useState(false);
