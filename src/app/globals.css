@@ -202,6 +202,7 @@
   #printable-area, 
   #printable-area * {
     visibility: visible;
+    color: black !important; /* Force all text to black in print */
   }
 
   /* Allow the portal containers to be rendered during the capture phase */

@@ -458,17 +458,17 @@ export default function TR21Page() {
 
       {/* CN Preview Portal */}
       <Dialog open={showCNPreview} onOpenChange={setShowCNPreview}>
-        <DialogContent className="max-w-[1000px] h-[90vh] rounded-none border-[3px] border-blue-900 font-sans p-0 overflow-hidden flex flex-col text-left text-black">
-          <DialogHeader className="bg-slate-50 p-4 border-b border-slate-200 flex flex-row items-center justify-between shrink-0 no-print text-left">
+        <DialogContent className="max-w-[1000px] h-[90vh] rounded-none border-[3px] border-black font-sans p-0 overflow-hidden flex flex-col text-left text-black">
+          <DialogHeader className="bg-white p-4 border-b border-black flex flex-row items-center justify-between shrink-0 no-print text-left">
              <div className="flex flex-col text-left">
-                <DialogTitle className="text-sm font-black uppercase italic text-blue-900">Consignment Note Preview</DialogTitle>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Protocol Matrix: 3-Copy A4 System</span>
+                <DialogTitle className="text-sm font-black uppercase italic text-black">Consignment Note Preview</DialogTitle>
+                <span className="text-[9px] font-black text-black uppercase tracking-widest">Protocol Matrix: 3-Copy A4 System</span>
              </div>
              <div className="flex gap-2">
-                <Button onClick={() => window.print()} className="h-9 bg-blue-700 hover:bg-blue-800 text-white rounded-none text-[10px] font-black uppercase px-8 flex items-center gap-2 shadow-md">
+                <Button onClick={() => window.print()} className="h-9 bg-black hover:bg-black/90 text-white rounded-none text-[10px] font-black uppercase px-8 flex items-center gap-2 shadow-md">
                    <Printer className="h-4 w-4" /> Print Protocol
                 </Button>
-                <Button onClick={() => setShowCNPreview(false)} variant="outline" className="h-9 border-slate-300 text-slate-600 rounded-none text-[10px] font-black uppercase px-8 flex items-center gap-2">
+                <Button onClick={() => setShowCNPreview(false)} variant="outline" className="h-9 border-black text-black rounded-none text-[10px] font-black uppercase px-8 flex items-center gap-2">
                    <X className="h-4 w-4" /> Exit
                 </Button>
              </div>
@@ -604,9 +604,9 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
   const shipToParty = customers?.find(c => c.customerCode === trip.shipToPartyCode);
 
   return (
-    <div className="flex flex-col gap-0 bg-white">
+    <div className="flex flex-col gap-0 bg-white text-black">
       {copies.map((copyLabel, index) => (
-        <div key={index} className="relative p-10 bg-white border-b-2 border-dashed border-slate-300 last:border-b-0 print:border-none print:p-10 print:page-break-after-always overflow-hidden text-left w-[210mm] min-h-[297mm] mx-auto box-border flex flex-col">
+        <div key={index} className="relative p-10 bg-white border-b-2 border-black last:border-b-0 print:border-none print:p-10 print:page-break-after-always overflow-hidden text-left w-[210mm] min-h-[297mm] mx-auto box-border flex flex-col text-black">
           <div className="flex justify-between items-start mb-6">
             <div className="flex gap-4 items-start">
               {(carrier?.logoUrl || logoFallback?.url) && (
@@ -615,15 +615,15 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                     src={carrier?.logoUrl || logoFallback?.url || ''} 
                     alt="Carrier Logo" 
                     fill 
-                    className="object-contain" 
+                    className="object-contain grayscale" 
                     unoptimized 
                   />
                 </div>
               )}
               <div className="space-y-0.5">
-                <h1 className="text-[15px] font-black uppercase italic tracking-tighter leading-none">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
-                <p className="text-[8px] uppercase max-w-[400px] leading-tight text-slate-600 font-bold">{carrier?.address}</p>
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[8px] font-black uppercase text-slate-500 pt-1">
+                <h1 className="text-[15px] font-black uppercase italic tracking-tighter leading-none text-black">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
+                <p className="text-[8px] uppercase max-w-[400px] leading-tight text-black font-bold">{carrier?.address}</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[8px] font-black uppercase text-black pt-1">
                   <span>GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</span>
                   {carrier?.panNo && <span>PAN: {carrier.panNo}</span>}
                   <span>MOB: {carrier?.mobile}</span>
@@ -632,13 +632,13 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                 </div>
               </div>
             </div>
-            <div className="border border-black px-5 py-2 text-[10px] font-normal uppercase italic bg-slate-50 tracking-widest shrink-0">{copyLabel}</div>
+            <div className="border border-black px-5 py-2 text-[10px] font-normal uppercase italic bg-white tracking-widest shrink-0 text-black">{copyLabel}</div>
           </div>
 
           <div className="mb-4">
              <table className="w-full border-collapse border border-black text-[10px]">
                 <thead>
-                   <tr className="bg-slate-50 uppercase text-[8px] font-normal text-slate-500 border-b border-black">
+                   <tr className="bg-white uppercase text-[8px] font-normal text-black border-b border-black">
                       <th className="p-2 border-r border-black text-center font-normal">CN Number</th>
                       <th className="p-2 border-r border-black text-center font-normal">Date</th>
                       <th className="p-2 border-r border-black text-center font-normal">From</th>
@@ -647,7 +647,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                    </tr>
                 </thead>
                 <tbody>
-                   <tr className="uppercase font-normal">
+                   <tr className="uppercase font-normal text-black">
                       <td className="p-2 border-r border-black text-center font-black">{trip.cnNumber || 'DRAFT'}</td>
                       <td className="p-2 border-r border-black text-center">{trip.cnDate ? format(new Date(trip.cnDate), 'dd-MMM-yyyy') : '-'}</td>
                       <td className="p-2 border-r border-black text-center">{trip.from}</td>
@@ -661,7 +661,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
           <div className="mb-6">
              <table className="w-full border-collapse border border-black text-[10px]">
                 <thead>
-                   <tr className="bg-slate-50 uppercase text-[8px] font-normal text-slate-500 border-b border-black">
+                   <tr className="bg-white uppercase text-[8px] font-normal text-black border-b border-black">
                       <th className="p-2 border-r border-black w-1/5 text-center font-normal">Vehicle Number</th>
                       <th className="p-2 border-r border-black w-1/5 text-center font-normal">Driver Mobile</th>
                       <th className="p-2 border-r border-black w-1/5 text-center font-normal">Payment Term</th>
@@ -670,7 +670,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                    </tr>
                 </thead>
                 <tbody>
-                   <tr className="uppercase font-normal">
+                   <tr className="uppercase font-normal text-black">
                       <td className="p-2 border-r border-black text-center">{trip.vehicleNo}</td>
                       <td className="p-2 border-r border-black text-center">{trip.driverMobile || '-'}</td>
                       <td className="p-2 border-r border-black text-center">{trip.paymentTerms}</td>
@@ -682,38 +682,38 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
           </div>
 
           <div className="grid grid-cols-3 gap-0 mb-6 border-none">
-             <div className="border-r border-slate-200 p-4 space-y-4 min-h-[160px]">
-                <h4 className="text-[9px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignor</h4>
-                <div className="text-[10px] uppercase font-normal space-y-1.5">
-                   <p className="text-[11px]">{trip.consignorName}</p>
-                   <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{consignor?.address}</p>
+             <div className="border-r border-black p-4 space-y-4 min-h-[160px]">
+                <h4 className="text-[9px] font-normal uppercase text-black italic mb-2 tracking-widest">Consignor</h4>
+                <div className="text-[10px] uppercase font-normal space-y-1.5 text-black">
+                   <p className="text-[11px] font-black">{trip.consignorName}</p>
+                   <p className="leading-relaxed text-black whitespace-pre-wrap">{consignor?.address}</p>
                    <p>MOB: {consignor?.mobile}</p>
-                   <p className="text-[8px] pt-1 text-slate-500 font-mono">GSTIN: {consignor?.gstNo || consignor?.gstin}</p>
+                   <p className="text-[8px] pt-1 text-black font-mono">GSTIN: {consignor?.gstNo || consignor?.gstin}</p>
                 </div>
              </div>
-             <div className="border-r border-slate-200 p-4 space-y-4 min-h-[160px]">
-                <h4 className="text-[9px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignee</h4>
-                <div className="text-[10px] uppercase font-normal space-y-1.5">
-                   <p className="text-[11px]">{trip.consigneeName}</p>
-                   <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{consignee?.address}</p>
-                   <p className="text-[8px] pt-1 text-slate-500 font-mono">GSTIN: {consignee?.gstNo || consignee?.gstin}</p>
+             <div className="border-r border-black p-4 space-y-4 min-h-[160px]">
+                <h4 className="text-[9px] font-normal uppercase text-black italic mb-2 tracking-widest">Consignee</h4>
+                <div className="text-[10px] uppercase font-normal space-y-1.5 text-black">
+                   <p className="text-[11px] font-black">{trip.consigneeName}</p>
+                   <p className="leading-relaxed text-black whitespace-pre-wrap">{consignee?.address}</p>
+                   <p className="text-[8px] pt-1 text-black font-mono">GSTIN: {consignee?.gstNo || consignee?.gstin}</p>
                 </div>
              </div>
-             <div className="p-4 space-y-4 min-h-[160px] bg-slate-50/20">
-                <h4 className="text-[9px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Ship To Party</h4>
-                <div className="text-[10px] uppercase font-normal space-y-1.5">
-                   <p className="text-[11px]">{trip.shipToParty}</p>
-                   <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{shipToParty?.address}</p>
+             <div className="p-4 space-y-4 min-h-[160px] bg-white text-black">
+                <h4 className="text-[9px] font-normal uppercase text-black italic mb-2 tracking-widest">Ship To Party</h4>
+                <div className="text-[10px] uppercase font-normal space-y-1.5 text-black">
+                   <p className="text-[11px] font-black">{trip.shipToParty}</p>
+                   <p className="leading-relaxed text-black whitespace-pre-wrap">{shipToParty?.address}</p>
                    <p>MOB: {shipToParty?.mobile}</p>
-                   <p className="text-[8px] pt-1 text-slate-500 font-mono">GSTIN: {shipToParty?.gstNo || shipToParty?.gstin}</p>
+                   <p className="text-[8px] pt-1 text-black font-mono">GSTIN: {shipToParty?.gstNo || shipToParty?.gstin}</p>
                 </div>
              </div>
           </div>
 
           <div className="mb-6">
-             <table className="w-full border-collapse text-[10px]">
+             <table className="w-full border-collapse text-[10px] border border-black">
                 <thead>
-                   <tr className="bg-slate-50 uppercase text-[8px] font-normal text-slate-500 border-b border-black">
+                   <tr className="bg-white uppercase text-[8px] font-normal text-black border-b border-black">
                       <th className="p-2 border-r border-black w-[130px] text-left font-normal">Invoice No</th>
                       <th className="p-2 border-r border-black w-[160px] text-left font-normal">E-Waybill No</th>
                       <th className="p-2 border-r border-black text-left font-normal">Description</th>
@@ -723,32 +723,32 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                 </thead>
                 <tbody>
                    {trip.invoices?.map((inv: any, i: number) => (
-                      <tr key={i} className="border-b border-slate-100 last:border-b-0 uppercase font-normal">
-                         <td className="p-2 border-r border-slate-100">{inv.invNo}</td>
-                         <td className="p-2 border-r border-slate-100">{inv.ewaybillNo}</td>
-                         <td className="p-2 border-r border-slate-100 leading-snug">{inv.desc}</td>
-                         <td className="p-2 border-r border-slate-100 text-center">{inv.pkg} {inv.uom}</td>
+                      <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black">
+                         <td className="p-2 border-r border-black">{inv.invNo}</td>
+                         <td className="p-2 border-r border-black">{inv.ewaybillNo}</td>
+                         <td className="p-2 border-r border-black leading-snug">{inv.desc}</td>
+                         <td className="p-2 border-r border-black text-center">{inv.pkg} {inv.uom}</td>
                          <td className="p-2 text-right">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
                       </tr>
                    ))}
                 </tbody>
                 <tfoot>
-                   <tr className="bg-slate-50 font-normal text-[9px] uppercase border-none">
-                      <td colSpan={3} className="p-3 text-right text-slate-400 italic">Gross Total:</td>
-                      <td className="p-3 text-center text-blue-900">{packageSummary}</td>
-                      <td className="p-3 text-right text-blue-900">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
+                   <tr className="bg-white font-normal text-[9px] uppercase border-t border-black">
+                      <td colSpan={3} className="p-3 text-right text-black italic">Gross Total:</td>
+                      <td className="p-3 text-center text-black font-black">{packageSummary}</td>
+                      <td className="p-3 text-right text-black font-black">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
                    </tr>
                 </tfoot>
              </table>
           </div>
 
-          <div className="mt-auto space-y-8">
+          <div className="mt-auto space-y-8 text-black">
              <div className="flex justify-between items-end">
                 <div className="space-y-3 max-w-[60%]">
-                   <h5 className="text-[8px] font-normal uppercase text-slate-400 tracking-widest italic border-b border-slate-100 w-fit pb-1">Terms & Conditions</h5>
-                   <div className="space-y-1">
+                   <h5 className="text-[8px] font-normal uppercase text-black tracking-widest italic border-b border-black w-fit pb-1">Terms & Conditions</h5>
+                   <div className="space-y-1 text-black">
                       {termsList.map((term, i) => (
-                        <p key={i} className="text-[8px] leading-relaxed text-justify text-slate-500 uppercase font-normal">
+                        <p key={i} className="text-[8px] leading-relaxed text-justify text-black uppercase font-normal">
                           {term.trim()}
                         </p>
                       ))}
@@ -757,12 +757,12 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                 <div className="text-right space-y-10 pr-4">
                    <div className="h-12"></div>
                    <div className="space-y-1">
-                      <p className="text-[10px] font-normal uppercase italic tracking-tighter">Authorized Signature</p>
+                      <p className="text-[10px] font-normal uppercase italic tracking-tighter text-black">Authorized Signature</p>
                    </div>
                 </div>
              </div>
-             <div className="text-center pt-4 border-t border-slate-100">
-                <p className="text-[10px] font-normal uppercase tracking-tighter italic text-slate-400">
+             <div className="text-center pt-4 border-t border-black">
+                <p className="text-[10px] font-normal uppercase tracking-tighter italic text-black">
                    This Consignment Note was generated digitally and is to be considered as original.
                 </p>
              </div>
