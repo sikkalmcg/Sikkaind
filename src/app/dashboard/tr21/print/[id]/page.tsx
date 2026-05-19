@@ -154,7 +154,7 @@ export default function CNPrintPage() {
             <div className="flex justify-between items-start mb-8">
               <div className="flex flex-col gap-5">
                 {(carrier?.logoUrl || logoFallback?.url) && (
-                  <div className="relative w-[150px] h-[70px]">
+                  <div className="relative w-[90px] h-[42px]">
                     <Image 
                       src={carrier?.logoUrl || logoFallback?.url || ''} 
                       alt="Carrier Logo" 
@@ -211,31 +211,31 @@ export default function CNPrintPage() {
                </table>
             </div>
 
-            <div className="grid grid-cols-3 gap-0 mb-8">
-               <div className="border border-black border-r-0 p-5 space-y-4 min-h-[180px]">
+            <div className="grid grid-cols-3 gap-0 mb-8 border border-black">
+               <div className="border-r border-black p-5 space-y-4 min-h-[180px]">
                   <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignor</h4>
                   <div className="text-[11px] uppercase font-normal space-y-1.5">
                      <p className="text-[12px]">{trip.consignorName}</p>
                      <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{consignor?.address}</p>
                      <p>MOB: {consignor?.mobile}</p>
-                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {consignor?.gstNo}</p>
+                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {consignor?.gstNo || consignor?.gstin}</p>
                   </div>
                </div>
-               <div className="border border-black border-r-0 p-5 space-y-4 min-h-[180px]">
+               <div className="border-r border-black p-5 space-y-4 min-h-[180px]">
                   <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignee</h4>
                   <div className="text-[11px] uppercase font-normal space-y-1.5">
                      <p className="text-[12px]">{trip.consigneeName}</p>
                      <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{consignee?.address}</p>
-                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {consignee?.gstNo}</p>
+                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {consignee?.gstNo || consignee?.gstin}</p>
                   </div>
                </div>
-               <div className="border border-black p-5 space-y-4 min-h-[180px] bg-slate-50/20">
+               <div className="p-5 space-y-4 min-h-[180px] bg-slate-50/20">
                   <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Ship To Party</h4>
                   <div className="text-[11px] uppercase font-normal space-y-1.5">
                      <p className="text-[12px]">{trip.shipToParty}</p>
                      <p className="leading-relaxed text-slate-600 whitespace-pre-wrap">{shipToParty?.address}</p>
                      <p>MOB: {shipToParty?.mobile}</p>
-                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {shipToParty?.gstNo}</p>
+                     <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {shipToParty?.gstNo || shipToParty?.gstin}</p>
                   </div>
                </div>
             </div>
@@ -264,9 +264,9 @@ export default function CNPrintPage() {
                   </tbody>
                   <tfoot>
                      <tr className="bg-slate-50 font-normal text-[10px] uppercase">
-                        <td colSpan={3} className="p-4 text-right text-slate-400 italic">Gross Total:</td>
-                        <td className="p-4 text-center text-blue-900">{packageSummary}</td>
-                        <td className="p-4 text-right text-blue-900">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
+                        <td colSpan={3} className="p-4 text-right text-slate-400 italic border-t border-black">Gross Total:</td>
+                        <td className="p-4 text-center border-t border-black">{packageSummary}</td>
+                        <td className="p-4 text-right border-t border-black">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
                    </tr>
                 </tfoot>
              </table>
