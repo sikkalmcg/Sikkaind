@@ -12,7 +12,8 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 const SHARED_HUB_ID = 'Sikkaind';
 
 /**
- * @fileOverview CNPrintPage - High-fidelity A4 Consignment Note Printing Protocol.
+ * @fileOverview CNPrintPage - Multi-copy CN documentation portal.
+ * Sequentially renders Consignee, Driver, and Consignor copies for single print job execution.
  */
 export default function CNPrintPage() {
   const params = useParams();
@@ -36,7 +37,7 @@ export default function CNPrintPage() {
 
   React.useEffect(() => {
     if (isAuto && trip && !isTripLoading) {
-      setTimeout(() => window.print(), 1000);
+      setTimeout(() => window.print(), 1500);
     }
   }, [isAuto, trip, isTripLoading]);
 
@@ -75,33 +76,33 @@ export default function CNPrintPage() {
 
   const termsList = (() => {
     const rawTerms = carrier?.termsAndConditions;
-    const defaultTerms = '1. THE CARRIER HOLDS NO LIABILITY FOR SHORTAGE NOT REPORTED AT ARRIVAL.\n2. ALL DISPUTES FALL UNDER CORPORATE HQ JURISDICTION.\n3. WEIGHT BASED ON PARTY DECLARATIONS.';
+    const defaultTerms = '1. AGENCY IS NOT RESPONSIBLE FOR RAIN OR ANY NATURAL CALAMITY.\n2. ANY DISCREPANCY REGARDING MATERIAL HAS TO BE INTIMATED WITHIN 24 HOURS OF THE RECEIPT MATERIAL.\n3. AGENCY IS NOT RESPONSIBLE FOR THE GOODS AFTER LIFTING GOODS.\n4. OWNER OF THE VEHICLE (TRUCK) IS RESPONSIBLE FOR THE GOODS AFTER LIFTING THE GOODS.\n5. AGENCY HAS THE RIGHT TO HOLD THE MATERIAL UPON SHORTAGE OF VEHICLE.\n6. TRADERS IS RESPONSIBLE FOR CONTRABAND GOODS OR GOODS WHICH ARE NOT AUTHORISED.\n7. AGENCY HOLDS NO RESPONSIBILITY AFTER GOODS HAVE BEEN DELIVERED.\n8. ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION.';
     const termsString = typeof rawTerms === 'string' && rawTerms.trim() ? rawTerms : defaultTerms;
     return termsString.split('\n').filter(t => t.trim());
   })();
 
   return (
-    <div className="min-h-screen bg-slate-200 font-sans text-black overflow-y-auto print:bg-white print:p-0 text-left font-normal no-scrollbar">
-      <div className="max-w-[210mm] mx-auto bg-white shadow-2xl no-print mb-8 rounded-sm border border-slate-300 sticky top-0 z-[100]">
+    <div className="min-h-screen bg-slate-200 font-sans text-black overflow-y-auto print:bg-white print:p-0 text-left font-normal no-scrollbar overflow-x-hidden print:overflow-visible">
+      <div className="max-w-[210mm] mx-auto bg-white shadow-2xl no-print mb-8 rounded-none border-b-4 border-blue-600 sticky top-0 z-[100]">
          <div className="p-4 flex justify-between items-center bg-slate-50 text-black">
             <div className="flex flex-col text-left">
                <span className="text-[11px] font-normal uppercase italic text-blue-900 tracking-tighter">Sikka Logistics Management Protocol</span>
-               <span className="text-[9px] font-normal text-slate-400 uppercase">A4 Multi-Copy Matrix (Headerless Protocol)</span>
+               <span className="text-[9px] font-normal text-slate-400 uppercase">A4 Multi-Copy Matrix System (All Copies Active)</span>
             </div>
             <div className="flex gap-3">
                <button onClick={() => window.print()} className="h-9 bg-blue-700 hover:bg-blue-800 text-white px-8 text-[11px] font-normal uppercase rounded-none transition-all flex items-center gap-2 shadow-md active:scale-95"><Printer className="h-4 w-4" /> Print Protocol</button>
-               <button onClick={() => router.back()} className="h-9 bg-white border border-slate-300 text-slate-600 px-8 text-[11px] font-normal uppercase rounded-none hover:bg-slate-100 transition-all flex items-center gap-2 active:scale-95"><X className="h-4 w-4" /> Exit</button>
+               <button onClick={() => window.close()} className="h-9 bg-white border border-slate-300 text-slate-600 px-8 text-[11px] font-normal uppercase rounded-none hover:bg-slate-100 transition-all flex items-center gap-2 active:scale-95"><X className="h-4 w-4" /> Close</button>
             </div>
          </div>
       </div>
 
-      <div id="printable-area" className="flex flex-col gap-0 bg-white mx-auto w-[210mm] print:w-full text-black font-normal">
+      <div id="printable-area" className="flex flex-col gap-0 bg-white mx-auto w-[210mm] print:w-full text-black font-normal shadow-xl print:shadow-none print:block print:overflow-visible">
         {copies.map((copyLabel, index) => (
-          <div key={index} className="cn-page bg-white text-black font-normal p-[15mm] min-h-[297mm] border-b last:border-b-0 flex flex-col">
-            <div className="flex justify-between items-start mb-6">
-              <div className="flex gap-2 items-start">
+          <div key={index} className="cn-page bg-white text-black font-normal p-[15mm] min-h-[297mm] flex flex-col relative overflow-hidden print:overflow-visible print:border-none">
+            <div className="flex justify-between items-start mb-4 shrink-0">
+              <div className="flex gap-1.5 items-start">
                 {(carrier?.logoUrl || logoFallback?.url) && (
-                  <div className="relative w-[90px] h-[42px] shrink-0">
+                  <div className="relative w-[90px] h-[45px] shrink-0">
                     <Image 
                       src={carrier?.logoUrl || logoFallback?.url || ''} 
                       alt="Carrier Logo" 
@@ -113,33 +114,32 @@ export default function CNPrintPage() {
                 )}
                 <div className="space-y-0.5">
                   <h1 className="text-[17px] font-normal uppercase italic tracking-tighter leading-none text-black">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
-                  <p className="text-[10px] uppercase max-w-[400px] leading-tight text-black font-normal">{carrier?.address}</p>
+                  <p className="text-[10px] uppercase max-w-[450px] leading-tight text-black font-normal">{carrier?.address}</p>
                   <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] font-normal uppercase text-black pt-1">
                     <span>GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</span>
                     {carrier?.panNo && <span>PAN: {carrier.panNo}</span>}
                     <span>MOB: {carrier?.mobile}</span>
                     <span>EMAIL: {carrier?.email}</span>
-                    {carrier?.website && <span>WEB: {carrier.website}</span>}
                   </div>
                 </div>
               </div>
-              <div className="border border-black px-5 py-2 text-[10px] font-normal uppercase italic bg-white tracking-widest shrink-0 text-black">{copyLabel}</div>
+              <div className="border border-black px-4 py-1.5 text-[10px] font-normal uppercase italic bg-white tracking-widest shrink-0 text-black">{copyLabel}</div>
             </div>
 
-            <div className="mb-4 text-black">
+            <div className="mb-4 text-black shrink-0">
                <table className="w-full border-collapse border border-black text-[12px]">
                   <thead>
                      <tr className="bg-white uppercase text-[8px] font-normal text-black border-b border-black">
-                        <th className="p-2 border-r border-black text-center font-normal">CN Number</th>
-                        <th className="p-2 border-r border-black text-center font-normal">Date</th>
-                        <th className="p-2 border-r border-black text-center font-normal">From</th>
-                        <th className="p-2 border-r border-black text-center font-normal">Via</th>
-                        <th className="p-2 text-center font-normal">To</th>
+                        <th className="p-1 border-r border-black text-center font-normal">CN Number</th>
+                        <th className="p-1 border-r border-black text-center font-normal">Date</th>
+                        <th className="p-1 border-r border-black text-center font-normal">From</th>
+                        <th className="p-1 border-r border-black text-center font-normal">Via</th>
+                        <th className="p-1 text-center font-normal">To</th>
                      </tr>
                   </thead>
                   <tbody>
                      <tr className="uppercase font-normal text-black text-[12px]">
-                        <td className="p-2 border-r border-black text-center">CN No: {trip.cnNumber || 'DRAFT'}</td>
+                        <td className="p-2 border-r border-black text-center whitespace-nowrap">CN NO: {trip.cnNumber || 'DRAFT'}</td>
                         <td className="p-2 border-r border-black text-center">{trip.cnDate ? format(new Date(trip.cnDate), 'dd-MMM-yyyy') : '-'}</td>
                         <td className="p-2 border-r border-black text-center text-[10px]">{trip.from}</td>
                         <td className="p-2 border-r border-black text-center text-[10px]">{trip.via || '-'}</td>
@@ -149,15 +149,15 @@ export default function CNPrintPage() {
                </table>
             </div>
 
-            <div className="mb-6 text-black">
+            <div className="mb-4 text-black shrink-0">
                <table className="w-full border-collapse border border-black text-[12px]">
                   <thead>
                      <tr className="bg-white uppercase text-[8px] font-normal text-black border-b border-black">
-                        <th className="p-2 border-r border-black w-1/5 text-center font-normal">Vehicle Number</th>
-                        <th className="p-2 border-r border-black w-1/5 text-center font-normal">Driver Mobile</th>
-                        <th className="p-2 border-r border-black w-1/5 text-center font-normal">Payment Term</th>
-                        <th className="p-2 border-r border-black w-1/5 text-center font-normal">Mode</th>
-                        <th className="p-2 w-1/5 text-center font-normal">Trip ID</th>
+                        <th className="p-1 border-r border-black w-1/5 text-center font-normal">Vehicle Number</th>
+                        <th className="p-1 border-r border-black w-1/5 text-center font-normal">Driver Mobile</th>
+                        <th className="p-1 border-r border-black w-1/5 text-center font-normal">Payment Term</th>
+                        <th className="p-1 border-r border-black w-1/5 text-center font-normal">Mode</th>
+                        <th className="p-1 w-1/5 text-center font-normal">Trip ID</th>
                      </tr>
                   </thead>
                   <tbody>
@@ -172,36 +172,34 @@ export default function CNPrintPage() {
                </table>
             </div>
 
-            <div className="grid grid-cols-3 gap-0 mb-6 border border-black text-black">
-               <div className="border-r border-black p-4 space-y-4 min-h-[160px]">
-                  <h4 className="text-[10px] font-normal uppercase text-black italic mb-2 tracking-widest">Consignor</h4>
-                  <div className="text-[10px] uppercase font-normal space-y-1.5 text-black">
-                     <p className="text-[10px] font-normal">{trip.consignorName}</p>
-                     <p className="leading-relaxed text-black whitespace-pre-wrap">{consignor?.address}</p>
-                     <p>MOB: {consignor?.mobile}</p>
+            <div className="grid grid-cols-3 gap-0 mb-4 border border-black text-black shrink-0">
+               <div className="border-r border-black p-3 space-y-3 min-h-[140px]">
+                  <h4 className="text-[10px] font-normal uppercase text-black italic mb-1 tracking-widest border-b border-black/10 w-fit">Consignor</h4>
+                  <div className="text-[10px] uppercase font-normal space-y-1 text-black">
+                     <p className="text-[10px] font-normal leading-tight">{trip.consignorName}</p>
+                     <p className="leading-tight text-black whitespace-pre-wrap">{consignor?.address}</p>
                      <p className="text-[10px] pt-1 text-black font-normal">GSTIN: {consignor?.gstNo || consignor?.gstin}</p>
                   </div>
                </div>
-               <div className="border-r border-black p-4 space-y-4 min-h-[160px]">
-                  <h4 className="text-[10px] font-normal uppercase text-black italic mb-2 tracking-widest">Consignee</h4>
-                  <div className="text-[10px] uppercase font-normal space-y-1.5 text-black">
-                     <p className="text-[10px] font-normal">{trip.consigneeName}</p>
-                     <p className="leading-relaxed text-black whitespace-pre-wrap">{consignee?.address}</p>
+               <div className="border-r border-black p-3 space-y-3 min-h-[140px]">
+                  <h4 className="text-[10px] font-normal uppercase text-black italic mb-1 tracking-widest border-b border-black/10 w-fit">Consignee</h4>
+                  <div className="text-[10px] uppercase font-normal space-y-1 text-black">
+                     <p className="text-[10px] font-normal leading-tight">{trip.consigneeName}</p>
+                     <p className="leading-tight text-black whitespace-pre-wrap">{consignee?.address}</p>
                      <p className="text-[10px] pt-1 text-black font-normal">GSTIN: {consignee?.gstNo || consignee?.gstin}</p>
                   </div>
                </div>
-               <div className="p-4 space-y-4 min-h-[160px] bg-white text-black">
-                  <h4 className="text-[10px] font-normal uppercase text-black italic mb-2 tracking-widest">Ship To Party</h4>
-                  <div className="text-[10px] uppercase font-normal space-y-1.5 text-black">
-                     <p className="text-[10px] font-normal">{trip.shipToParty}</p>
-                     <p className="leading-relaxed text-black whitespace-pre-wrap">{shipToParty?.address}</p>
-                     <p>MOB: {shipToParty?.mobile}</p>
+               <div className="p-3 space-y-3 min-h-[140px] bg-white text-black">
+                  <h4 className="text-[10px] font-normal uppercase text-black italic mb-1 tracking-widest border-b border-black/10 w-fit">Ship To Party</h4>
+                  <div className="text-[10px] uppercase font-normal space-y-1 text-black">
+                     <p className="text-[10px] font-normal leading-tight">{trip.shipToParty}</p>
+                     <p className="leading-tight text-black whitespace-pre-wrap">{shipToParty?.address}</p>
                      <p className="text-[10px] pt-1 text-black font-normal">GSTIN: {shipToParty?.gstNo || shipToParty?.gstin}</p>
                   </div>
                </div>
             </div>
 
-            <div className="mb-6 text-black">
+            <div className="mb-4 text-black shrink-0">
                <table className="w-full border-collapse border border-black text-[11px]">
                   <thead>
                      <tr className="bg-white uppercase text-[8px] font-normal text-black border-b border-black">
@@ -215,50 +213,50 @@ export default function CNPrintPage() {
                   <tbody>
                      {(trip.invoices || []).filter((inv: any) => inv.invNo).map((inv: any, i: number) => (
                         <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black text-[11px]">
-                           <td className="p-3 border-r border-black">{inv.invNo}</td>
-                           <td className="p-3 border-r border-black">{inv.ewaybillNo}</td>
-                           <td className="p-3 border-r border-black leading-snug text-[11px]">{inv.desc}</td>
-                           <td className="p-3 border-r border-black text-center">{inv.pkg} {inv.uom}</td>
-                           <td className="p-3 text-right">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
+                           <td className="p-2 border-r border-black">{inv.invNo}</td>
+                           <td className="p-2 border-r border-black">{inv.ewaybillNo}</td>
+                           <td className="p-2 border-r border-black leading-snug text-[11px]">{inv.desc}</td>
+                           <td className="p-2 border-r border-black text-center">{inv.pkg} {inv.uom}</td>
+                           <td className="p-2 text-right">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
                         </tr>
                      ))}
                   </tbody>
                   <tfoot>
                      <tr className="bg-white font-normal text-[15px] uppercase border-t border-black text-black">
-                        <td colSpan={3} className="p-4 text-right text-black italic border-r border-black">Gross Total:</td>
-                        <td className="p-4 text-center border-r border-black font-normal">{packageSummary}</td>
-                        <td className="p-4 text-right border-none font-normal">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
-                   </tr>
-                </tfoot>
-             </table>
-          </div>
+                        <td colSpan={3} className="p-3 text-right text-black italic border-r border-black uppercase">Gross Total:</td>
+                        <td className="p-3 text-center border-r border-black font-normal">{packageSummary}</td>
+                        <td className="p-3 text-right border-none font-normal">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
+                     </tr>
+                  </tfoot>
+               </table>
+            </div>
 
-          <div className="mt-auto space-y-10 text-black">
-             <div className="flex justify-between items-end text-black">
-                <div className="space-y-4 max-w-[60%] text-black">
-                   <h5 className="text-[8px] font-normal uppercase text-black tracking-widest italic border-b border-black w-fit pb-1">Terms & Conditions</h5>
-                   <div className="space-y-1 text-black font-normal">
-                      {termsList.map((term: string, i: number) => (
-                        <p key={i} className="text-[8px] leading-relaxed text-justify text-black uppercase font-normal">
-                          {term.trim()}
-                        </p>
-                      ))}
-                   </div>
-                </div>
-                <div className="text-right space-y-12 pr-4 text-black font-normal">
-                   <div className="h-14 text-black"></div>
-                   <div className="space-y-1 text-black">
-                      <p className="text-[10px] font-normal uppercase italic tracking-tighter text-black">Authorized Signature</p>
-                   </div>
-                </div>
-             </div>
-             <div className="text-center pt-6 border-t border-black">
-                <p className="text-[10px] font-normal uppercase tracking-tighter italic text-black">
-                   This Consignment Note was generated digitally and is to be considered as original.
-                </p>
-             </div>
+            <div className="mt-auto space-y-8 text-black pt-8 shrink-0">
+               <div className="flex justify-between items-end text-black">
+                  <div className="space-y-3 max-w-[70%] text-black">
+                     <h5 className="text-[8px] font-normal uppercase text-black tracking-widest italic border-b border-black w-fit pb-0.5">Terms & Conditions</h5>
+                     <div className="space-y-0.5 text-black font-normal">
+                        {termsList.map((term: string, i: number) => (
+                           <p key={i} className="text-[8px] font-normal leading-relaxed text-justify text-black uppercase">
+                              {term.trim()}
+                           </p>
+                        ))}
+                     </div>
+                  </div>
+                  <div className="text-right space-y-10 pr-4 text-black font-normal min-w-[150px]">
+                     <div className="h-10 text-black"></div>
+                     <div className="space-y-0.5 text-black">
+                        <p className="text-[10px] font-normal uppercase italic tracking-tighter text-black">Authorized Signature</p>
+                     </div>
+                  </div>
+               </div>
+               <div className="text-center pt-4 border-t border-black">
+                  <p className="text-[10px] font-normal uppercase tracking-tighter italic text-black opacity-60">
+                     This Consignment Note was generated digitally and is to be considered as original.
+                  </p>
+               </div>
+            </div>
           </div>
-        </div>
         ))}
       </div>
     </div>

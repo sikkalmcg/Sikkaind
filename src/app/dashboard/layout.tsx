@@ -87,13 +87,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
 
-  // Authorization Check Logic
   const authorizedTcodes = React.useMemo(() => {
     if (isBootstrapAdmin) return MASTER_TCODES.map(t => t.code);
     return userProfile?.tcodeAccess || [];
   }, [isBootstrapAdmin, userProfile]);
 
-  // Sync Favorites with Authorization
   React.useEffect(() => {
     if (!mounted || isProfileLoading) return;
 
@@ -124,7 +122,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setUserFavorites(filtered);
   }, [mounted, isProfileLoading, authorizedTcodes]);
 
-  // SECURE NAVIGATION ENFORCEMENT
   React.useEffect(() => {
     if (!mounted || isProfileLoading) return;
     
@@ -230,10 +227,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setSelectedFavCode(null);
   };
 
-  if (pathname?.includes('/print/')) return <div className="h-screen w-full overflow-auto bg-white">{children}</div>;
+  // Important: for printing to work correctly for multiple pages, we must not restrict height
+  if (pathname?.includes('/print/')) return <div className="h-auto w-full bg-white print:overflow-visible">{children}</div>;
 
   return (
-    <div className="flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden flex">
+    <div className="flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden flex print:h-auto print:overflow-visible">
       <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden">
         <div className="flex items-center gap-6">
           {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => (
@@ -284,8 +282,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        <aside className="w-80 bg-white border-r border-slate-300 lg:flex flex-col overflow-hidden shadow-sm shrink-0 flex hidden">
+      <div className="flex-1 flex overflow-hidden print:block print:overflow-visible">
+        <aside className="w-80 bg-white border-r border-slate-300 lg:flex flex-col overflow-hidden shadow-sm shrink-0 flex hidden print:hidden">
           <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50 flex items-center justify-between">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2">
               <Grid2X2 className="h-3.5 w-3.5" /> Quick Access
@@ -312,19 +310,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <t.icon className={cn("h-3.5 w-3.5 text-slate-300 group-hover:text-blue-600 transition-colors shrink-0", searchParams.get('tcode') === t.code && "text-blue-600")} />
               </div>
             ))}
-            {mounted && userFavorites.length === 0 && (
-              <div className="p-10 text-center space-y-3 opacity-30">
-                 <Lock className="h-8 w-8 mx-auto" />
-                 <p className="text-[9px] font-black uppercase tracking-widest leading-relaxed">No Authorized Shortcuts Found.</p>
-              </div>
-            )}
           </div>
           <div className="p-4 border-t border-slate-100 bg-slate-50">
              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest text-center">SIKKA ENTERPRISE • ACCESS SECURED</p>
           </div>
         </aside>
 
-        <main className="flex-1 overflow-hidden flex flex-col">
+        <main className="flex-1 overflow-hidden flex flex-col print:block print:overflow-visible">
           {children}
         </main>
       </div>
