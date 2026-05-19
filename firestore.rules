@@ -6,8 +6,10 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
 
-    // 1. SIKKA INDUSTRIES SHARED HUB - PUBLIC EXECUTION NODES
-    // These paths are used by the public tracking portal and CN preview protocol.
+    // 1. SIKKA INDUSTRIES SHARED HUB (Sikkaind)
+    // These paths are the "Execution Nodes" used by the public tracking portal and CN preview.
+    
+    // Individual Document Matches (for useDoc) and Collection Matches (for useCollection)
     match /users/Sikkaind/trip_board/{docId} { 
       allow read: if true; 
       allow write: if isSignedIn(); 
@@ -29,12 +31,21 @@ service cloud.firestore {
       allow write: if isSignedIn(); 
     }
     
-    // 2. SIKKA INDUSTRIES SHARED HUB - PROTECTED SYSTEM NODES
+    // Protected System Masters - REQUIRES AUTHENTICATION
     match /users/Sikkaind/users_master/{docId} {
       allow read, write: if isSignedIn();
     }
+    match /users/Sikkaind/plants/{docId} {
+      allow read, write: if isSignedIn();
+    }
+    match /users/Sikkaind/vendors/{docId} {
+      allow read, write: if isSignedIn();
+    }
+    match /users/Sikkaind/reports/{docId} {
+      allow read, write: if isSignedIn();
+    }
     
-    // 3. PRIVATE USER DATA NODES (Owner Only)
+    // 2. PRIVATE USER DATA NODES (Owner Only)
     // This rule is placed after the explicit shared hub rules to avoid conflict.
     match /users/{userId}/{collectionName}/{docId} {
       allow read, write: if isOwner(userId);
@@ -48,7 +59,7 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
-    // 4. LEGACY PUBLIC TRACKING PATHS
+    // 3. LEGACY PUBLIC TRACKING PATHS
     match /public_orders/{orderNo} {
       allow read: if true;
       allow write: if isSignedIn();
@@ -56,6 +67,11 @@ service cloud.firestore {
     match /public_trips/{tripId} {
       allow read: if true;
       allow write: if isSignedIn();
+    }
+
+    // 4. GLOBAL CATCH-ALL
+    match /{document=**} {
+      allow read, write: if isSignedIn();
     }
   }
 }
