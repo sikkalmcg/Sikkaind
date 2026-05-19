@@ -160,9 +160,9 @@ export default function PublicCNPreviewPage() {
                   </div>
                 )}
                 <div className="space-y-0.5">
-                  <h1 className="text-[15px] font-black uppercase italic tracking-tighter leading-none text-black">{trip.carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
-                  <p className="text-[8px] uppercase max-w-[400px] leading-tight text-black font-bold">{trip.carrier?.address}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[8px] font-black uppercase text-black pt-1">
+                  <h1 className="text-[17px] font-black uppercase italic tracking-tighter leading-none text-black">{trip.carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
+                  <p className="text-[10px] uppercase max-w-[400px] leading-tight text-black font-bold">{trip.carrier?.address}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] font-black uppercase text-black pt-1">
                     <span>GSTIN: {trip.carrier?.gstNo}</span>
                     {trip.carrier?.panNo && <span>PAN: {trip.carrier.panNo}</span>}
                     <span>MOB: {trip.carrier?.mobile}</span>

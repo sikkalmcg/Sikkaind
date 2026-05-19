@@ -172,9 +172,9 @@ export default function CNPrintPage() {
                   </div>
                 )}
                 <div className="space-y-0.5">
-                  <h1 className="text-[15px] font-black uppercase italic tracking-tighter leading-none text-black">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
-                  <p className="text-[8px] uppercase max-w-[400px] leading-tight text-black font-bold">{carrier?.address}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[8px] font-black uppercase text-black pt-1">
+                  <h1 className="text-[17px] font-black uppercase italic tracking-tighter leading-none text-black">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
+                  <p className="text-[10px] uppercase max-w-[400px] leading-tight text-black font-bold">{carrier?.address}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] font-black uppercase text-black pt-1">
                     <span>GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</span>
                     {carrier?.panNo && <span>PAN: {carrier.panNo}</span>}
                     <span>MOB: {carrier?.mobile}</span>
@@ -295,7 +295,7 @@ export default function CNPrintPage() {
 
           <div className="mt-auto space-y-10 text-black">
              <div className="flex justify-between items-end text-black">
-                <div className="space-y-4 max-w-[60%]">
+                <div className="space-y-4 max-w-[60%] text-black">
                    <h5 className="text-[8px] font-normal uppercase text-black tracking-widest italic border-b border-black w-fit pb-1">Terms & Conditions</h5>
                    <div className="space-y-1 text-black">
                       {termsList.map((term, i) => (
