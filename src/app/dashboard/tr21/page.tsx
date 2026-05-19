@@ -592,6 +592,13 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
       .join(", ");
   }, [trip.invoices]);
 
+  const termsList = React.useMemo(() => {
+    const rawTerms = carrier?.termsAndConditions;
+    const defaultTerms = '1. THE CARRIER HOLDS NO LIABILITY FOR SHORTAGE NOT REPORTED AT ARRIVAL.\n2. ALL DISPUTES FALL UNDER CORPORATE HQ JURISDICTION.\n3. WEIGHT BASED ON PARTY DECLARATIONS.';
+    const termsString = typeof rawTerms === 'string' && rawTerms.trim() ? rawTerms : defaultTerms;
+    return termsString.split('\n').filter(t => t.trim());
+  }, [carrier]);
+
   const consignor = customers?.find(c => c.customerCode === trip.consignorCode);
   const consignee = customers?.find(c => c.customerCode === trip.consigneeCode);
   const shipToParty = customers?.find(c => c.customerCode === trip.shipToPartyCode);
@@ -662,8 +669,8 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
              </table>
           </div>
 
-          <div className="grid grid-cols-3 gap-0 mb-8">
-             <div className="border-r border-black p-5 space-y-4 min-h-[180px]">
+          <div className="grid grid-cols-3 gap-0 mb-8 border-none">
+             <div className="border-r border-slate-200 p-5 space-y-4 min-h-[180px]">
                 <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignor</h4>
                 <div className="text-[11px] uppercase font-normal space-y-1.5">
                    <p className="text-[12px]">{trip.consignorName}</p>
@@ -672,7 +679,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                    <p className="text-[9px] pt-1 text-slate-500 font-mono">GSTIN: {consignor?.gstNo || consignor?.gstin}</p>
                 </div>
              </div>
-             <div className="border-r border-black p-5 space-y-4 min-h-[180px]">
+             <div className="border-r border-slate-200 p-5 space-y-4 min-h-[180px]">
                 <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignee</h4>
                 <div className="text-[11px] uppercase font-normal space-y-1.5">
                    <p className="text-[12px]">{trip.consigneeName}</p>
@@ -723,7 +730,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                    ))}
                 </tbody>
                 <tfoot>
-                   <tr className="bg-slate-50 font-normal text-[10px] uppercase">
+                   <tr className="bg-slate-50 font-normal text-[10px] uppercase border-none">
                       <td colSpan={3} className="p-4 text-right text-slate-400 italic">Gross Total:</td>
                       <td className="p-4 text-center text-blue-900">{packageSummary}</td>
                       <td className="p-4 text-right text-blue-900">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
@@ -737,7 +744,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                 <div className="space-y-4 max-w-[60%]">
                    <h5 className="text-[9px] font-normal uppercase text-slate-400 tracking-widest italic border-b border-slate-100 w-fit pb-1">Terms & Conditions</h5>
                    <div className="space-y-1">
-                      {(carrier?.termsAndConditions || '1. THE CARRIER HOLDS NO LIABILITY FOR SHORTAGE NOT REPORTED AT ARRIVAL.\n2. ALL DISPUTES FALL UNDER CORPORATE HQ JURISDICTION.\n3. WEIGHT BASED ON PARTY DECLARATIONS.').split('\n').map((term: string, i: number) => (
+                      {termsList.map((term, i) => (
                         <p key={i} className="text-[9px] leading-relaxed text-justify text-slate-500 uppercase font-normal">
                           {term.trim()}
                         </p>
@@ -762,3 +769,4 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
     </div>
   );
 }
+
