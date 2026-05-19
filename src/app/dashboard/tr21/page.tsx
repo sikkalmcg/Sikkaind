@@ -105,11 +105,30 @@ export default function TR21Page() {
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
+  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: plants } = useCollection(plantsQuery);
   const { data: vendors } = useCollection(vendorsQuery);
+  const { data: companies } = useCollection(companiesQuery);
+
+  const currentCarrier = React.useMemo(() => {
+    if (!selectedTrip || !companies) return null;
+    return companies.find(c => c.plantCodes?.includes(selectedTrip.plantCode));
+  }, [selectedTrip, companies]);
+
+  const lastCarrierCN = React.useMemo(() => {
+    if (!currentCarrier || !trips) return '-';
+    const carrierTrips = trips.filter(t => (t.carrierName === currentCarrier.companyName || t.plantCode === selectedTrip.plantCode) && t.cnNumber);
+    if (carrierTrips.length === 0) return '-';
+    const sorted = [...carrierTrips].sort((a, b) => {
+       const da = new Date(a.updatedAt).getTime() || 0;
+       const db = new Date(b.updatedAt).getTime() || 0;
+       return db - da;
+    });
+    return sorted[0].cnNumber;
+  }, [currentCarrier, trips, selectedTrip]);
 
   const filteredData = React.useMemo(() => {
     if (!orders || !trips || !mounted) return [];
@@ -173,6 +192,7 @@ export default function TR21Page() {
     if (!cnData.cnNumber) return alert('CN Number Mandatory');
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
       ...cnData, 
+      carrierName: currentCarrier?.companyName || '',
       updatedAt: new Date().toISOString() 
     });
     setShowCNPortal(false);
@@ -243,7 +263,7 @@ export default function TR21Page() {
                 <th className="p-3 border-r w-[140px]">Vehicle / Mobile</th>
                 {activeTab !== 'Open Orders' && <th className="p-3 border-r w-[120px]">CN Number/Date</th>}
                 <th className="p-3 border-r w-[80px] text-right">Qty (MT)</th>
-                <th className="p-3 w-[100px] shrink-0 text-center">Action</th>
+                <th className="p-3 w-[100px] shrink-0 text-center text-[10px]">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -278,7 +298,7 @@ export default function TR21Page() {
                     </td>
                   )}
                   <td className="p-3 border-r text-right font-black text-blue-600">{item.assignWeight || item.quantity}</td>
-                  <td className="p-3 text-center flex flex-col gap-1 items-center justify-center w-[100px]">
+                  <td className="p-3 text-center flex flex-col gap-1 items-center justify-center w-[100px] shrink-0">
                     {activeTab === 'Open Orders' ? (
                       <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), paymentTerms: 'PAID' }); setShowAssign(true); }} className="h-7 w-[80px] text-[9px] font-black bg-[#1e3a8a] rounded-none">Assign</Button>
                     ) : (
@@ -360,16 +380,23 @@ export default function TR21Page() {
         <DialogContent className="max-w-[1000px] rounded-none border-[3px] border-emerald-600 font-mono p-0 overflow-hidden text-left">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
              <DialogTitle className="text-[14px] font-black uppercase text-emerald-700 italic mb-4 no-bold">Documentation Execution: Consignment Note</DialogTitle>
-             <div className="grid grid-cols-4 gap-6 bg-white border border-slate-200 p-4 text-[10px] font-black uppercase">
+             <div className="grid grid-cols-5 gap-6 bg-white border border-slate-200 p-4 text-[10px] font-black uppercase">
                 <div><span className="text-slate-400 text-[8px]">Plant</span><p>{selectedTrip?.plantCode}</p></div>
                 <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedTrip?.shipToParty}</p></div>
                 <div><span className="text-slate-400 text-[8px]">Route</span><p className="italic">{selectedTrip?.from} → {selectedTrip?.destination}</p></div>
                 <div><span className="text-slate-400 text-[8px]">Vehicle</span><p className="text-blue-700">{selectedTrip?.vehicleNo}</p></div>
+                <div><span className="text-slate-400 text-[8px]">Carrier</span><p className="text-[#0056d2] truncate">{currentCarrier?.companyName || 'N/A'}</p></div>
              </div>
           </DialogHeader>
           <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto green-scrollbar">
              <div className="grid grid-cols-3 gap-6">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">CN Number *</label><input value={cnData.cnNumber || ''} onChange={e => setCNData({...cnData, cnNumber: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black" /></div>
+                <div className="space-y-1.5">
+                   <div className="flex justify-between items-center">
+                      <label className="text-[10px] font-black text-slate-400 uppercase">CN Number *</label>
+                      <div className="bg-slate-800 text-white px-2 py-0.5 text-[8px] font-black uppercase">PREV: {lastCarrierCN}</div>
+                   </div>
+                   <input value={cnData.cnNumber || ''} onChange={e => setCNData({...cnData, cnNumber: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black" />
+                </div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">CN Date *</label><input type="date" value={cnData.cnDate} onChange={e => setCNData({...cnData, cnDate: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-black" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase">Payment Terms</label><select value={cnData.paymentTerms} onChange={e => setCNData({...cnData, paymentTerms: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-black uppercase outline-none"><option value="PAID">PAID</option><option value="TO PAY">TO PAY</option></select></div>
              </div>
