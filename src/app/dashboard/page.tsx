@@ -17,8 +17,15 @@ export default function DashboardPage() {
   const router = useRouter();
   const db = useFirestore();
   const { user } = useUser();
-  const registryId = typeof window !== 'undefined' ? localStorage.getItem('sap_registry_id') : null;
-  const isBootstrapAdmin = typeof window !== 'undefined' ? localStorage.getItem('sap_bootstrap_session') === 'true' : false;
+  const [mounted, setMounted] = React.useState(false);
+  const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
+  const [registryId, setRegistryId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setIsBootstrapAdmin(localStorage.getItem('sap_bootstrap_session') === 'true');
+    setRegistryId(localStorage.getItem('sap_registry_id'));
+    setMounted(true);
+  }, []);
 
   const profileRef = useMemoFirebase(() => {
     if (!registryId || isBootstrapAdmin) return null;
@@ -54,7 +61,6 @@ export default function DashboardPage() {
 
     const unsubscribeTrips = onSnapshot(tripsRef, (snapshot) => {
       const data = snapshot.docs.map(doc => doc.data());
-      // DATA LEVEL SECURITY: If user is not admin, only process data for authorized plants
       const authCodes = authorizedPlants.map(p => p.plantCode);
       
       setCounts(prev => ({
@@ -78,6 +84,8 @@ export default function DashboardPage() {
 
     return () => { unsubscribeTrips(); unsubscribeOrders(); };
   }, [db, homePlantFilter, authorizedPlants, isBootstrapAdmin]);
+
+  if (!mounted) return null;
 
   return (
     <div className="flex-1 overflow-y-auto p-8 bg-[#f2f2f2] animate-fade-in text-[#333]">
@@ -125,3 +133,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

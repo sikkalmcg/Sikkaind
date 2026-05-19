@@ -45,18 +45,13 @@ export default function TR21Page() {
 
   const [lastGeneratedCN, setLastGeneratedCN] = React.useState<string>('N/A');
 
-  const registryId = typeof window !== 'undefined' ? localStorage.getItem('sap_registry_id') : null;
-  const isBootstrapAdmin = typeof window !== 'undefined' ? localStorage.getItem('sap_bootstrap_session') === 'true' : false;
-
-  const profileRef = useMemoFirebase(() => {
-    if (!registryId || isBootstrapAdmin) return null;
-    return doc(db, 'users', SHARED_HUB_ID, 'users_master', registryId);
-  }, [db, registryId, isBootstrapAdmin]);
-  const { data: userProfile } = useDoc(profileRef);
+  // Client-side initialization to avoid hydration errors
+  const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
+  const [registryId, setRegistryId] = React.useState<string | null>(null);
 
   const [assignData, setAssignData] = React.useState<any>({
     fleetType: 'Own Vehicle',
-    assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+    assignDate: '',
     mode: 'Road',
     via: '',
     fixRate: false,
@@ -68,14 +63,31 @@ export default function TR21Page() {
 
   const [cnData, setCNData] = React.useState<any>({
     cnNumber: '',
-    cnDate: format(new Date(), 'yyyy-MM-dd'),
+    cnDate: '',
     paymentTerms: 'PAID',
     invoices: [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }]
   });
 
+  React.useEffect(() => { 
+    const isAd = localStorage.getItem('sap_bootstrap_session') === 'true';
+    const rId = localStorage.getItem('sap_registry_id');
+    setIsBootstrapAdmin(isAd);
+    setRegistryId(rId);
+
+    // Set dates after mount to match client locale/time
+    setAssignData(prev => ({ ...prev, assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }));
+    setCNData(prev => ({ ...prev, cnDate: format(new Date(), 'yyyy-MM-dd') }));
+
+    setMounted(true); 
+  }, []);
+
   const [vehicleData, setVehicleData] = React.useState({ vehicleNo: '', driverMobile: '' });
 
-  React.useEffect(() => { setMounted(true); }, []);
+  const profileRef = useMemoFirebase(() => {
+    if (!registryId || isBootstrapAdmin) return null;
+    return doc(db, 'users', SHARED_HUB_ID, 'users_master', registryId);
+  }, [db, registryId, isBootstrapAdmin]);
+  const { data: userProfile } = useDoc(profileRef);
 
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
@@ -107,13 +119,11 @@ export default function TR21Page() {
       const carrier = companies.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies[0];
       const carrierName = carrier?.companyName || '';
       
-      // Filter all trips matching this carrier that have a CN assigned
       const carrierCNs = (trips || [])
         .filter(t => (t.carrierName === carrierName || (!t.carrierName && t.plantCode === selectedTrip.plantCode)) && t.cnNumber)
         .map(t => t.cnNumber);
 
       if (carrierCNs.length > 0) {
-        // Find highest numeric suffix
         let maxNum = 0;
         let lastFull = 'N/A';
         carrierCNs.forEach(cn => {
@@ -129,7 +139,6 @@ export default function TR21Page() {
 
         setLastGeneratedCN(lastFull);
 
-        // Only auto-fill if the current trip doesn't have a CN yet
         if (!selectedTrip.cnNumber) {
           const nextNum = (maxNum + 1).toString().padStart(6, '0');
           const prefix = lastFull.match(/^[A-Za-z]+/)?.[0] || 'CN';
@@ -271,6 +280,8 @@ export default function TR21Page() {
   const handleOpenPrint = (tripId: string) => {
     window.open(`/dashboard/tr21/print/${tripId}`, '_blank');
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden text-black">
@@ -589,7 +600,6 @@ export default function TR21Page() {
                 />
              </div>
 
-             {/* MARKET VEHICLE ADDITIONAL FIELDS */}
              {assignData.fleetType === 'Market Vehicle' && (
                <>
                  <div className="space-y-1.5">
@@ -735,3 +745,4 @@ export default function TR21Page() {
     </div>
   );
 }
+

@@ -122,8 +122,15 @@ export default function VAPage() {
   const [uploadLog, setUploadLog] = React.useState<{ status: 'success' | 'failed', msg: string, id: string }[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const registryId = typeof window !== 'undefined' ? localStorage.getItem('sap_registry_id') : null;
-  const isBootstrapAdmin = typeof window !== 'undefined' ? localStorage.getItem('sap_bootstrap_session') === 'true' : false;
+  const [mounted, setMounted] = React.useState(false);
+  const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
+  const [registryId, setRegistryId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setIsBootstrapAdmin(localStorage.getItem('sap_bootstrap_session') === 'true');
+    setRegistryId(localStorage.getItem('sap_registry_id'));
+    setMounted(true);
+  }, []);
 
   const profileRef = useMemoFirebase(() => {
     if (!registryId || isBootstrapAdmin) return null;
@@ -314,7 +321,6 @@ export default function VAPage() {
   const filteredOrders = React.useMemo(() => {
     return (allOrders || [])
       .filter(o => {
-        // AUTH FILTER: Only show orders from authorized plants
         if (authorizedPlantCodes && !authorizedPlantCodes.includes(o.plantCode)) return false;
 
         const isValid = o.plantCode && o.orderNo && o.orderDate && o.consignorCode && o.consigneeCode && o.shipToPartyCode && o.quantity && o.materialName;
@@ -328,6 +334,8 @@ export default function VAPage() {
   }, [allOrders, searchId, currentPage, authorizedPlantCodes]);
 
   const totalPages = Math.ceil((allOrders || []).filter(o => o.plantCode && o.orderNo && (!authorizedPlantCodes || authorizedPlantCodes.includes(o.plantCode))).length / PAGE_SIZE);
+
+  if (!mounted) return null;
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
@@ -459,3 +467,4 @@ export default function VAPage() {
     </div>
   );
 }
+
