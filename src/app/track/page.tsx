@@ -63,11 +63,15 @@ export default function TrackPage() {
     setView('mapping');
   };
 
+  const handleOpenPrint = (tripId: string) => {
+    window.open(`/print/cn/${tripId}?auto=true`, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-[#f2f2f2] flex flex-col font-mono">
       <div className="bg-white border-b border-slate-300 px-8 py-4 mb-8 shadow-sm">
          <div className="max-w-7xl mx-auto flex items-center justify-between">
-           <div className="flex flex-col">
+           <div className="flex flex-col text-left">
              <h1 className="text-xl font-black text-[#1e3a8a] italic uppercase tracking-tighter leading-none">SIKKA INDUSTRIES</h1>
              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">& LOGISTICS • LIVE TRACKING</span>
            </div>
@@ -131,7 +135,7 @@ export default function TrackPage() {
                            <div className="flex justify-between items-center border-t border-slate-50 pt-4 gap-2">
                               <Button onClick={() => handleSelectTrip(t)} variant="outline" className="flex-1 h-8 rounded-none text-[9px] font-black uppercase border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">Live Map</Button>
                               {t.cnNumber && (
-                                <Button onClick={() => window.open(`/print/cn/${t.id}`, '_blank')} className="flex-1 h-8 rounded-none text-[9px] font-black uppercase bg-emerald-600 text-white"><ExternalLink className="h-3 w-3 mr-1" /> View CN</Button>
+                                <Button onClick={() => handleOpenPrint(t.id)} className="flex-1 h-8 rounded-none text-[9px] font-black uppercase bg-emerald-600 text-white"><ExternalLink className="h-3 w-3 mr-1" /> Open CN</Button>
                               )}
                            </div>
                         </div>
@@ -152,7 +156,7 @@ export default function TrackPage() {
 
         {view === 'mapping' && selectedTrip && (
           <div className="bg-white border border-slate-300 p-10 shadow-xl space-y-12 animate-fade-in text-black">
-             <div className="flex justify-between items-start border-b border-slate-100 pb-8">
+             <div className="flex justify-between items-start border-b border-slate-100 pb-8 text-left">
                 <div className="space-y-1">
                    <h3 className="text-[16px] font-black uppercase text-[#1e3a8a] italic tracking-tighter">Live Movement Trace: {selectedTrip.tripNo}</h3>
                    <div className="flex gap-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
@@ -163,13 +167,13 @@ export default function TrackPage() {
                 </div>
                 <div className="flex gap-2">
                   {selectedTrip.cnNumber && (
-                    <Button onClick={() => window.open(`/print/cn/${selectedTrip.id}`, '_blank')} variant="outline" className="rounded-none font-black text-[10px] px-6 h-9 uppercase border-emerald-600 text-emerald-600">View CN</Button>
+                    <Button onClick={() => handleOpenPrint(selectedTrip.id)} variant="outline" className="rounded-none font-black text-[10px] px-6 h-9 uppercase border-emerald-600 text-emerald-600">Open CN</Button>
                   )}
                   <Badge className="bg-[#0056d2] rounded-none font-black text-[10px] px-8 py-1.5 uppercase shadow-lg tracking-widest">{selectedTrip.status}</Badge>
                 </div>
              </div>
 
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 text-left">
                 <div className="space-y-8">
                    <div className="relative pl-10 space-y-10 before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100">
                       <div className="relative">

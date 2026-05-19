@@ -272,7 +272,8 @@ export default function TR21Page() {
   }, [showMapPortal, selectedTrip, gpsLive, settings]);
 
   const handleOpenPrint = (tripId: string) => {
-    window.open(`/print/cn/${tripId}`, '_blank');
+    // Open in new tab with auto-generate flag
+    window.open(`/dashboard/tr21/print/${tripId}?auto=true`, '_blank');
   };
 
   return (

@@ -1,23 +1,30 @@
 'use client';
 
 import * as React from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { Loader2, FileText, AlertCircle } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 /**
  * @fileOverview Secure Public CN Preview Protocol.
  * Mimics a PDF viewer interface. Strictly read-only.
  * Synchronizes with a dedicated public execution node to bypass master collection restrictions.
+ * Includes automated PDF generation, download, and auto-open functionality.
  */
 export default function PublicCNPreviewPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const db = useFirestore();
   const id = params.id as string;
+  const isAuto = searchParams.get('auto') === 'true';
+
+  const [generating, setGenerating] = React.useState(false);
 
   // Interaction Lockdown
   React.useEffect(() => {
@@ -32,6 +39,55 @@ export default function PublicCNPreviewPage() {
     return doc(db, 'public_trips', id);
   }, [db, id]);
   const { data: trip, isLoading: isTripLoading } = useDoc(tripRef);
+
+  const generateAndDownload = React.useCallback(async () => {
+    if (!trip || generating) return;
+    
+    const images = document.querySelectorAll('img');
+    await Promise.all(Array.from(images).map(img => {
+      if (img.complete) return Promise.resolve();
+      return new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+    }));
+
+    await new Promise(r => setTimeout(r, 1000));
+    setGenerating(true);
+
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pages = document.querySelectorAll('.cn-page');
+      
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i] as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+      }
+
+      const fileName = `CN-${trip.cnNumber || 'DRAFT'}.pdf`;
+      pdf.save(fileName);
+
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      window.location.replace(url);
+    } catch (err) {
+      console.error('Public PDF Protocol Failure:', err);
+      setGenerating(false);
+    }
+  }, [trip, generating]);
+
+  React.useEffect(() => {
+    if (isAuto && trip && !isTripLoading && !generating) {
+      generateAndDownload();
+    }
+  }, [isAuto, trip, isTripLoading, generating, generateAndDownload]);
 
   if (isTripLoading || !trip) {
     return (
@@ -50,22 +106,35 @@ export default function PublicCNPreviewPage() {
 
   return (
     <div className="min-h-screen bg-[#525659] p-4 md:p-8 font-sans text-black overflow-y-auto select-none">
+      
+      {generating && (
+        <div className="fixed inset-0 bg-[#323639] z-[200] flex flex-col items-center justify-center gap-6 text-white font-mono">
+          <Loader2 className="h-12 w-12 text-blue-400 animate-spin" />
+          <div className="text-center space-y-2">
+            <p className="text-[12px] font-normal uppercase tracking-[0.4em]">Secure Execution: PDF Generation</p>
+            <p className="text-[9px] font-normal text-slate-400 uppercase italic tracking-widest">Processing Secure Preview. Do not close tab.</p>
+          </div>
+        </div>
+      )}
+
       {/* Simulation of PDF Viewer Chrome */}
-      <div className="max-w-[210mm] mx-auto bg-[#323639] h-12 flex items-center justify-between px-6 shadow-md mb-1 rounded-t-sm sticky top-0 z-50">
-        <div className="flex items-center gap-3 text-white/90">
-          <FileText className="h-4 w-4 text-blue-400" />
-          <span className="text-[10px] font-medium uppercase tracking-[0.2em] truncate max-w-[300px]">
-            DOCUMENT_{trip.cnNumber || 'PREVIEW'}_{trip.tripNo}.pdf
-          </span>
+      {!generating && !isAuto && (
+        <div className="max-w-[210mm] mx-auto bg-[#323639] h-12 flex items-center justify-between px-6 shadow-md mb-1 rounded-t-sm sticky top-0 z-50">
+          <div className="flex items-center gap-3 text-white/90">
+            <FileText className="h-4 w-4 text-blue-400" />
+            <span className="text-[10px] font-medium uppercase tracking-[0.2em] truncate max-w-[300px]">
+              DOCUMENT_{trip.cnNumber || 'PREVIEW'}_{trip.tripNo}.pdf
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-[9px] font-black text-white/40 uppercase tracking-widest italic">
+            <AlertCircle className="h-3 w-3" /> Secure Preview Only
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-[9px] font-black text-white/40 uppercase tracking-widest italic">
-          <AlertCircle className="h-3 w-3" /> Secure Preview Only
-        </div>
-      </div>
+      )}
 
       <div id="printable-area" className="flex flex-col gap-4 mx-auto w-fit shadow-2xl">
         {copies.map((copyLabel, index) => (
-          <div key={index} className="cn-page relative p-10 bg-white border-b border-slate-100 last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden">
+          <div key={index} className="cn-page relative p-10 bg-white border-b border-slate-100 last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left">
             
             {/* Header Section */}
             <div className="flex justify-between items-start mb-8">

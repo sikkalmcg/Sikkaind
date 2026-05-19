@@ -1,28 +1,33 @@
 'use client';
 
 import * as React from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, useCollection, useUser } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { Loader2, Printer, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
 /**
  * @fileOverview CNPrintPage - High-fidelity A4 Consignment Note Printing Protocol.
  * Generates a 3-copy system (Consignee, Driver, Consignor) for standard A4 portrait.
- * Strict "No Bold" typography enforced.
+ * Includes automated PDF generation, download, and auto-open functionality.
  */
 export default function CNPrintPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const db = useFirestore();
   const id = params.id as string;
   const { user, isUserLoading: isAuthLoading } = useUser();
+  const isAuto = searchParams.get('auto') === 'true';
+
+  const [generating, setGenerating] = React.useState(false);
 
   // Data Fetching - Memoized to wait for authenticated user
   const tripRef = useMemoFirebase(() => {
@@ -43,7 +48,6 @@ export default function CNPrintPage() {
   }, [db, user, isAuthLoading]);
   const { data: customers } = useCollection(customersQuery);
 
-  // Lookup associated carrier based on trip carrier name or plant code
   const carrier = React.useMemo(() => {
     if (!trip || !companies) return null;
     return companies.find(c => c.companyName === trip.carrierName) || companies[0];
@@ -56,15 +60,67 @@ export default function CNPrintPage() {
   const [deliveryAddr, setDeliveryAddr] = React.useState('');
 
   React.useEffect(() => {
-    if (shipToParty) {
-      setDeliveryAddr(shipToParty.address || '');
-    }
+    if (shipToParty) setDeliveryAddr(shipToParty.address || '');
   }, [shipToParty]);
+
+  const generateAndDownload = React.useCallback(async () => {
+    if (!trip || generating) return;
+    
+    // Ensure images are fully loaded
+    const images = document.querySelectorAll('img');
+    await Promise.all(Array.from(images).map(img => {
+      if (img.complete) return Promise.resolve();
+      return new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+    }));
+
+    // Wait for layout stability
+    await new Promise(r => setTimeout(r, 1000));
+    setGenerating(true);
+
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const elements = document.querySelectorAll('.cn-page');
+      
+      for (let i = 0; i < elements.length; i++) {
+        const canvas = await html2canvas(elements[i] as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+      }
+
+      const fileName = `CN-${trip.cnNumber || 'DRAFT'}.pdf`;
+      
+      // Auto Download
+      pdf.save(fileName);
+
+      // Transform current page into PDF viewer
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      window.location.replace(url);
+    } catch (err) {
+      console.error('PDF Protocol Failure:', err);
+      setGenerating(false);
+    }
+  }, [trip, generating]);
+
+  React.useEffect(() => {
+    if (isAuto && trip && !isTripLoading && !generating) {
+      generateAndDownload();
+    }
+  }, [isAuto, trip, isTripLoading, generating, generateAndDownload]);
 
   if (isTripLoading || isAuthLoading || !trip) {
     return (
       <div className="h-screen flex items-center justify-center bg-slate-50 font-mono">
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4 text-black">
           <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
           <span className="text-[10px] font-normal uppercase tracking-[0.3em]">Synchronizing Print Protocol...</span>
         </div>
@@ -78,33 +134,46 @@ export default function CNPrintPage() {
 
   return (
     <div className="min-h-screen bg-slate-200 p-0 md:p-8 font-sans text-black overflow-y-auto print:bg-white print:p-0">
+      
+      {generating && (
+        <div className="fixed inset-0 bg-[#323639] z-[200] flex flex-col items-center justify-center gap-6 text-white font-mono">
+          <Loader2 className="h-12 w-12 text-blue-400 animate-spin" />
+          <div className="text-center space-y-2">
+            <p className="text-[12px] font-normal uppercase tracking-[0.4em]">Protocol Execution: PDF Generation</p>
+            <p className="text-[9px] font-normal text-slate-400 uppercase italic tracking-widest">Generating CN-{trip.cnNumber}. Do not close this tab.</p>
+          </div>
+        </div>
+      )}
+
       {/* Interactive Toolbar */}
-      <div className="max-w-[850px] mx-auto bg-white shadow-2xl no-print mb-8 rounded-sm border border-slate-300 sticky top-0 z-[100]">
-         <div className="p-4 flex justify-between items-center bg-slate-50">
-            <div className="flex flex-col">
-               <span className="text-[11px] font-normal uppercase italic text-blue-900 tracking-tighter">Sikka Logistics Management Protocol</span>
-               <span className="text-[9px] font-normal text-slate-400 uppercase">A4 Multi-Copy Matrix</span>
-            </div>
-            <div className="flex gap-3">
-               <button 
-                onClick={() => window.print()} 
-                className="h-9 bg-blue-700 hover:bg-blue-800 text-white px-8 text-[11px] font-normal uppercase rounded-none transition-all flex items-center gap-2 shadow-md active:scale-95"
-               >
-                 <Printer className="h-4 w-4" /> Print Protocol
-               </button>
-               <button 
-                onClick={() => window.close()} 
-                className="h-9 bg-white border border-slate-300 text-slate-600 px-8 text-[11px] font-normal uppercase rounded-none hover:bg-slate-100 transition-all flex items-center gap-2 active:scale-95"
-               >
-                 <X className="h-4 w-4" /> Exit
-               </button>
-            </div>
-         </div>
-      </div>
+      {!generating && !isAuto && (
+        <div className="max-w-[850px] mx-auto bg-white shadow-2xl no-print mb-8 rounded-sm border border-slate-300 sticky top-0 z-[100]">
+           <div className="p-4 flex justify-between items-center bg-slate-50">
+              <div className="flex flex-col text-left">
+                 <span className="text-[11px] font-normal uppercase italic text-blue-900 tracking-tighter">Sikka Logistics Management Protocol</span>
+                 <span className="text-[9px] font-normal text-slate-400 uppercase">A4 Multi-Copy Matrix</span>
+              </div>
+              <div className="flex gap-3">
+                 <button 
+                  onClick={() => window.print()} 
+                  className="h-9 bg-blue-700 hover:bg-blue-800 text-white px-8 text-[11px] font-normal uppercase rounded-none transition-all flex items-center gap-2 shadow-md active:scale-95"
+                 >
+                   <Printer className="h-4 w-4" /> Print Protocol
+                 </button>
+                 <button 
+                  onClick={() => window.close()} 
+                  className="h-9 bg-white border border-slate-300 text-slate-600 px-8 text-[11px] font-normal uppercase rounded-none hover:bg-slate-100 transition-all flex items-center gap-2 active:scale-95"
+                 >
+                   <X className="h-4 w-4" /> Exit
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
 
       <div id="printable-area" className="flex flex-col gap-0 bg-white shadow-inner mx-auto w-fit print:shadow-none print:w-full">
         {copies.map((copyLabel, index) => (
-          <div key={index} className="cn-page relative p-10 bg-white border-b-2 border-dashed border-slate-200 last:border-b-0 print:border-none print:m-0 print:page-break-after-always">
+          <div key={index} className="cn-page relative p-10 bg-white border-b-2 border-dashed border-slate-200 last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left">
             
             {/* Header Section */}
             <div className="flex justify-between items-start mb-8">
@@ -304,14 +373,6 @@ export default function CNPrintPage() {
            width: 210mm;
            min-height: 297mm;
            box-sizing: border-box;
-        }
-        /* Custom scrollbar for preview */
-        .green-scrollbar::-webkit-scrollbar {
-          width: 5px;
-        }
-        .green-scrollbar::-webkit-scrollbar-thumb {
-          background-color: #cbd5e1;
-          border-radius: 10px;
         }
       `}</style>
     </div>
