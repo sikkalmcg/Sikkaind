@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -132,7 +133,6 @@ export default function VAPage() {
   const filteredCustomersForSelection = React.useMemo(() => {
     if (!customers) return [];
     if (!formData.plantCode) return customers;
-    // Filter customers that are linked to the selected plant to ensure correct code mapping (e.g. DID20)
     return customers.filter(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(formData.plantCode));
   }, [customers, formData.plantCode]);
 
@@ -291,7 +291,6 @@ export default function VAPage() {
   const filteredOrders = React.useMemo(() => {
     return (orders || [])
       .filter(o => {
-        // Strict Integrity Filter
         const isValid = o.plantCode && o.orderNo && o.orderDate && o.consignorCode && o.consigneeCode && o.shipToPartyCode && o.quantity && o.materialName;
         if (!isValid) return false;
         
@@ -306,8 +305,8 @@ export default function VAPage() {
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
-        <h2 className="text-[16px] font-bold text-slate-800 uppercase italic">{activeTCode} - Sale Order Registry</h2>
+      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between text-black">
+        <h2 className="text-[16px] font-bold uppercase italic">{activeTCode} - Sale Order Registry</h2>
         <div className="flex gap-4">
            {activeTCode === 'VA01' && !formData.id && (
              <>
@@ -322,7 +321,7 @@ export default function VAPage() {
 
       <div className="px-2">
         {uploadLog.length > 0 && (
-          <div className="mb-10 bg-white border border-slate-300 shadow-md animate-fade-in max-h-60 overflow-y-auto">
+          <div className="mb-10 bg-white border border-slate-300 shadow-md animate-fade-in max-h-60 overflow-y-auto text-black">
              <div className="bg-slate-50 p-2 border-b border-slate-200 flex justify-between sticky top-0 z-10"><span className="text-[10px] font-black uppercase text-blue-800">Processing Log</span><button onClick={() => setUploadLog([])}><X className="h-4 w-4 text-slate-400" /></button></div>
              <div className="p-4 space-y-1.5 text-[10px] font-bold uppercase">
                 {uploadLog.map((log, i) => (
@@ -337,39 +336,42 @@ export default function VAPage() {
         )}
 
         {!formData.id && activeTCode !== 'VA01' ? (
-          <div className="bg-white border border-slate-300 shadow-sm overflow-x-auto custom-scrollbar">
+          <div className="bg-white border border-slate-300 shadow-sm overflow-x-auto custom-scrollbar text-black">
              <div className="p-6 bg-slate-50 border-b flex items-center gap-6">
                 <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Registry:</label>
                 <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:bg-yellow-50" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER ORDER NO OR CUSTOMER..." />
              </div>
-             <table className="w-full text-left text-[10px] min-w-[1500px]">
-                <thead className="bg-slate-50 border-b border-slate-300 font-black uppercase text-slate-500">
+             <table className="w-full text-left text-[11px] min-w-[1550px] border-collapse">
+                <thead className="bg-[#f8fafc] border-b border-slate-300 font-black uppercase text-slate-500 sticky top-0 z-20">
                   <tr>
-                    <th className="p-4 border-r">Plant</th>
-                    <th className="p-4 border-r">Sale Order</th>
-                    <th className="p-4 border-r">Order Date</th>
-                    <th className="p-4 border-r">Consignor</th>
-                    <th className="p-4 border-r">From</th>
-                    <th className="p-4 border-r">Consignee</th>
-                    <th className="p-4 border-r">Ship to Party</th>
-                    <th className="p-4 border-r">Destination</th>
-                    <th className="p-4 border-r">Material</th>
-                    <th className="p-4 text-right">Weight</th>
+                    <th className="p-4 border-r w-[80px]">Plant</th>
+                    <th className="p-4 border-r w-[120px]">Sale Order</th>
+                    <th className="p-4 border-r w-[120px]">Order Date</th>
+                    <th className="p-4 border-r w-[200px]">Consignor</th>
+                    <th className="p-4 border-r w-[150px] flex flex-col justify-center leading-none"><span>From</span><span className="text-[7px] text-blue-600 mt-0.5">Via</span></th>
+                    <th className="p-4 border-r w-[200px]">Consignee</th>
+                    <th className="p-4 border-r w-[200px]">Ship to Party</th>
+                    <th className="p-4 border-r w-[150px]">Destination</th>
+                    <th className="p-4 border-r w-[150px]">Material</th>
+                    <th className="p-4 text-right w-[100px]">Weight</th>
                   </tr>
                 </thead>
-                <tbody className="font-bold uppercase text-black">
+                <tbody className="font-bold uppercase">
                   {filteredOrders.map(o => (
-                    <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer">
-                      <td className="p-4 border-r">{o.plantCode}</td>
+                    <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50/40 cursor-pointer">
+                      <td className="p-4 border-r text-slate-600">{o.plantCode}</td>
                       <td className="p-4 border-r text-[#0056d2] font-black">{o.orderNo}</td>
                       <td className="p-4 border-r whitespace-nowrap">{o.orderDate ? format(new Date(o.orderDate), 'dd-MMM-yyyy') : '-'}</td>
-                      <td className="p-4 border-r truncate max-w-[150px]" title={o.consignorName}>{o.consignorName}</td>
-                      <td className="p-4 border-r">{o.from}</td>
-                      <td className="p-4 border-r truncate max-w-[150px]" title={o.consigneeName}>{o.consigneeName}</td>
-                      <td className="p-4 border-r truncate max-w-[150px]" title={o.shipToParty}>{o.shipToParty}</td>
-                      <td className="p-4 border-r">{o.destination}</td>
-                      <td className="p-4 border-r">{o.materialName}</td>
-                      <td className="p-4 text-right">{o.quantity} MT</td>
+                      <td className="p-4 border-r truncate max-w-[200px]" title={o.consignorName}>{o.consignorName}</td>
+                      <td className="p-4 border-r flex flex-col justify-center leading-tight">
+                        <span className="truncate">{o.from}</span>
+                        {o.via && <span className="text-[8px] text-blue-600 font-black uppercase truncate">VIA: {o.via}</span>}
+                      </td>
+                      <td className="p-4 border-r truncate max-w-[200px]" title={o.consigneeName}>{o.consigneeName}</td>
+                      <td className="p-4 border-r truncate max-w-[200px]" title={o.shipToParty}>{o.shipToParty}</td>
+                      <td className="p-4 border-r truncate max-w-[150px]">{o.destination}</td>
+                      <td className="p-4 border-r truncate max-w-[150px]">{o.materialName}</td>
+                      <td className="p-4 text-right text-blue-800 font-black">{o.quantity} MT</td>
                     </tr>
                   ))}
                 </tbody>
@@ -383,7 +385,7 @@ export default function VAPage() {
              </div>
           </div>
         ) : (
-          <div className="animate-slide-up space-y-10 bg-white p-12 border border-slate-300 shadow-inner">
+          <div className="animate-slide-up space-y-10 bg-white p-12 border border-slate-300 shadow-inner text-black">
              <div className="grid grid-cols-2 gap-x-24 gap-y-6">
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Plant Code:</label><select value={formData.plantCode || ''} onChange={e => setFormData({...formData, plantCode: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border bg-white px-2 text-[12px] font-black outline-none", errors.includes('plantCode') ? "border-red-500 bg-red-50" : "border-slate-400")}>{plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
                <div className="flex items-center gap-8">

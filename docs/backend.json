@@ -115,7 +115,8 @@
         "uom": { "type": "string" },
         "bagCount": { "type": "number" },
         "orderDate": { "type": "string" },
-        "status": { "type": "string", "enum": ["Open", "Short closed", "In-Process", "Closed"] }
+        "status": { "type": "string", "enum": ["Open", "Short closed", "In-Process", "Closed"] },
+        "via": { "type": "string" }
       }
     },
     "TripBoard": {
@@ -130,6 +131,7 @@
         "route": { "type": "string" },
         "carrierPan": { "type": "string" },
         "mode": { "type": "string", "enum": ["Road", "Road from Rail"] },
+        "via": { "type": "string" },
         "paymentTerms": { "type": "string" },
         "cnNumber": { "type": "string" },
         "cnDate": { "type": "string" },

@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -41,12 +42,13 @@ export default function TR21Page() {
   const [assignData, setAssignData] = React.useState<any>({
     fleetType: 'Own Vehicle',
     assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+    mode: 'Road',
+    via: '',
     fixRate: false
   });
   
   const [actionData, setActionData] = React.useState({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
 
-  // Persistent Settings for Icons
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
@@ -128,7 +130,6 @@ export default function TR21Page() {
       baseData = orders.filter(o => o.status === 'Open').filter(o => {
         const isValid = o.plantCode && o.orderNo && o.orderDate && o.consignorCode && o.consigneeCode && o.shipToPartyCode && o.quantity;
         if (!isValid) return false;
-        
         if (seenNos.has(o.orderNo)) return false;
         seenNos.add(o.orderNo);
         return true;
@@ -158,9 +159,9 @@ export default function TR21Page() {
 
   const handlePostAssignment = () => {
     if (!assignData.vehicleNo || !assignData.assignWeight) return alert('Mandatory fields missing');
+    if (assignData.mode === 'Road from Rail' && !assignData.via) return alert('Via field is mandatory for Road from Rail mode');
     if (parseFloat(assignData.assignWeight) > selectedOrder.balance + 0.001) return alert('Weight exceeds balance');
 
-    // System auto create a Trip ID – First alfabate “T” and after 9 digit a Unique Number.
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
     const now = new Date().toISOString();
     
@@ -179,6 +180,8 @@ export default function TR21Page() {
       assignWeight: parseFloat(assignData.assignWeight),
       status: 'LOADING',
       assignDate: assignData.assignDate,
+      mode: assignData.mode || 'Road',
+      via: assignData.via || '',
       fleetType: assignData.fleetType,
       createdAt: now,
       updatedAt: now,
@@ -196,12 +199,14 @@ export default function TR21Page() {
     };
 
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', payload.id), payload, { merge: true });
+    
+    // Update SalesOrder with 'via' if multi-modal for tracking
+    if (payload.via) {
+      updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', selectedOrder.id), { via: payload.via });
+    }
+
     setShowAssign(false);
-    setAssignData({
-      fleetType: 'Own Vehicle',
-      assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-      fixRate: false
-    });
+    setAssignData({ fleetType: 'Own Vehicle', assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"), mode: 'Road', via: '', fixRate: false });
     alert(`Protocol Post: Trip ID ${tripId} registered.`);
   };
 
@@ -212,7 +217,6 @@ export default function TR21Page() {
     setAssignData(prev => ({ ...prev, rate, freightAmount: (r * q).toFixed(2) }));
   };
 
-  // Map Dialog Logic
   React.useEffect(() => {
     if (showMapPortal && selectedTrip && mapRef.current && window.google) {
       const liveNode = gpsLive.find(n => n.vehicleNumber?.trim() === selectedTrip.vehicleNo?.trim());
@@ -303,11 +307,11 @@ export default function TR21Page() {
                {activeTab === 'Open Orders' ? (
                  <>
                    <div className="p-3 w-[4%] border-r text-center text-black shrink-0">Plant</div>
-                   <div className="p-3 w-[12%] border-r text-black text-center shrink-0">Sale Order Details</div>
+                   <div className="p-3 w-[10%] border-r text-black text-center shrink-0">Sale Order Details</div>
                    <div className="p-3 w-[15%] border-r text-black shrink-0">Consignor</div>
                    <div className="p-3 w-[15%] border-r text-black shrink-0">Consignee</div>
                    <div className="p-3 flex-1 border-r text-black shrink-0">Ship to Party</div>
-                   <div className="p-3 w-[12%] border-r text-black shrink-0">Route</div>
+                   <div className="p-3 w-[10%] border-r text-black shrink-0">Route</div>
                    <div className="p-3 w-[5%] border-r text-right text-black shrink-0">Qty</div>
                    <div className="p-3 w-[5%] border-r text-right text-emerald-600 shrink-0">Balance</div>
                    <div className="p-1 w-[100px] text-center text-black shrink-0">Action</div>
@@ -319,7 +323,7 @@ export default function TR21Page() {
                    <div className="p-3 w-[8%] border-r text-blue-700 shrink-0">Trip ID</div>
                    <div className="p-3 w-[15%] border-r text-black shrink-0">Consignee</div>
                    <div className="p-3 flex-1 border-r text-black shrink-0">Ship To Party</div>
-                   <div className="p-3 w-[10%] border-r shrink-0">Route</div>
+                   <div className="p-3 w-[10%] border-r shrink-0 flex flex-col justify-center leading-none text-black"><span>From</span><span className="text-[7px] text-blue-600 mt-0.5">Via</span></div>
                    <div className="p-3 w-[12%] border-r text-black shrink-0">Vehicle</div>
                    <div className="p-3 w-[5%] border-r text-center shrink-0">Qty</div>
                    <div className="p-1 w-[100px] text-center text-black shrink-0">Action</div>
@@ -335,14 +339,14 @@ export default function TR21Page() {
                     {activeTab === 'Open Orders' ? (
                       <>
                         <div className="p-3 w-[4%] border-r text-center shrink-0">{item.plantCode}</div>
-                        <div className="p-3 w-[12%] border-r flex flex-col justify-center shrink-0">
+                        <div className="p-3 w-[10%] border-r flex flex-col justify-center shrink-0 leading-tight">
                            <span className="text-blue-700">{item.orderNo}</span>
                            <span className="text-[10px] text-slate-500 font-bold">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
                         <div className="p-3 w-[15%] border-r truncate shrink-0" title={item.consignorName}>{item.consignorName}</div>
                         <div className="p-3 w-[15%] border-r truncate shrink-0" title={item.consigneeName}>{item.consigneeName}</div>
                         <div className="p-3 flex-1 border-r truncate shrink-0" title={item.shipToParty}>{item.shipToParty}</div>
-                        <div className="p-3 w-[12%] border-r italic text-slate-500 text-[10px] leading-tight shrink-0">{item.from} → {item.destination}</div>
+                        <div className="p-3 w-[10%] border-r italic text-slate-500 text-[10px] leading-tight shrink-0">{item.from} → {item.destination}</div>
                         <div className="p-3 w-[5%] border-r text-right shrink-0">{item.quantity}</div>
                         <div className="p-3 w-[5%] border-r text-right text-emerald-600 font-black shrink-0">{item.balance?.toFixed(3)}</div>
                         <div className="p-1 w-[100px] flex justify-center shrink-0">
@@ -352,14 +356,17 @@ export default function TR21Page() {
                     ) : (
                       <>
                         <div className="p-3 w-[3%] border-r text-center shrink-0">{item.plantCode}</div>
-                        <div className="p-3 w-[10%] border-r flex flex-col justify-center shrink-0">
+                        <div className="p-3 w-[10%] border-r flex flex-col justify-center shrink-0 leading-tight">
                            <span className="text-slate-800">{item.orderNo}</span>
                            <span className="text-[10px] text-slate-400 font-bold">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
-                        <div className="p-3 w-[7%] border-r text-blue-700 font-black shrink-0">{item.tripNo}</div>
+                        <div className="p-3 w-[8%] border-r text-blue-700 font-black shrink-0">{item.tripNo}</div>
                         <div className="p-3 w-[15%] border-r truncate shrink-0" title={item.consigneeName}>{item.consigneeName}</div>
                         <div className="p-3 flex-1 border-r truncate shrink-0" title={item.shipToParty}>{item.shipToParty}</div>
-                        <div className="p-3 w-[10%] border-r italic text-slate-500 text-[10px] shrink-0">{item.from} → {item.destination}</div>
+                        <div className="p-3 w-[10%] border-r italic text-slate-500 text-[10px] shrink-0 flex flex-col justify-center leading-tight">
+                           <span>{item.from} → {item.destination}</span>
+                           {item.via && <span className="text-[8px] font-black text-blue-700 not-italic uppercase truncate">VIA: {item.via}</span>}
+                        </div>
                         <div className="p-3 w-[12%] border-r flex flex-col shrink-0">
                            <span className="font-black text-blue-800">{item.vehicleNo}</span>
                            <span className="text-[10px] text-slate-500 font-bold">{item.driverMobile || '-'}</span>
@@ -453,6 +460,28 @@ export default function TR21Page() {
                      <option value="Market Vehicle">Market Vehicle</option>
                    </select>
                 </div>
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-slate-400 uppercase">Transport Mode *</label>
+                   <select 
+                     value={assignData.mode} 
+                     onChange={e => setAssignData({...assignData, mode: e.target.value, via: e.target.value === 'Road' ? '' : assignData.via})}
+                     className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-black uppercase outline-none"
+                   >
+                     <option value="Road">Road</option>
+                     <option value="Road from Rail">Road from Rail</option>
+                   </select>
+                </div>
+                {assignData.mode === 'Road from Rail' && (
+                  <div className="space-y-1.5">
+                     <label className="text-[10px] font-black text-[#0056d2] uppercase italic">Via (Trans-shipment Point) *</label>
+                     <input 
+                       value={assignData.via || ''} 
+                       onChange={e => setAssignData({...assignData, via: e.target.value.toUpperCase()})} 
+                       className="h-9 w-full border border-[#0056d2] px-3 text-xs font-black outline-none focus:bg-blue-50/30 shadow-inner" 
+                       placeholder="ENTER SIDING NAME..."
+                     />
+                  </div>
+                )}
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-black text-[#0056d2] uppercase">Assign Qty (MT) *</label>
                    <input 
