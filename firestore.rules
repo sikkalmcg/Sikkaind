@@ -5,39 +5,36 @@ service cloud.firestore {
     // Helper functions
     function isSignedIn() { return request.auth != null; }
 
-    // 1. PUBLIC EXECUTION NODES (Tracking & Document Preview)
-    match /public_trips/{tripId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-    match /public_orders/{orderNo} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
+    // 1. PUBLIC SIKKAIND HUB - LOGISTICS MASTER DATA
+    // We allow public read access to these collections to support tracking and unauthenticated previews.
+    // Using recursive wildcards {allPaths=**} ensures that 'list' operations (collection queries) are permitted.
+    match /users/Sikkaind/companies/{allPaths=**} { allow read: if true; }
+    match /users/Sikkaind/customers/{allPaths=**} { allow read: if true; }
+    match /users/Sikkaind/sales_orders/{allPaths=**} { allow read: if true; }
+    match /users/Sikkaind/plants/{allPaths=**} { allow read: if true; }
+    match /users/Sikkaind/vendors/{allPaths=**} { allow read: if true; }
+    match /users/Sikkaind/trip_board/{allPaths=**} { allow read: if true; }
 
-    // 2. SIKKAIND HUB - PUBLIC READ FOR LOGISTICS
-    // Explicitly allow public read for execution data to support tracking and unauthenticated print previews
-    match /users/Sikkaind/trip_board/{id} { allow read: if true; }
-    match /users/Sikkaind/companies/{id} { allow read: if true; }
-    match /users/Sikkaind/customers/{id} { allow read: if true; }
-    match /users/Sikkaind/sales_orders/{id} { allow read: if true; }
-    match /users/Sikkaind/plants/{id} { allow read: if true; }
-    match /users/Sikkaind/vendors/{id} { allow read: if true; }
-
-    // Protected administrative data (Users Master)
+    // 2. PROTECTED SIKKAIND HUB - ADMINISTRATIVE & SYSTEM DATA
     match /users/Sikkaind/users_master/{allPaths=**} {
       allow read, write: if isSignedIn();
     }
-
-    // Default catch-all for Sikkaind write operations
+    
+    // Catch-all for other sub-collections in the Sikkaind hub
     match /users/Sikkaind/{allPaths=**} {
       allow read: if true;
       allow write: if isSignedIn();
     }
+
+    // 3. PUBLIC EXECUTION NODES (Legacy/Direct Support)
+    match /public_trips/{allPaths=**} { allow read: if true; allow write: if isSignedIn(); }
+    match /public_orders/{allPaths=**} { allow read: if true; allow write: if isSignedIn(); }
     
-    // 3. PRIVATE USER REGISTRY
+    // 4. PRIVATE USER REGISTRY
+    // This allows individual users to have their own private data trees if needed.
+    // We check that the userId is NOT 'Sikkaind' to avoid conflicting with the hub rules above.
     match /users/{userId}/{allPaths=**} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if userId != 'Sikkaind' && isSignedIn() && request.auth.uid == userId;
     }
 
     match /user_profiles/{userId} {
@@ -48,7 +45,7 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
-    // 4. GLOBAL CATCH-ALL
+    // 5. GLOBAL CATCH-ALL
     match /{document=**} {
       allow read, write: if isSignedIn();
     }
