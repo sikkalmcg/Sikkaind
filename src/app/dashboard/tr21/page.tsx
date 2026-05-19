@@ -366,20 +366,32 @@ export default function TR21Page() {
                           {activeTab === 'Loading' && (
                             <>
                               <Button onClick={() => handleUpdateStatus(item.id, 'IN-TRANSIT', 'outDate')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
-                              <Button onClick={() => { setSelectedTrip(item); setCNData(item.cnNumber ? item : { ...cnData, invoices: item.invoices || [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }] }); setShowCNPortal(true); }} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">CN ENTRY</Button>
+                              <Button onClick={() => { 
+                                setSelectedTrip(item); 
+                                setCNData(item.cnNumber ? { ...item, invoices: item.invoices || [] } : { ...cnData, invoices: item.invoices || [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }] }); 
+                                setShowCNPortal(true); 
+                              }} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">CN ENTRY</Button>
                             </>
                           )}
                           {activeTab === 'In-Transit' && (
                             <>
                               <Button onClick={() => handleUpdateStatus(item.id, 'ARRIVED', 'arrivedDate')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">ARRIVED</Button>
-                              <Button onClick={() => { setSelectedTrip(item); setCNData(item); setShowCNPortal(true); }} variant="outline" className="h-6 w-20 text-[8px] font-normal border-slate-300 rounded-none">CN EDIT</Button>
+                              <Button onClick={() => { 
+                                setSelectedTrip(item); 
+                                setCNData({ ...item, invoices: item.invoices || [] }); 
+                                setShowCNPortal(true); 
+                              }} variant="outline" className="h-6 w-20 text-[8px] font-normal border-slate-300 rounded-none">CN EDIT</Button>
                             </>
                           )}
                           {activeTab === 'Arrived' && (
                             <>
                               <Button onClick={() => handleUpdateStatus(item.id, 'POD')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">UNLOAD</Button>
                               <Button onClick={() => handleUpdateStatus(item.id, 'REJECTION')} className="h-6 w-20 text-[8px] font-normal bg-red-600 text-white rounded-none">REJECT</Button>
-                              <Button onClick={() => { setSelectedTrip(item); setCNData(item); setShowCNPortal(true); }} variant="outline" className="h-6 w-20 text-[8px] font-normal border-slate-300 rounded-none">CN EDIT</Button>
+                              <Button onClick={() => { 
+                                setSelectedTrip(item); 
+                                setCNData({ ...item, invoices: item.invoices || [] }); 
+                                setShowCNPortal(true); 
+                              }} variant="outline" className="h-6 w-20 text-[8px] font-normal border-slate-300 rounded-none">CN EDIT</Button>
                             </>
                           )}
                           {activeTab === 'Reject' && (
@@ -546,12 +558,12 @@ export default function TR21Page() {
              <div className="space-y-4">
                 <div className="flex justify-between items-end border-b border-slate-200 pb-2">
                    <h4 className="text-[10px] font-normal uppercase italic text-slate-600 border-b-2 border-blue-100 w-fit pb-1">Invoice Registry</h4>
-                   <Button onClick={() => setCNData({...cnData, invoices: [...cnData.invoices, { id: Math.random().toString(), invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }]})} variant="outline" className="h-7 text-[8px] uppercase font-normal px-4 rounded-none"><Plus className="h-3 w-3 mr-1" /> Add Row</Button>
+                   <Button onClick={() => setCNData({...cnData, invoices: [...(cnData.invoices || []), { id: Math.random().toString(), invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }]})} variant="outline" className="h-7 text-[8px] uppercase font-normal px-4 rounded-none"><Plus className="h-3 w-3 mr-1" /> Add Row</Button>
                 </div>
                 <table className="w-full text-left text-[10px]">
                    <thead><tr className="bg-slate-50 font-normal uppercase text-slate-400 border-b border-slate-200"><th className="p-2">Invoice No</th><th className="p-2">E-waybill No</th><th className="p-2">Goods Desc</th><th className="p-2 w-[100px]">Package</th><th className="p-2 w-[120px]">UOM</th><th className="p-2 w-[40px]"></th></tr></thead>
                    <tbody>
-                      {cnData.invoices.map((row: any, idx: number) => (
+                      {(cnData.invoices || []).map((row: any, idx: number) => (
                         <tr key={row.id} className="border-b border-slate-100">
                           <td className="p-2"><input value={row.invNo} onChange={e => { const r = [...cnData.invoices]; r[idx].invNo = e.target.value.toUpperCase(); setCNData({...cnData, invoices: r}); }} className="h-7 w-full border-none outline-none focus:bg-yellow-50 px-1 font-normal" /></td>
                           <td className="p-2"><input value={row.ewaybillNo} onChange={e => { const r = [...cnData.invoices]; r[idx].ewaybillNo = e.target.value; setCNData({...cnData, invoices: r}); }} className="h-7 w-full border-none outline-none focus:bg-yellow-50 px-1 font-normal" /></td>
