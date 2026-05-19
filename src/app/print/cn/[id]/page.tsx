@@ -1,26 +1,32 @@
 'use client';
 
 import * as React from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Image from 'next/image';
-import { Loader2, Printer, X } from 'lucide-react';
+import { Loader2, FileText, AlertCircle } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
 /**
- * @fileOverview Public CN Print Protocol.
- * Generates a 3-copy system for A4 portrait. Zero-bold typography.
- * Accessible without authentication to support tracking portal documentation access.
+ * @fileOverview Secure Public CN Preview Protocol.
+ * Mimics a PDF viewer interface. Strictly read-only.
+ * Disables text selection and context menu to satisfy "no download/edit" conditions.
  */
-export default function PublicCNPrintPage() {
+export default function PublicCNPreviewPage() {
   const params = useParams();
-  const router = useRouter();
   const db = useFirestore();
   const id = params.id as string;
+
+  // Interaction Lockdown: Prevent right-click and selection
+  React.useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener('contextmenu', handleContextMenu);
+    return () => document.removeEventListener('contextmenu', handleContextMenu);
+  }, []);
 
   const tripRef = useMemoFirebase(() => {
     if (!id) return null;
@@ -47,20 +53,12 @@ export default function PublicCNPrintPage() {
   const consignee = React.useMemo(() => customers?.find(c => c.customerCode === trip?.consigneeCode), [customers, trip]);
   const shipToParty = React.useMemo(() => customers?.find(c => c.customerCode === trip?.shipToPartyCode), [customers, trip]);
 
-  const [deliveryAddr, setDeliveryAddr] = React.useState('');
-
-  React.useEffect(() => {
-    if (shipToParty) {
-      setDeliveryAddr(shipToParty.address || '');
-    }
-  }, [shipToParty]);
-
   if (isTripLoading || !trip) {
     return (
-      <div className="h-screen flex items-center justify-center bg-slate-50 font-mono">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
-          <span className="text-[10px] font-normal uppercase tracking-[0.3em]">Synchronizing Print Protocol...</span>
+      <div className="h-screen flex items-center justify-center bg-[#525659] font-mono">
+        <div className="flex flex-col items-center gap-4 text-white">
+          <Loader2 className="h-10 w-10 text-blue-400 animate-spin" />
+          <span className="text-[10px] font-normal uppercase tracking-[0.4em]">Establishing Secure Link...</span>
         </div>
       </div>
     );
@@ -71,30 +69,28 @@ export default function PublicCNPrintPage() {
   const totalPkg = trip.invoices?.reduce((acc: number, inv: any) => acc + (parseInt(inv.pkg) || 0), 0) || 0;
 
   return (
-    <div className="min-h-screen bg-slate-200 p-0 md:p-8 font-sans text-black overflow-y-auto print:bg-white print:p-0">
-      <div className="max-w-[850px] mx-auto bg-white shadow-2xl no-print mb-8 rounded-sm border border-slate-300 sticky top-0 z-[100]">
-         <div className="p-4 flex justify-between items-center bg-slate-50">
-            <div className="flex flex-col">
-               <span className="text-[11px] font-normal uppercase italic text-blue-900 tracking-tighter">Sikka Logistics Management Protocol</span>
-               <span className="text-[9px] font-normal text-slate-400 uppercase">Public Document Matrix</span>
-            </div>
-            <div className="flex gap-3">
-               <button onClick={() => window.print()} className="h-9 bg-blue-700 hover:bg-blue-800 text-white px-8 text-[11px] font-normal uppercase rounded-none transition-all flex items-center gap-2 shadow-md">
-                 <Printer className="h-4 w-4" /> Print
-               </button>
-               <button onClick={() => window.close()} className="h-9 bg-white border border-slate-300 text-slate-600 px-8 text-[11px] font-normal uppercase rounded-none hover:bg-slate-100 transition-all flex items-center gap-2">
-                 <X className="h-4 w-4" /> Close
-               </button>
-            </div>
-         </div>
+    <div className="min-h-screen bg-[#525659] p-4 md:p-8 font-sans text-black overflow-y-auto select-none">
+      {/* Simulation of PDF Viewer Chrome */}
+      <div className="max-w-[210mm] mx-auto bg-[#323639] h-12 flex items-center justify-between px-6 shadow-md mb-1 rounded-t-sm sticky top-0 z-50">
+        <div className="flex items-center gap-3 text-white/90">
+          <FileText className="h-4 w-4 text-blue-400" />
+          <span className="text-[10px] font-medium uppercase tracking-[0.2em] truncate max-w-[300px]">
+            DOCUMENT_{trip.cnNumber || 'PREVIEW'}_{trip.tripNo}.pdf
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-[9px] font-black text-white/40 uppercase tracking-widest italic">
+          <AlertCircle className="h-3 w-3" /> Secure Preview Only
+        </div>
       </div>
 
-      <div id="printable-area" className="flex flex-col gap-0 bg-white shadow-inner mx-auto w-fit print:shadow-none print:w-full">
+      <div id="printable-area" className="flex flex-col gap-4 mx-auto w-fit shadow-2xl">
         {copies.map((copyLabel, index) => (
-          <div key={index} className="cn-page relative p-10 bg-white border-b-2 border-dashed border-slate-200 last:border-b-0 print:border-none print:m-0 print:page-break-after-always">
+          <div key={index} className="cn-page relative p-10 bg-white border-b border-slate-100 last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden">
+            
+            {/* Header Section */}
             <div className="flex justify-between items-start mb-8">
               <div className="flex flex-col gap-5">
-                {logoAsset && <Image src={logoAsset.url} alt="Logo" width={150} height={70} className="object-contain" unoptimized />}
+                {logoAsset && <Image src={logoAsset.url} alt="Logo" width={150} height={70} className="object-contain grayscale" unoptimized />}
                 <div className="space-y-1">
                   <h1 className="text-xl font-normal uppercase italic tracking-tighter">{carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
                   <p className="text-[10px] uppercase max-w-[350px] leading-tight text-slate-600 font-normal">{carrier?.address}</p>
@@ -116,6 +112,7 @@ export default function PublicCNPrintPage() {
               </div>
             </div>
 
+            {/* Vehicle Details Table */}
             <div className="mb-8">
                <table className="w-full border-collapse border border-black text-[11px]">
                   <thead>
@@ -139,6 +136,7 @@ export default function PublicCNPrintPage() {
                </table>
             </div>
 
+            {/* Party Details Section */}
             <div className="grid grid-cols-3 gap-0 mb-8">
                <div className="border border-black border-r-0 p-5 space-y-4 min-h-[180px]">
                   <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignor</h4>
@@ -168,6 +166,7 @@ export default function PublicCNPrintPage() {
                </div>
             </div>
 
+            {/* Document & Items Table */}
             <div className="mb-8">
                <table className="w-full border-collapse border border-black text-[11px]">
                   <thead>
@@ -193,29 +192,24 @@ export default function PublicCNPrintPage() {
                   <tfoot>
                      <tr className="bg-slate-50 border-t border-black font-normal text-[10px] uppercase">
                         <td colSpan={3} className="p-4 text-right text-slate-400 italic">Total Operational Payload:</td>
-                        <td className="p-4 text-center text-blue-900 border-x border-black">{totalPkg} PACKAGES</td>
-                        <td className="p-4 text-right text-blue-900">{trip.assignWeight} MT</td>
+                        <td className="p-4 text-center border-x border-black">{totalPkg} PACKAGES</td>
+                        <td className="p-4 text-right">{trip.assignWeight} MT</td>
                      </tr>
                   </tfoot>
                </table>
             </div>
 
+            {/* Acknowledgement Box */}
             <div className="border border-black mb-8">
-               <div className="bg-slate-50 p-2.5 border-b border-black text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Acknowledgement</div>
-               <div className="p-5 grid grid-cols-2 gap-12">
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-normal text-slate-400 uppercase tracking-widest">Authorized Delivery Point</label>
-                     <textarea value={deliveryAddr} onChange={e => setDeliveryAddr(e.target.value.toUpperCase())} className="w-full h-20 border-none bg-transparent text-[11px] font-normal uppercase resize-none outline-none leading-relaxed p-0 italic text-slate-700" />
-                  </div>
-                  <div className="flex flex-col justify-end items-end">
-                     <div className="w-56 border-t border-black pt-2 text-center">
-                        <p className="text-[10px] font-normal uppercase tracking-widest">Authorized Signatory</p>
-                        <p className="text-[8px] text-slate-400 italic pt-0.5">Electronically Verified Node</p>
-                     </div>
-                  </div>
+               <div className="bg-slate-50 p-2.5 border-b border-black text-[10px] font-normal uppercase italic tracking-wider">Delivery Point Reference</div>
+               <div className="p-5 min-h-[100px]">
+                  <p className="text-[11px] font-normal uppercase italic leading-relaxed text-slate-700 whitespace-pre-wrap">
+                    {shipToParty?.address || 'AS PER DOCUMENTATION'}
+                  </p>
                </div>
             </div>
 
+            {/* Terms & Note Section */}
             <div className="space-y-8">
                <div className="space-y-2.5">
                   <p className="text-[9px] leading-relaxed text-justify text-slate-500 uppercase font-normal">
@@ -233,14 +227,12 @@ export default function PublicCNPrintPage() {
       </div>
 
       <style jsx global>{`
-        @media print {
-          @page { size: A4 portrait; margin: 0; }
-          body { background-color: white !important; color: black !important; }
-          .no-print { display: none !important; }
-          .cn-page { width: 210mm; height: 297mm; margin: 0 auto; border: none !important; padding: 20mm !important; page-break-after: always; box-shadow: none !important; }
-          textarea { border: none !important; overflow: hidden !important; background: transparent !important; }
+        .cn-page {
+           width: 210mm;
+           min-height: 297mm;
+           box-sizing: border-box;
+           background-color: white;
         }
-        .cn-page { width: 210mm; min-height: 297mm; box-sizing: border-box; }
       `}</style>
     </div>
   );

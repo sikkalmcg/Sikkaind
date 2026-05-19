@@ -110,24 +110,29 @@ export default function TR21Page() {
   }, [gpsLive, reverseGeocode]);
 
   const ordersQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'sales_orders');
-  }, [db]);
+  }, [db, user, isAuthLoading]);
 
   const tripsQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'trip_board');
-  }, [db]);
+  }, [db, user, isAuthLoading]);
 
   const plantsQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'plants');
-  }, [db]);
+  }, [db, user, isAuthLoading]);
 
   const vendorsQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'vendors');
-  }, [db]);
+  }, [db, user, isAuthLoading]);
 
   const companiesQuery = useMemoFirebase(() => {
+    if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'companies');
-  }, [db]);
+  }, [db, user, isAuthLoading]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
