@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { 
   Filter, Search, MapPin, Truck, Radar, 
   X, Trash2, Plus, FileText, ChevronLeft, ChevronRight, Printer,
-  Loader2, CheckCircle, FileUp, ExternalLink
+  Loader2, CheckCircle, FileUp, ExternalLink, Calculator
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useUser } from '@/firebase';
@@ -14,6 +14,7 @@ import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
 const SHARED_HUB_ID = 'Sikkaind';
@@ -57,7 +58,10 @@ export default function TR21Page() {
     mode: 'Road',
     via: '',
     fixRate: false,
-    paymentTerms: 'PAID'
+    paymentTerms: 'PAID',
+    assignWeight: '0',
+    rate: '0',
+    freightAmount: '0'
   });
 
   const [cnData, setCNData] = React.useState<any>({
@@ -76,12 +80,24 @@ export default function TR21Page() {
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: plants } = useCollection(plantsQuery);
   const { data: companies } = useCollection(companiesQuery);
   const { data: customers } = useCollection(customersQuery);
+  const { data: vendors } = useCollection(vendorsQuery);
+
+  // Auto-calculation logic for Freight Amount
+  React.useEffect(() => {
+    if (!assignData.fixRate) {
+      const weight = parseFloat(assignData.assignWeight) || 0;
+      const rate = parseFloat(assignData.rate) || 0;
+      const total = (weight * rate).toFixed(2);
+      setAssignData(prev => ({ ...prev, freightAmount: total }));
+    }
+  }, [assignData.rate, assignData.assignWeight, assignData.fixRate]);
 
   const authorizedPlantCodes = React.useMemo(() => {
     if (isBootstrapAdmin) return null;
@@ -259,6 +275,7 @@ export default function TR21Page() {
                     <th className="p-3 border-r w-[200px]">Consignee</th>
                     <th className="p-3 border-r w-[200px]">Ship to Party</th>
                     <th className="p-3 border-r w-[200px]">Route</th>
+                    <th className="p-3 border-r w-[100px] text-right">Assign Qty</th>
                     <th className="p-3 border-r w-[100px] text-right">Order Qty</th>
                     <th className="p-3 border-r w-[100px] text-right">Dispatch Qty</th>
                     <th className="p-3 border-r w-[100px] text-right">Balance Qty</th>
@@ -273,8 +290,9 @@ export default function TR21Page() {
                     <th className="p-3 border-r w-[180px]">Consignee</th>
                     <th className="p-3 border-r w-[180px]">Ship to Party</th>
                     <th className="p-3 border-r w-[180px]">Route</th>
+                    <th className="p-3 border-r w-[100px] text-right">Assign Qty</th>
                     <th className="p-3 border-r w-[150px]">Vehicle/Mobile</th>
-                    <th className="p-3 border-r w-[180px]">Carrier/Vendor</th>
+                    <th className="p-3 border-r w-[180px]">Arrange By</th>
                     <th className="p-3 border-r w-[100px]">Fleet Type</th>
                     <th className="p-3 border-r w-[150px]">CN No/Date</th>
                     {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
@@ -314,6 +332,7 @@ export default function TR21Page() {
 
                     {activeTab === 'Open Orders' ? (
                       <>
+                        <td className="p-3 border-r text-right font-normal text-slate-800 italic bg-blue-50/30">0.000</td>
                         <td className="p-3 border-r text-right text-slate-400 font-normal">{parseFloat(item.quantity || 0).toFixed(3)}</td>
                         <td className="p-3 border-r text-right text-emerald-600 font-normal">{parseFloat(item.dispatched || 0).toFixed(3)}</td>
                         <td className="p-3 border-r text-right font-normal text-blue-600">{parseFloat(item.balance || 0).toFixed(3)}</td>
@@ -323,6 +342,7 @@ export default function TR21Page() {
                       </>
                     ) : (
                       <>
+                        <td className="p-3 border-r text-right font-normal text-slate-800 italic bg-blue-50/30">{parseFloat(item.assignWeight || 0).toFixed(3)}</td>
                         <td className="p-3 border-r text-left">
                           <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline">
                             <span className="font-normal text-blue-800">{item.vehicleNo || 'ADD'}</span>
@@ -367,7 +387,7 @@ export default function TR21Page() {
                               <Button onClick={() => handleUpdateStatus(item.id, 'IN-TRANSIT', 'outDate')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
                               <Button onClick={() => { 
                                 setSelectedTrip(item); 
-                                const invs = item.invoices || [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
+                                const invs = (item.invoices || []).length > 0 ? item.invoices : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
                                 setCNData({ ...(item.cnNumber ? item : { ...cnData, cnNumber: '', cnDate: format(new Date(), 'yyyy-MM-dd') }), id: item.id, invoices: invs }); 
                                 setShowCNPortal(true); 
                               }} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">CN ENTRY</Button>
@@ -488,7 +508,7 @@ export default function TR21Page() {
       <Dialog open={showAssign} onOpenChange={setShowAssign}>
         <DialogContent className="max-w-[900px] rounded-none border-[3px] border-[#0056d2] font-mono p-0 overflow-hidden text-left text-black">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
-             <DialogTitle className="text-[14px] font-normal uppercase text-[#1e3a8a] italic mb-4">Vehicle Assignment Protocol</DialogTitle>
+             <DialogTitle className="text-[14px] font-normal uppercase text-[#1e3a8a] italic mb-4">VEHICLE ASSIGNMENT PROTOCOL</DialogTitle>
              <div className="grid grid-cols-4 gap-6 bg-white border border-slate-200 p-4 shadow-inner text-[10px] font-normal uppercase">
                 <div><span className="text-slate-400 text-[8px]">Consignee</span><p className="truncate">{selectedOrder?.consigneeName}</p></div>
                 <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedOrder?.shipToParty}</p></div>
@@ -496,13 +516,96 @@ export default function TR21Page() {
                 <div><span className="text-slate-400 text-[8px]">Registry Qty</span><p className="text-blue-700">{selectedOrder?.quantity} MT</p></div>
              </div>
           </DialogHeader>
-          <div className="p-8 grid grid-cols-2 gap-x-10 gap-y-6">
+          <div className="p-8 grid grid-cols-2 gap-x-10 gap-y-6 overflow-y-auto max-h-[50vh] green-scrollbar">
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-normal text-slate-400 uppercase">Fleet Type</label>
+                <select 
+                  value={assignData.fleetType} 
+                  onChange={e => setAssignData({...assignData, fleetType: e.target.value})} 
+                  className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
+                >
+                  <option value="Own Vehicle">Own Vehicle</option>
+                  <option value="Market Vehicle">Market Vehicle</option>
+                </select>
+             </div>
+             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Transport Mode</label><select value={assignData.mode} onChange={e => setAssignData({...assignData, mode: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"><option value="Road">Road</option><option value="Road from Rail">Road from Rail</option></select></div>
+             
              <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Vehicle Number *</label><input value={assignData.vehicleNo || ''} onChange={e => setAssignData({...assignData, vehicleNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal outline-none focus:bg-yellow-50" /></div>
              <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Driver Mobile</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" /></div>
-             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Fleet Type</label><select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"><option value="Own Vehicle">Own Vehicle</option><option value="Market Vehicle">Market Vehicle</option></select></div>
-             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Transport Mode</label><select value={assignData.mode} onChange={e => setAssignData({...assignData, mode: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"><option value="Road">Road</option><option value="Road from Rail">Road from Rail</option></select></div>
-             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Carrier/Vendor Name</label><input value={assignData.vendorName || ''} onChange={e => setAssignData({...assignData, vendorName: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal uppercase" placeholder="ENTER NAME..." /></div>
-             <div className="space-y-1.5"><label className="text-[10px] font-normal text-[#0056d2] uppercase">Assign Qty (MT) *</label><input type="number" step="0.001" value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-9 w-full border border-[#0056d2] px-3 text-xs font-normal outline-none" /></div>
+             
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-normal text-[#0056d2] uppercase">Assign Qty (MT) *</label>
+                <input 
+                  type="number" 
+                  step="0.001" 
+                  value={assignData.assignWeight || ''} 
+                  onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} 
+                  className="h-9 w-full border border-[#0056d2] px-3 text-xs font-normal outline-none" 
+                />
+             </div>
+
+             {/* MARKET VEHICLE ADDITIONAL FIELDS */}
+             {assignData.fleetType === 'Market Vehicle' && (
+               <>
+                 <div className="space-y-1.5">
+                    <label className="text-[10px] font-normal text-slate-400 uppercase">Vendor Name (XK03)</label>
+                    <select 
+                      value={assignData.vendorName || ''} 
+                      onChange={e => setAssignData({...assignData, vendorName: e.target.value})} 
+                      className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
+                    >
+                      <option value="">Select Vendor...</option>
+                      {vendors?.map(v => (
+                        <option key={v.id} value={v.vendorName}>{v.vendorName} ({v.vendorCode})</option>
+                      ))}
+                    </select>
+                 </div>
+                 <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                       <label className="text-[10px] font-normal text-slate-400 uppercase">Rate (Per MT)</label>
+                       <div className="flex items-center gap-2">
+                          <Checkbox 
+                            id="fix-charge" 
+                            checked={assignData.fixRate} 
+                            onCheckedChange={checked => setAssignData({...assignData, fixRate: !!checked})} 
+                            className="rounded-none border-slate-400"
+                          />
+                          <label htmlFor="fix-charge" className="text-[8px] font-normal uppercase text-slate-400 cursor-pointer">Fix Charge</label>
+                       </div>
+                    </div>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      disabled={assignData.fixRate}
+                      value={assignData.rate || ''} 
+                      onChange={e => setAssignData({...assignData, rate: e.target.value})} 
+                      className={cn("h-9 w-full border border-slate-400 px-3 text-xs font-normal", assignData.fixRate && "bg-slate-50 opacity-50")} 
+                    />
+                 </div>
+                 <div className="space-y-1.5">
+                    <label className="text-[10px] font-normal text-slate-400 uppercase flex items-center gap-2">
+                       <Calculator className="h-3 w-3 text-blue-400" /> Freight Amount
+                    </label>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      readOnly={!assignData.fixRate}
+                      value={assignData.freightAmount || ''} 
+                      onChange={e => setAssignData({...assignData, freightAmount: e.target.value})} 
+                      className={cn("h-9 w-full border px-3 text-xs font-normal", assignData.fixRate ? "border-blue-400 bg-white" : "border-slate-300 bg-slate-50 text-slate-500")} 
+                    />
+                 </div>
+               </>
+             )}
+
+             <div className="space-y-1.5 col-span-2">
+                <label className="text-[10px] font-normal text-slate-400 uppercase">Carrier Branding (FM03 Node)</label>
+                <input 
+                  readOnly 
+                  value={(companies || []).find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedOrder?.plantCode))?.companyName || 'AUTO-RESOLVING CARRIER...'} 
+                  className="h-9 w-full border border-slate-300 bg-slate-50 px-3 text-xs font-normal italic text-slate-400" 
+                />
+             </div>
           </div>
           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
              <Button onClick={() => setShowAssign(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-normal px-10">Exit</Button>
