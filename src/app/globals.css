@@ -89,7 +89,7 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 0 !important; /* CRITICAL: Removes browser headers (Date/URL/Title) */
+    margin: 0 !important;
   }
 
   html, body {
@@ -102,12 +102,10 @@
     print-color-adjust: exact !important;
   }
 
-  /* Hide everything by default */
   body * {
     visibility: hidden;
   }
 
-  /* Show only the printable area and its children */
   #printable-area, 
   #printable-area * {
     visibility: visible;
@@ -129,7 +127,7 @@
   .cn-page {
     width: 210mm !important;
     min-height: 297mm !important;
-    padding: 15mm !important; /* Internal safe margin */
+    padding: 15mm !important;
     page-break-after: always !important;
     page-break-inside: avoid !important;
     border-bottom: 1px solid black !important;

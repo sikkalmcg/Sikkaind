@@ -91,7 +91,7 @@ export default function PublicCNPreviewPage() {
 
       <div id="printable-area" className="flex flex-col gap-0 mx-auto w-[210mm] print:w-full shadow-2xl text-black font-normal bg-white">
         {copies.map((copyLabel, index) => (
-          <div key={index} className="cn-page bg-white text-black font-normal">
+          <div key={index} className="cn-page bg-white text-black font-normal p-[15mm] min-h-[297mm] border-b last:border-b-0">
             <div className="flex justify-between items-start mb-6">
               <div className="flex gap-2 items-start">
                 {(trip.carrier?.logoUrl || logoFallback?.url) && (
@@ -166,7 +166,7 @@ export default function PublicCNPreviewPage() {
                </table>
             </div>
 
-            <div className="grid grid-cols-3 gap-0 mb-6 border-none text-black">
+            <div className="grid grid-cols-3 gap-0 mb-6 border border-black text-black">
                <div className="border-r border-black p-4 space-y-4 min-h-[160px]">
                   <h4 className="text-[10px] font-normal uppercase text-black italic mb-2 tracking-widest">Consignor</h4>
                   <div className="text-[10px] uppercase font-normal space-y-1.5 text-black">
@@ -218,9 +218,9 @@ export default function PublicCNPreviewPage() {
                      ))}
                   </tbody>
                   <tfoot>
-                     <tr className="bg-white font-normal text-[12px] uppercase border-t border-black text-black">
-                        <td colSpan={3} className="p-4 text-right text-black italic border-none">Gross Total:</td>
-                        <td className="p-4 text-center border-none font-normal">{packageSummary}</td>
+                     <tr className="bg-white font-normal text-[15px] uppercase border-t border-black text-black">
+                        <td colSpan={3} className="p-4 text-right text-black italic border-r border-black">Gross Total:</td>
+                        <td className="p-4 text-center border-r border-black font-normal">{packageSummary}</td>
                         <td className="p-4 text-right border-none font-normal">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
                      </tr>
                   </tfoot>

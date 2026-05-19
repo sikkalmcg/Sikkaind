@@ -622,7 +622,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
   return (
     <div className="flex flex-col gap-0 bg-white text-black font-normal">
       {copies.map((copyLabel, index) => (
-        <div key={index} className="cn-page bg-white overflow-hidden text-left flex flex-col text-black font-normal border-b last:border-b-0">
+        <div key={index} className="cn-page bg-white overflow-hidden text-left flex flex-col text-black font-normal border-b last:border-b-0 p-[15mm] min-h-[297mm]">
           <div className="flex justify-between items-start mb-6">
             <div className="flex gap-2 items-start">
               {(carrier?.logoUrl || logoFallback?.url) && (
@@ -697,7 +697,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
              </table>
           </div>
 
-          <div className="grid grid-cols-3 gap-0 mb-6 border-none">
+          <div className="grid grid-cols-3 gap-0 mb-6 border border-black">
              <div className="border-r border-black p-4 space-y-4 min-h-[160px]">
                 <h4 className="text-[10px] font-normal uppercase text-black italic mb-2 tracking-widest">Consignor</h4>
                 <div className="text-[10px] uppercase font-normal space-y-1.5 text-black">
@@ -749,10 +749,10 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                    ))}
                 </tbody>
                 <tfoot>
-                   <tr className="bg-white font-normal text-[12px] uppercase border-t border-black">
-                      <td colSpan={3} className="p-3 text-right text-black italic border-none">Gross Total:</td>
-                      <td className="p-3 text-center text-black font-normal border-none">{packageSummary}</td>
-                      <td className="p-3 text-right text-black font-normal border-none">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
+                   <tr className="bg-white font-normal text-[15px] uppercase border-t border-black">
+                      <td colSpan={3} className="p-3 text-right text-black italic border-r border-black">Gross Total:</td>
+                      <td className="p-3 text-center text-black font-normal border-r border-black">{packageSummary}</td>
+                      <td className="p-3 text-right text-black font-normal">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
                    </tr>
                 </tfoot>
              </table>
