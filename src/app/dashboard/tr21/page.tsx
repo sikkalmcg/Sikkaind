@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -242,12 +241,12 @@ export default function TR21Page() {
               <tr>
                 <th className="p-3 border-r w-[60px] text-center">Plant</th>
                 <th className="p-3 border-r w-[150px]">Sale Order Details</th>
-                <th className="p-3 border-r w-[100px] text-blue-700">Trip ID</th>
+                {activeTab !== 'Open Orders' && <th className="p-3 border-r w-[100px] text-blue-700">Trip ID</th>}
                 <th className="p-3 border-r w-[200px]">Consignee</th>
                 <th className="p-3 border-r flex-1 min-w-[200px]">Ship to Party</th>
                 <th className="p-3 border-r w-[150px]">Route (From → To)</th>
                 <th className="p-3 border-r w-[140px]">Vehicle / Mobile</th>
-                <th className="p-3 border-r w-[120px]">CN Number/Date</th>
+                {activeTab !== 'Open Orders' && <th className="p-3 border-r w-[120px]">CN Number/Date</th>}
                 <th className="p-3 border-r w-[80px] text-right">Qty (MT)</th>
                 <th className="p-3 w-[100px] shrink-0 text-center">Action</th>
               </tr>
@@ -260,7 +259,7 @@ export default function TR21Page() {
                     <span className="font-black text-slate-800">{item.orderNo}</span>
                     <span className="text-[9px] text-slate-400">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                   </td>
-                  <td className="p-3 border-r font-black text-blue-700">{item.tripNo || '-'}</td>
+                  {activeTab !== 'Open Orders' && <td className="p-3 border-r font-black text-blue-700">{item.tripNo || '-'}</td>}
                   <td className="p-3 border-r truncate font-bold" title={item.consigneeName}>{item.consigneeName}</td>
                   <td className="p-3 border-r truncate font-bold" title={item.shipToParty}>{item.shipToParty}</td>
                   <td className="p-3 border-r italic text-[10px] leading-tight flex flex-col justify-center min-h-[60px]">
@@ -273,14 +272,16 @@ export default function TR21Page() {
                         <span className="text-[9px] text-slate-400 font-bold">{item.driverMobile || '-'}</span>
                      </button>
                   </td>
-                  <td className="p-3 border-r leading-tight flex flex-col justify-center min-h-[60px]">
-                     {item.cnNumber ? (
-                       <button onClick={() => { setSelectedTrip(item); setShowPrintView(true); }} className="text-left group">
-                          <span className="font-black text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
-                          <span className="text-[9px] text-slate-400">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
-                       </button>
-                     ) : <span className="text-slate-300 italic text-[9px]">PENDING</span>}
-                  </td>
+                  {activeTab !== 'Open Orders' && (
+                    <td className="p-3 border-r leading-tight flex flex-col justify-center min-h-[60px]">
+                       {item.cnNumber ? (
+                         <button onClick={() => { setSelectedTrip(item); setShowPrintView(true); }} className="text-left group">
+                            <span className="font-black text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
+                            <span className="text-[9px] text-slate-400">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
+                         </button>
+                       ) : <span className="text-slate-300 italic text-[9px]">PENDING</span>}
+                    </td>
+                  )}
                   <td className="p-3 border-r text-right font-black text-blue-600">{item.assignWeight || item.quantity}</td>
                   <td className="p-3 text-center flex flex-col gap-1 items-center justify-center">
                     {activeTab === 'Open Orders' ? (
