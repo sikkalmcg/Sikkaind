@@ -221,6 +221,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setSelectedFavCode(null);
   };
 
+  // DETECT PRINT MODE: If the route is a print page, suppress the dashboard layout chrome
+  const isPrintMode = pathname?.includes('/print/');
+  if (isPrintMode) {
+    return <div className="h-screen w-full overflow-auto bg-white">{children}</div>;
+  }
+
   return (
     <div className="flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden flex">
       <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden">

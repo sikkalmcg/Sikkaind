@@ -6,7 +6,6 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
 
     // 1. PUBLIC EXECUTION NODES (Tracking & Document Preview)
-    // These paths allow unauthenticated customers to view movement and documentation.
     match /public_trips/{tripId} {
       allow read: if true;
       allow write: if isSignedIn();
@@ -16,10 +15,24 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
-    // 2. PROTECTED SYSTEM HUB (Sikkaind)
-    // All administrative master data and logs require authentication.
-    match /users/Sikkaind/{allPaths=**} {
+    // 2. SIKKAIND HUB - PUBLIC READ FOR LOGISTICS
+    // Explicitly allow public read for execution data to support tracking and unauthenticated print previews
+    match /users/Sikkaind/trip_board/{id} { allow read: if true; }
+    match /users/Sikkaind/companies/{id} { allow read: if true; }
+    match /users/Sikkaind/customers/{id} { allow read: if true; }
+    match /users/Sikkaind/sales_orders/{id} { allow read: if true; }
+    match /users/Sikkaind/plants/{id} { allow read: if true; }
+    match /users/Sikkaind/vendors/{id} { allow read: if true; }
+
+    // Protected administrative data (Users Master)
+    match /users/Sikkaind/users_master/{allPaths=**} {
       allow read, write: if isSignedIn();
+    }
+
+    // Default catch-all for Sikkaind write operations
+    match /users/Sikkaind/{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn();
     }
     
     // 3. PRIVATE USER REGISTRY

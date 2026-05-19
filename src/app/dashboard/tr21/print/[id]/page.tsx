@@ -24,28 +24,21 @@ export default function CNPrintPage() {
   const searchParams = useSearchParams();
   const db = useFirestore();
   const id = params.id as string;
-  const { user, isUserLoading: isAuthLoading } = useUser();
   const isAuto = searchParams.get('auto') === 'true';
 
   const [generating, setGenerating] = React.useState(false);
 
-  // Data Fetching
+  // DATA HANDSHAKE: Unauthenticated fetch allowed by updated rules
   const tripRef = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
+    if (!id) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'trip_board', id);
-  }, [db, id, user, isAuthLoading]);
+  }, [db, id]);
   const { data: trip, isLoading: isTripLoading } = useDoc(tripRef);
 
-  const companiesQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'companies');
-  }, [db, user, isAuthLoading]);
+  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
   const { data: companies } = useCollection(companiesQuery);
   
-  const customersQuery = useMemoFirebase(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'customers');
-  }, [db, user, isAuthLoading]);
+  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const { data: customers } = useCollection(customersQuery);
 
   const carrier = React.useMemo(() => {
@@ -66,7 +59,6 @@ export default function CNPrintPage() {
   const generateAndDownload = React.useCallback(async () => {
     if (!trip || generating) return;
     
-    // Ensure images are fully loaded
     const images = document.querySelectorAll('img');
     await Promise.all(Array.from(images).map(img => {
       if (img.complete) return Promise.resolve();
@@ -76,8 +68,7 @@ export default function CNPrintPage() {
       });
     }));
 
-    // Wait for layout stability
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1500));
     setGenerating(true);
 
     try {
@@ -97,11 +88,8 @@ export default function CNPrintPage() {
       }
 
       const fileName = `CN-${trip.cnNumber || 'DRAFT'}.pdf`;
-      
-      // Auto Download
       pdf.save(fileName);
 
-      // Transform current page into PDF viewer
       const blob = pdf.output('blob');
       const url = URL.createObjectURL(blob);
       window.location.replace(url);
@@ -117,7 +105,7 @@ export default function CNPrintPage() {
     }
   }, [isAuto, trip, isTripLoading, generating, generateAndDownload]);
 
-  if (isTripLoading || isAuthLoading || !trip) {
+  if (isTripLoading || !trip) {
     return (
       <div className="h-screen flex items-center justify-center bg-slate-50 font-mono">
         <div className="flex flex-col items-center gap-4 text-black">
@@ -145,7 +133,6 @@ export default function CNPrintPage() {
         </div>
       )}
 
-      {/* Interactive Toolbar */}
       {!generating && !isAuto && (
         <div className="max-w-[850px] mx-auto bg-white shadow-2xl no-print mb-8 rounded-sm border border-slate-300 sticky top-0 z-[100]">
            <div className="p-4 flex justify-between items-center bg-slate-50">
@@ -154,18 +141,8 @@ export default function CNPrintPage() {
                  <span className="text-[9px] font-normal text-slate-400 uppercase">A4 Multi-Copy Matrix</span>
               </div>
               <div className="flex gap-3">
-                 <button 
-                  onClick={() => window.print()} 
-                  className="h-9 bg-blue-700 hover:bg-blue-800 text-white px-8 text-[11px] font-normal uppercase rounded-none transition-all flex items-center gap-2 shadow-md active:scale-95"
-                 >
-                   <Printer className="h-4 w-4" /> Print Protocol
-                 </button>
-                 <button 
-                  onClick={() => window.close()} 
-                  className="h-9 bg-white border border-slate-300 text-slate-600 px-8 text-[11px] font-normal uppercase rounded-none hover:bg-slate-100 transition-all flex items-center gap-2 active:scale-95"
-                 >
-                   <X className="h-4 w-4" /> Exit
-                 </button>
+                 <button onClick={() => window.print()} className="h-9 bg-blue-700 hover:bg-blue-800 text-white px-8 text-[11px] font-normal uppercase rounded-none transition-all flex items-center gap-2 shadow-md active:scale-95"><Printer className="h-4 w-4" /> Print Protocol</button>
+                 <button onClick={() => window.close()} className="h-9 bg-white border border-slate-300 text-slate-600 px-8 text-[11px] font-normal uppercase rounded-none hover:bg-slate-100 transition-all flex items-center gap-2 active:scale-95"><X className="h-4 w-4" /> Exit</button>
               </div>
            </div>
         </div>
@@ -174,7 +151,6 @@ export default function CNPrintPage() {
       <div id="printable-area" className="flex flex-col gap-0 bg-white shadow-inner mx-auto w-fit print:shadow-none print:w-full">
         {copies.map((copyLabel, index) => (
           <div key={index} className="cn-page relative p-10 bg-white border-b-2 border-dashed border-slate-200 last:border-b-0 print:border-none print:m-0 print:page-break-after-always overflow-hidden text-left">
-            
             <div className="flex justify-between items-start mb-8">
               <div className="flex flex-col gap-5">
                 {logoAsset && <Image src={logoAsset.url} alt="Logo" width={150} height={70} className="object-contain" unoptimized />}
@@ -183,7 +159,6 @@ export default function CNPrintPage() {
                   <p className="text-[10px] uppercase max-w-[350px] leading-tight text-slate-600 font-normal">{carrier?.address}</p>
                   <p className="text-[10px] uppercase font-normal pt-1">GSTIN: {carrier?.gstNo || 'UNREGISTERED'}</p>
                   <p className="text-[10px] uppercase font-normal">Contact: {carrier?.mobile} | Email: {carrier?.email}</p>
-                  <p className="text-[10px] uppercase font-normal">Website: {carrier?.website || 'WWW.SIKKAENTERPRISES.COM'}</p>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-8 text-right">
@@ -289,12 +264,7 @@ export default function CNPrintPage() {
                <div className="p-5 grid grid-cols-2 gap-12">
                   <div className="space-y-3">
                      <label className="text-[9px] font-normal text-slate-400 uppercase tracking-widest">Authorized Delivery Point</label>
-                     <textarea 
-                        value={deliveryAddr} 
-                        onChange={e => setDeliveryAddr(e.target.value.toUpperCase())}
-                        className="w-full h-20 border-none bg-transparent text-[11px] font-normal uppercase resize-none outline-none leading-relaxed p-0 italic text-slate-700"
-                        placeholder="SPECIFY EXACT DROP POINT..."
-                     />
+                     <textarea value={deliveryAddr} onChange={e => setDeliveryAddr(e.target.value.toUpperCase())} className="w-full h-20 border-none bg-transparent text-[11px] font-normal uppercase resize-none outline-none leading-relaxed p-0 italic text-slate-700" placeholder="SPECIFY EXACT DROP POINT..." />
                   </div>
                   <div className="flex flex-col justify-end items-end">
                      <div className="w-56 border-t border-black pt-2 text-center">
@@ -316,54 +286,19 @@ export default function CNPrintPage() {
                      5. Transport of prohibited or hazardous items is strictly forbidden without advanced regulatory clearance.
                   </p>
                </div>
-               <div className="text-center pt-6 border-t border-slate-100">
-                  <p className="text-[11px] font-normal uppercase tracking-tighter italic text-slate-400">
-                     Note: This document is a digital representation of the Sikka Logistical Protocol and functions as the primary original.
-                  </p>
-               </div>
             </div>
-
-            <div className="absolute bottom-8 left-10 text-[8px] font-normal text-slate-300 uppercase tracking-[0.5em]">
-               SIKKA LMC V1.0 • SYSTEM HASH: {trip.id.substring(0, 12)}
-            </div>
-
           </div>
         ))}
       </div>
 
       <style jsx global>{`
         @media print {
-          @page {
-            size: A4 portrait;
-            margin: 0;
-          }
-          body {
-            background-color: white !important;
-            color: black !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-          .cn-page {
-            width: 210mm;
-            height: 297mm;
-            margin: 0 auto;
-            border: none !important;
-            padding: 20mm !important;
-            page-break-after: always;
-            box-shadow: none !important;
-          }
-          textarea {
-            border: none !important;
-            overflow: hidden !important;
-            background: transparent !important;
-          }
+          @page { size: A4 portrait; margin: 0; }
+          body { background-color: white !important; color: black !important; }
+          .no-print { display: none !important; }
+          .cn-page { width: 210mm; height: 297mm; margin: 0 auto; border: none !important; padding: 20mm !important; page-break-after: always; box-shadow: none !important; }
         }
-        .cn-page {
-           width: 210mm;
-           min-height: 297mm;
-           box-sizing: border-box;
-        }
+        .cn-page { width: 210mm; min-height: 297mm; box-sizing: border-box; background-color: white; }
       `}</style>
     </div>
   );
