@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import placeholderData from '@/app/lib/placeholder-images.json';
 
 const SHARED_HUB_ID = 'Sikkaind';
+const PAGE_SIZE = 15;
 
 /**
  * @fileOverview TR21 – TRIP BOARD.
@@ -34,6 +35,7 @@ export default function TR21Page() {
   
   const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [currentPage, setCurrentPage] = React.useState(1);
 
   const [showAssign, setShowAssign] = React.useState(false);
   const [showCNPortal, setShowCNPortal] = React.useState(false);
@@ -41,7 +43,6 @@ export default function TR21Page() {
   const [showCNPreview, setShowCNPreview] = React.useState(false);
   const [showPODPortal, setShowPODPortal] = React.useState(false);
   
-  // POD Upload State
   const [podFile, setPodFile] = React.useState<string | null>(null);
   const [isCompressing, setIsCompressing] = React.useState(false);
   const podInputRef = React.useRef<HTMLInputElement>(null);
@@ -128,6 +129,12 @@ export default function TR21Page() {
     return baseData;
   }, [orders, trips, activeTab, mounted, plantFilter, searchQuery]);
 
+  const paginated = React.useMemo(() => {
+    return filteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  }, [filteredData, currentPage]);
+
+  const totalPages = Math.ceil(filteredData.length / PAGE_SIZE);
+
   const handlePostAssignment = () => {
     if (!assignData.vehicleNo || !assignData.assignWeight) return alert('Mandatory fields missing');
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
@@ -154,15 +161,12 @@ export default function TR21Page() {
 
   const handlePostCN = () => {
     if (!cnData.cnNumber) return alert('CN Number Mandatory');
-    
     const carrier = companies?.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies?.[0];
-
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
       ...cnData, 
       carrierName: carrier?.companyName || '',
       updatedAt: new Date().toISOString() 
     });
-
     setShowCNPortal(false);
     alert('Documentation Synchronized');
   };
@@ -177,12 +181,7 @@ export default function TR21Page() {
   const handlePODUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      alert('SATELLITE ERROR: File exceeds 2MB limit.');
-      return;
-    }
-
+    if (file.size > 2 * 1024 * 1024) return alert('SATELLITE ERROR: File exceeds 2MB limit.');
     if (file.type.startsWith('image/')) {
       setIsCompressing(true);
       const reader = new FileReader();
@@ -190,20 +189,13 @@ export default function TR21Page() {
         const img = new (window as any).Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          
-          // Max dimension 1200px
+          let width = img.width, height = img.height;
           const maxDim = 1200;
           if (width > height && width > maxDim) { height *= maxDim / width; width = maxDim; }
           else if (height > maxDim) { width *= maxDim / height; height = maxDim; }
-
-          canvas.width = width;
-          canvas.height = height;
+          canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          
-          // High compression to hit <200KB target
           const compressedData = canvas.toDataURL('image/jpeg', 0.5);
           setPodFile(compressedData);
           setIsCompressing(false);
@@ -212,11 +204,8 @@ export default function TR21Page() {
       };
       reader.readAsDataURL(file);
     } else {
-      // PDF - just read as is if under 2MB
       const reader = new FileReader();
-      reader.onload = (event) => {
-        setPodFile(event.target?.result as string);
-      };
+      reader.onload = (event) => setPodFile(event.target?.result as string);
       reader.readAsDataURL(file);
     }
   };
@@ -255,143 +244,153 @@ export default function TR21Page() {
           ))}
         </div>
 
-        <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner custom-scrollbar">
-          <table className="w-full text-left border-collapse min-w-[1800px] text-[11px]">
-            <thead className="bg-[#f8fafc] sticky top-0 z-20 border-b border-slate-300 font-black uppercase text-slate-500">
-              {activeTab === 'Open Orders' ? (
-                <tr>
-                  <th className="p-3 border-r w-[80px]">Plant</th>
-                  <th className="p-3 border-r w-[180px]">Sale Order/Date</th>
-                  <th className="p-3 border-r w-[200px]">Consignor</th>
-                  <th className="p-3 border-r w-[200px]">Consignee</th>
-                  <th className="p-3 border-r w-[200px]">Ship to Party</th>
-                  <th className="p-3 border-r w-[200px]">Route</th>
-                  <th className="p-3 border-r w-[100px] text-right">Order Qty</th>
-                  <th className="p-3 border-r w-[100px] text-right">Dispatch Qty</th>
-                  <th className="p-3 border-r w-[100px] text-right">Balance Qty</th>
-                  <th className="p-3 text-center">Action</th>
-                </tr>
-              ) : (
-                <tr>
-                  <th className="p-3 border-r w-[60px]">Plant</th>
-                  <th className="p-3 border-r w-[150px]">Sale Order/Date</th>
-                  <th className="p-3 border-r w-[150px]">Trip ID/Date</th>
-                  <th className="p-3 border-r w-[180px]">Consignor</th>
-                  <th className="p-3 border-r w-[180px]">Consignee</th>
-                  <th className="p-3 border-r w-[180px]">Ship to Party</th>
-                  <th className="p-3 border-r w-[180px]">Route</th>
-                  <th className="p-3 border-r w-[150px]">Vehicle/Mobile</th>
-                  <th className="p-3 border-r w-[150px]">Carrier/Vendor</th>
-                  <th className="p-3 border-r w-[100px]">Fleet Type</th>
-                  <th className="p-3 border-r w-[150px]">CN No/Date</th>
-                  {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
-                    <>
-                      <th className="p-3 border-r w-[120px]">Out Date/Time</th>
-                      <th className="p-3 border-r w-[120px]">Arrived Date/Time</th>
-                    </>
-                  )}
-                  <th className="p-3 text-center">Action</th>
-                </tr>
-              )}
-            </thead>
-            <tbody>
-              {filteredData.map((item: any) => (
-                <tr key={item.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors group h-[60px] font-bold uppercase">
-                  <td className="p-3 border-r text-center font-black">{item.plantCode}</td>
-                  <td className="p-3 border-r">
-                    <div className="flex flex-col leading-tight">
-                      <span className="font-black text-slate-800">{item.orderNo}</span>
-                      <span className="text-[9px] text-slate-400">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
-                    </div>
-                  </td>
-                  
-                  {activeTab !== 'Open Orders' && (
+        <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner custom-scrollbar relative flex flex-col">
+          <div className="flex-1 overflow-auto">
+            <table className="w-full text-left border-collapse min-w-[1800px] text-[11px]">
+              <thead className="bg-[#f8fafc] sticky top-0 z-20 border-b border-slate-300 font-black uppercase text-slate-500">
+                {activeTab === 'Open Orders' ? (
+                  <tr>
+                    <th className="p-3 border-r w-[80px]">Plant</th>
+                    <th className="p-3 border-r w-[180px]">Sale Order/Date</th>
+                    <th className="p-3 border-r w-[200px]">Consignor</th>
+                    <th className="p-3 border-r w-[200px]">Consignee</th>
+                    <th className="p-3 border-r w-[200px]">Ship to Party</th>
+                    <th className="p-3 border-r w-[200px]">Route</th>
+                    <th className="p-3 border-r w-[100px] text-right">Order Qty</th>
+                    <th className="p-3 border-r w-[100px] text-right">Dispatch Qty</th>
+                    <th className="p-3 border-r w-[100px] text-right">Balance Qty</th>
+                    <th className="p-3 text-center">Action</th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th className="p-3 border-r w-[60px]">Plant</th>
+                    <th className="p-3 border-r w-[150px]">Sale Order/Date</th>
+                    <th className="p-3 border-r w-[150px]">Trip ID/Date</th>
+                    <th className="p-3 border-r w-[180px]">Consignor</th>
+                    <th className="p-3 border-r w-[180px]">Consignee</th>
+                    <th className="p-3 border-r w-[180px]">Ship to Party</th>
+                    <th className="p-3 border-r w-[180px]">Route</th>
+                    <th className="p-3 border-r w-[150px]">Vehicle/Mobile</th>
+                    <th className="p-3 border-r w-[150px]">Carrier/Vendor</th>
+                    <th className="p-3 border-r w-[100px]">Fleet Type</th>
+                    <th className="p-3 border-r w-[150px]">CN No/Date</th>
+                    {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
+                      <>
+                        <th className="p-3 border-r w-[120px]">Out Date/Time</th>
+                        <th className="p-3 border-r w-[120px]">Arrived Date/Time</th>
+                      </>
+                    )}
+                    <th className="p-3 text-center">Action</th>
+                  </tr>
+                )}
+              </thead>
+              <tbody>
+                {paginated.map((item: any) => (
+                  <tr key={item.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors group h-[60px] font-bold uppercase">
+                    <td className="p-3 border-r text-center font-black">{item.plantCode}</td>
                     <td className="p-3 border-r">
                       <div className="flex flex-col leading-tight">
-                        <span className="font-black text-blue-700">{item.tripNo || '-'}</span>
-                        <span className="text-[9px] text-slate-400">{item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '-'}</span>
+                        <span className="font-black text-slate-800">{item.orderNo}</span>
+                        <span className="text-[9px] text-slate-400">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                       </div>
                     </td>
-                  )}
-
-                  <td className="p-3 border-r truncate max-w-[200px]">{item.consignorName || item.consignorCode}</td>
-                  <td className="p-3 border-r truncate max-w-[200px]">{item.consigneeName || item.consigneeCode}</td>
-                  <td className="p-3 border-r truncate max-w-[200px]">{item.shipToParty || item.shipToPartyCode}</td>
-                  <td className="p-3 border-r italic text-[10px] uppercase">{item.from} → {item.destination}</td>
-
-                  {activeTab === 'Open Orders' ? (
-                    <>
-                      <td className="p-3 border-r text-right text-slate-400">{parseFloat(item.quantity || 0).toFixed(3)}</td>
-                      <td className="p-3 border-r text-right text-emerald-600">{parseFloat(item.dispatched || 0).toFixed(3)}</td>
-                      <td className="p-3 border-r text-right font-black text-blue-600">{parseFloat(item.balance || 0).toFixed(3)}</td>
-                      <td className="p-3 text-center">
-                        <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3) }); setShowAssign(true); }} className="h-7 w-20 text-[9px] font-black bg-[#1e3a8a] rounded-none">Assign</Button>
-                      </td>
-                    </>
-                  ) : (
-                    <>
+                    
+                    {activeTab !== 'Open Orders' && (
                       <td className="p-3 border-r">
-                        <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline">
-                          <span className="font-black text-blue-800">{item.vehicleNo || 'ADD'}</span>
-                          <span className="text-[9px] text-slate-400 font-bold">{item.driverMobile || '-'}</span>
-                        </button>
+                        <div className="flex flex-col leading-tight">
+                          <span className="font-black text-blue-700">{item.tripNo || '-'}</span>
+                          <span className="text-[9px] text-slate-400">{item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '-'}</span>
+                        </div>
                       </td>
-                      <td className="p-3 border-r truncate max-w-[150px]">{item.carrierName || item.vendorName || '-'}</td>
-                      <td className="p-3 border-r text-[9px] font-black text-slate-400">{item.fleetType}</td>
-                      <td className="p-3 border-r">
-                         <div className="flex flex-col leading-tight">
-                           {item.cnNumber ? (
-                             <button onClick={() => { setSelectedTrip(item); setShowCNPreview(true); }} className="text-left group">
-                                <span className="font-black text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
-                                <span className="text-[9px] text-slate-400">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
-                             </button>
-                           ) : <span className="text-slate-300 italic text-[9px]">PENDING</span>}
-                         </div>
-                      </td>
-                      {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
-                        <>
-                          <td className="p-3 border-r text-slate-400 text-[9px]">{item.outDate ? format(new Date(item.outDate), 'dd-MM HH:mm') : '-'}</td>
-                          <td className="p-3 border-r text-slate-400 text-[9px]">{item.arrivedDate ? format(new Date(item.arrivedDate), 'dd-MM HH:mm') : '-'}</td>
-                        </>
-                      )}
-                      <td className="p-3 text-center flex flex-col gap-1 items-center justify-center min-w-[100px]">
-                        {activeTab === 'Loading' && (
+                    )}
+
+                    <td className="p-3 border-r truncate max-w-[200px]">{item.consignorName || item.consignorCode}</td>
+                    <td className="p-3 border-r truncate max-w-[200px]">{item.consigneeName || item.consigneeCode}</td>
+                    <td className="p-3 border-r truncate max-w-[200px]">{item.shipToParty || item.shipToPartyCode}</td>
+                    <td className="p-3 border-r italic text-[10px] uppercase">{item.from} → {item.destination}</td>
+
+                    {activeTab === 'Open Orders' ? (
+                      <>
+                        <td className="p-3 border-r text-right text-slate-400">{parseFloat(item.quantity || 0).toFixed(3)}</td>
+                        <td className="p-3 border-r text-right text-emerald-600">{parseFloat(item.dispatched || 0).toFixed(3)}</td>
+                        <td className="p-3 border-r text-right font-black text-blue-600">{parseFloat(item.balance || 0).toFixed(3)}</td>
+                        <td className="p-3 text-center">
+                          <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3) }); setShowAssign(true); }} className="h-7 w-20 text-[9px] font-black bg-[#1e3a8a] rounded-none">Assign</Button>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="p-3 border-r">
+                          <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline">
+                            <span className="font-black text-blue-800">{item.vehicleNo || 'ADD'}</span>
+                            <span className="text-[9px] text-slate-400 font-bold">{item.driverMobile || '-'}</span>
+                          </button>
+                        </td>
+                        <td className="p-3 border-r truncate max-w-[150px]">{item.carrierName || item.vendorName || '-'}</td>
+                        <td className="p-3 border-r text-[9px] font-black text-slate-400">{item.fleetType}</td>
+                        <td className="p-3 border-r">
+                           <div className="flex flex-col leading-tight">
+                             {item.cnNumber ? (
+                               <button onClick={() => { setSelectedTrip(item); setShowCNPreview(true); }} className="text-left group">
+                                  <span className="font-black text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
+                                  <span className="text-[9px] text-slate-400">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
+                               </button>
+                             ) : <span className="text-slate-300 italic text-[9px]">PENDING</span>}
+                           </div>
+                        </td>
+                        {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
                           <>
-                            <Button onClick={() => handleUpdateStatus(item.id, 'IN-TRANSIT', 'outDate')} className="h-6 w-20 text-[8px] font-black bg-[#1e3a8a] text-white rounded-none">OUT</Button>
-                            <Button onClick={() => { setSelectedTrip(item); setCNData(item.cnNumber ? item : { ...cnData, invoices: item.invoices || [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }] }); setShowCNPortal(true); }} className="h-6 w-20 text-[8px] font-black bg-emerald-600 text-white rounded-none">CN ENTRY</Button>
+                            <td className="p-3 border-r text-slate-400 text-[9px]">{item.outDate ? format(new Date(item.outDate), 'dd-MM HH:mm') : '-'}</td>
+                            <td className="p-3 border-r text-slate-400 text-[9px]">{item.arrivedDate ? format(new Date(item.arrivedDate), 'dd-MM HH:mm') : '-'}</td>
                           </>
                         )}
-                        {activeTab === 'In-Transit' && (
-                          <>
-                            <Button onClick={() => handleUpdateStatus(item.id, 'ARRIVED', 'arrivedDate')} className="h-6 w-20 text-[8px] font-black bg-emerald-600 text-white rounded-none">ARRIVED</Button>
-                            <Button onClick={() => { setSelectedTrip(item); setCNData(item); setShowCNPortal(true); }} variant="outline" className="h-6 w-20 text-[8px] font-black border-slate-300 rounded-none">CN EDIT</Button>
-                          </>
-                        )}
-                        {activeTab === 'Arrived' && (
-                          <>
-                            <Button onClick={() => handleUpdateStatus(item.id, 'POD')} className="h-6 w-20 text-[8px] font-black bg-emerald-600 text-white rounded-none">UNLOAD</Button>
-                            <Button onClick={() => handleUpdateStatus(item.id, 'REJECTION')} className="h-6 w-20 text-[8px] font-black bg-red-600 text-white rounded-none">REJECT</Button>
-                            <Button onClick={() => { setSelectedTrip(item); setCNData(item); setShowCNPortal(true); }} variant="outline" className="h-6 w-20 text-[8px] font-black border-slate-300 rounded-none">CN EDIT</Button>
-                          </>
-                        )}
-                        {activeTab === 'Reject' && (
-                          <>
-                            <Button className="h-6 w-20 text-[8px] font-black bg-blue-600 text-white rounded-none">RESENT</Button>
-                            <Button className="h-6 w-20 text-[8px] font-black bg-slate-800 text-white rounded-none">SRN</Button>
-                          </>
-                        )}
-                        {(activeTab === 'POD Verify' || activeTab === 'Closed') && (
-                          <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className={cn("h-6 w-24 text-[8px] font-black rounded-none", item.podUrl ? "bg-emerald-600" : "bg-orange-600")}>
-                             {item.podUrl ? 'VIEW POD' : 'UPLOAD POD'}
-                          </Button>
-                        )}
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        <td className="p-3 text-center flex flex-col gap-1 items-center justify-center min-w-[100px]">
+                          {activeTab === 'Loading' && (
+                            <>
+                              <Button onClick={() => handleUpdateStatus(item.id, 'IN-TRANSIT', 'outDate')} className="h-6 w-20 text-[8px] font-black bg-[#1e3a8a] text-white rounded-none">OUT</Button>
+                              <Button onClick={() => { setSelectedTrip(item); setCNData(item.cnNumber ? item : { ...cnData, invoices: item.invoices || [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }] }); setShowCNPortal(true); }} className="h-6 w-20 text-[8px] font-black bg-emerald-600 text-white rounded-none">CN ENTRY</Button>
+                            </>
+                          )}
+                          {activeTab === 'In-Transit' && (
+                            <>
+                              <Button onClick={() => handleUpdateStatus(item.id, 'ARRIVED', 'arrivedDate')} className="h-6 w-20 text-[8px] font-black bg-emerald-600 text-white rounded-none">ARRIVED</Button>
+                              <Button onClick={() => { setSelectedTrip(item); setCNData(item); setShowCNPortal(true); }} variant="outline" className="h-6 w-20 text-[8px] font-black border-slate-300 rounded-none">CN EDIT</Button>
+                            </>
+                          )}
+                          {activeTab === 'Arrived' && (
+                            <>
+                              <Button onClick={() => handleUpdateStatus(item.id, 'POD')} className="h-6 w-20 text-[8px] font-black bg-emerald-600 text-white rounded-none">UNLOAD</Button>
+                              <Button onClick={() => handleUpdateStatus(item.id, 'REJECTION')} className="h-6 w-20 text-[8px] font-black bg-red-600 text-white rounded-none">REJECT</Button>
+                              <Button onClick={() => { setSelectedTrip(item); setCNData(item); setShowCNPortal(true); }} variant="outline" className="h-6 w-20 text-[8px] font-black border-slate-300 rounded-none">CN EDIT</Button>
+                            </>
+                          )}
+                          {activeTab === 'Reject' && (
+                            <>
+                              <Button className="h-6 w-20 text-[8px] font-black bg-blue-600 text-white rounded-none">RESENT</Button>
+                              <Button className="h-6 w-20 text-[8px] font-black bg-slate-800 text-white rounded-none">SRN</Button>
+                            </>
+                          )}
+                          {(activeTab === 'POD Verify' || activeTab === 'Closed') && (
+                            <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className={cn("h-6 w-24 text-[8px] font-black rounded-none", item.podUrl ? "bg-emerald-600" : "bg-orange-600")}>
+                               {item.podUrl ? 'VIEW POD' : 'UPLOAD POD'}
+                            </Button>
+                          )}
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center shrink-0">
+            <div className="flex gap-2 items-center">
+              <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronLeft className="h-3 w-3" /></Button>
+              <input type="number" min="1" max={totalPages} value={currentPage} onChange={e => setCurrentPage(Math.max(1, Math.min(totalPages || 1, Number(e.target.value))))} className="h-7 w-12 border border-slate-300 text-center text-[10px] font-black outline-none" />
+              <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(v => v + 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronRight className="h-3 w-3" /></Button>
+            </div>
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Page {currentPage} of {totalPages || 1}</span>
+          </div>
         </div>
       </div>
 
@@ -581,7 +580,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
   
   const packageSummary = React.useMemo(() => {
-    if (!trip.invoices || trip.invoices.length === 0) return "0 PKG";
+    if (!trip.invoices || trip.invoices.length === 0) return "0.000 PKG";
     const groups: Record<string, number> = {};
     trip.invoices.forEach((inv: any) => {
       const uom = (inv.uom || "PKG").toUpperCase();
@@ -663,7 +662,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
              </table>
           </div>
 
-          <div className="grid grid-cols-3 gap-0 mb-8 border border-black">
+          <div className="grid grid-cols-3 gap-0 mb-8">
              <div className="border-r border-black p-5 space-y-4 min-h-[180px]">
                 <h4 className="text-[10px] font-normal uppercase text-slate-400 italic mb-2 tracking-widest">Consignor</h4>
                 <div className="text-[11px] uppercase font-normal space-y-1.5">
@@ -693,7 +692,7 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
           </div>
 
           <div className="mb-8">
-             <table className="w-full border-collapse border border-black text-[11px]">
+             <table className="w-full border-collapse text-[11px]">
                 <thead>
                    <tr className="bg-slate-50 uppercase text-[9px] font-normal text-slate-500 border-b border-black">
                       <th className="p-2 border-r border-black w-[130px] text-left font-normal">Invoice No</th>
@@ -705,30 +704,29 @@ function CNPreviewContent({ trip, carrier, customers }: { trip: any, carrier: an
                 </thead>
                 <tbody>
                    {trip.invoices?.map((inv: any, i: number) => (
-                      <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal">
-                         <td className="p-3 border-r border-black">{inv.invNo}</td>
-                         <td className="p-3 border-r border-black">{inv.ewaybillNo}</td>
-                         <td className="p-3 border-r border-black leading-snug">{inv.desc}</td>
-                         <td className="p-3 border-r border-black text-center">{inv.pkg} {inv.uom}</td>
+                      <tr key={i} className="border-b border-slate-100 last:border-b-0 uppercase font-normal">
+                         <td className="p-3 border-r border-slate-100">{inv.invNo}</td>
+                         <td className="p-3 border-r border-slate-100">{inv.ewaybillNo}</td>
+                         <td className="p-3 border-r border-slate-100 leading-snug">{inv.desc}</td>
+                         <td className="p-3 border-r border-slate-100 text-center">{inv.pkg} {inv.uom}</td>
                          <td className="p-3 text-right">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
                       </tr>
                    ))}
-                   {/* 4 Line Blank Space */}
                    {[1, 2, 3, 4].map(n => (
-                     <tr key={`blank-${n}`} className="border-b border-black last:border-b-0 h-10">
-                        <td className="border-r border-black"></td>
-                        <td className="border-r border-black"></td>
-                        <td className="border-r border-black"></td>
-                        <td className="border-r border-black"></td>
+                     <tr key={`blank-${n}`} className="border-b border-slate-100 last:border-b-0 h-10">
+                        <td className="border-r border-slate-100"></td>
+                        <td className="border-r border-slate-100"></td>
+                        <td className="border-r border-slate-100"></td>
+                        <td className="border-r border-slate-100"></td>
                         <td></td>
                      </tr>
                    ))}
                 </tbody>
                 <tfoot>
                    <tr className="bg-slate-50 font-normal text-[10px] uppercase">
-                      <td colSpan={3} className="p-4 text-right text-slate-400 italic border-t border-black">Gross Total:</td>
-                      <td className="p-4 text-center text-blue-900 border-t border-black">{packageSummary}</td>
-                      <td className="p-4 text-right text-blue-900 border-t border-black">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
+                      <td colSpan={3} className="p-4 text-right text-slate-400 italic">Gross Total:</td>
+                      <td className="p-4 text-center text-blue-900">{packageSummary}</td>
+                      <td className="p-4 text-right text-blue-900">{parseFloat(trip.assignWeight || 0).toFixed(3)} MT</td>
                    </tr>
                 </tfoot>
              </table>
