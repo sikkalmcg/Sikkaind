@@ -75,7 +75,10 @@ export default function TR21Page() {
     newStatus: '',
     dateField: '',
     timestamp: '',
-    label: ''
+    label: '',
+    consignor: '',
+    consignee: '',
+    route: ''
   });
 
   React.useEffect(() => { 
@@ -255,13 +258,16 @@ export default function TR21Page() {
     alert('Documentation Synchronized');
   };
 
-  const openStatusPortal = (tripId: string, newStatus: string, dateField: string, label: string) => {
+  const openStatusPortal = (trip: any, newStatus: string, dateField: string, label: string) => {
     setStatusUpdateData({
-      tripId,
+      tripId: trip.id,
       newStatus,
       dateField,
       label,
-      timestamp: format(new Date(), "yyyy-MM-dd'T'HH:mm")
+      timestamp: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      consignor: trip.consignorName || trip.consignorCode,
+      consignee: trip.consigneeName || trip.consigneeCode,
+      route: `${trip.from} → ${trip.destination}`
     });
     setShowStatusPortal(true);
   };
@@ -474,7 +480,7 @@ export default function TR21Page() {
                         <td className="p-3 text-center flex flex-col gap-1 items-center justify-center min-w-[100px]">
                           {activeTab === 'Loading' && (
                             <>
-                              <Button onClick={() => openStatusPortal(item.id, 'IN-TRANSIT', 'outDate', 'GATE OUT PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
+                              <Button onClick={() => openStatusPortal(item, 'IN-TRANSIT', 'outDate', 'GATE OUT PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
                               <Button onClick={() => { 
                                 setSelectedTrip(item); 
                                 const invs = (item.invoices || []).length > 0 ? item.invoices : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
@@ -485,7 +491,7 @@ export default function TR21Page() {
                           )}
                           {activeTab === 'In-Transit' && (
                             <>
-                              <Button onClick={() => openStatusPortal(item.id, 'ARRIVED', 'arrivedDate', 'ARRIVAL HANDSHAKE')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">ARRIVED</Button>
+                              <Button onClick={() => openStatusPortal(item, 'ARRIVED', 'arrivedDate', 'ARRIVAL HANDSHAKE')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">ARRIVED</Button>
                               <Button onClick={() => { 
                                 setSelectedTrip(item); 
                                 setCNData({ ...item, invoices: item.invoices || [] }); 
@@ -495,8 +501,8 @@ export default function TR21Page() {
                           )}
                           {activeTab === 'Arrived' && (
                             <>
-                              <Button onClick={() => openStatusPortal(item.id, 'POD', 'unloadDate', 'UNLOADING PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">UNLOAD</Button>
-                              <Button onClick={() => openStatusPortal(item.id, 'REJECTION', 'rejectionDate', 'REJECTION PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-red-600 text-white rounded-none">REJECT</Button>
+                              <Button onClick={() => openStatusPortal(item, 'POD', 'unloadDate', 'UNLOADING PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">UNLOAD</Button>
+                              <Button onClick={() => openStatusPortal(item, 'REJECTION', 'rejectionDate', 'REJECTION PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-red-600 text-white rounded-none">REJECT</Button>
                               <Button onClick={() => { 
                                 setSelectedTrip(item); 
                                 setCNData({ ...item, invoices: item.invoices || [] }); 
@@ -791,6 +797,11 @@ export default function TR21Page() {
         <DialogContent className="max-w-md rounded-none border-[3px] border-[#1e3a8a] font-mono p-0 overflow-hidden text-left text-black">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
              <DialogTitle className="text-[12px] font-normal uppercase text-[#1e3a8a] italic mb-4">{statusUpdateData.label}</DialogTitle>
+             <div className="grid grid-cols-1 gap-2 bg-white border border-slate-200 p-4 shadow-inner text-[9px] font-normal uppercase">
+                <div className="flex items-center gap-2"><span className="text-slate-400 text-[8px] w-20 shrink-0">Consignor:</span><span className="truncate font-normal">{statusUpdateData.consignor}</span></div>
+                <div className="flex items-center gap-2"><span className="text-slate-400 text-[8px] w-20 shrink-0">Consignee:</span><span className="truncate font-normal">{statusUpdateData.consignee}</span></div>
+                <div className="flex items-center gap-2"><span className="text-slate-400 text-[8px] w-20 shrink-0">Route:</span><span className="truncate text-emerald-600 italic font-normal">{statusUpdateData.route}</span></div>
+             </div>
           </DialogHeader>
           <div className="p-8 space-y-6">
              <div className="space-y-1.5">
