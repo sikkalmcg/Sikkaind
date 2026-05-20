@@ -477,7 +477,7 @@ export default function TR21Page() {
                             <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.arrivedDate ? format(new Date(item.arrivedDate), 'dd-MM HH:mm') : '-'}</td>
                           </>
                         )}
-                        <td className="p-3 text-center flex flex-col gap-1 items-center justify-center min-w-[100px]">
+                        <td className="p-3 text-center flex flex-row gap-2 items-center justify-center min-w-[200px]">
                           {activeTab === 'Loading' && (
                             <>
                               <Button onClick={() => openStatusPortal(item, 'IN-TRANSIT', 'outDate', 'GATE OUT PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
