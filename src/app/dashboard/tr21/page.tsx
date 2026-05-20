@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { 
   Filter, Search, MapPin, Truck, Radar, 
   X, Trash2, Plus, FileText, ChevronLeft, ChevronRight, Printer,
-  Loader2, CheckCircle, FileUp, ExternalLink, Calculator, History
+  Loader2, CheckCircle, FileUp, ExternalLink, Calculator, History, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useUser } from '@/firebase';
@@ -38,6 +38,7 @@ export default function TR21Page() {
   const [showCNPortal, setShowCNPortal] = React.useState(false);
   const [showVehiclePortal, setShowVehiclePortal] = React.useState(false);
   const [showPODPortal, setShowPODPortal] = React.useState(false);
+  const [showStatusPortal, setShowStatusPortal] = React.useState(false);
   
   const [podFile, setPodFile] = React.useState<string | null>(null);
   const [isCompressing, setIsCompressing] = React.useState(false);
@@ -69,6 +70,14 @@ export default function TR21Page() {
 
   const [vehicleData, setVehicleData] = React.useState({ vehicleNo: '', driverMobile: '' });
 
+  const [statusUpdateData, setStatusUpdateData] = React.useState({
+    tripId: '',
+    newStatus: '',
+    dateField: '',
+    timestamp: '',
+    label: ''
+  });
+
   React.useEffect(() => { 
     const isAd = localStorage.getItem('sap_bootstrap_session') === 'true';
     const rId = localStorage.getItem('sap_registry_id');
@@ -91,14 +100,12 @@ export default function TR21Page() {
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
-  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
   const { data: plants } = useCollection(plantsQuery);
   const { data: companies } = useCollection(companiesQuery);
-  const { data: customers } = useCollection(customersQuery);
   const { data: vendors } = useCollection(vendorsQuery);
 
   React.useEffect(() => {
@@ -110,7 +117,6 @@ export default function TR21Page() {
     }
   }, [assignData.rate, assignData.assignWeight, assignData.fixRate]);
 
-  // Updated logic to calculate next CN Number following pattern exactly
   React.useEffect(() => {
     if (showCNPortal && selectedTrip && trips && companies) {
       const carrier = companies.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies[0];
@@ -124,7 +130,6 @@ export default function TR21Page() {
         let lastFull = '';
         let maxVal = -1;
 
-        // Find the CN with the highest numeric component at the end
         carrierCNs.forEach(cn => {
           const match = cn.match(/(\d+)$/);
           if (match) {
@@ -250,11 +255,28 @@ export default function TR21Page() {
     alert('Documentation Synchronized');
   };
 
-  const handleUpdateStatus = (tripId: string, newStatus: string, dateField?: string) => {
-    const updates: any = { status: newStatus, updatedAt: new Date().toISOString() };
-    if (dateField) updates[dateField] = new Date().toISOString();
-    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', tripId), updates);
-    alert(`Node Status Updated: ${newStatus}`);
+  const openStatusPortal = (tripId: string, newStatus: string, dateField: string, label: string) => {
+    setStatusUpdateData({
+      tripId,
+      newStatus,
+      dateField,
+      label,
+      timestamp: format(new Date(), "yyyy-MM-dd'T'HH:mm")
+    });
+    setShowStatusPortal(true);
+  };
+
+  const handleCommitStatusUpdate = () => {
+    const updates: any = { 
+      status: statusUpdateData.newStatus, 
+      updatedAt: new Date().toISOString() 
+    };
+    if (statusUpdateData.dateField) {
+      updates[statusUpdateData.dateField] = statusUpdateData.timestamp;
+    }
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', statusUpdateData.tripId), updates);
+    setShowStatusPortal(false);
+    alert(`Node Status Updated: ${statusUpdateData.newStatus}`);
   };
 
   const handlePODUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -452,7 +474,7 @@ export default function TR21Page() {
                         <td className="p-3 text-center flex flex-col gap-1 items-center justify-center min-w-[100px]">
                           {activeTab === 'Loading' && (
                             <>
-                              <Button onClick={() => handleUpdateStatus(item.id, 'IN-TRANSIT', 'outDate')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
+                              <Button onClick={() => openStatusPortal(item.id, 'IN-TRANSIT', 'outDate', 'GATE OUT PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
                               <Button onClick={() => { 
                                 setSelectedTrip(item); 
                                 const invs = (item.invoices || []).length > 0 ? item.invoices : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
@@ -463,7 +485,7 @@ export default function TR21Page() {
                           )}
                           {activeTab === 'In-Transit' && (
                             <>
-                              <Button onClick={() => handleUpdateStatus(item.id, 'ARRIVED', 'arrivedDate')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">ARRIVED</Button>
+                              <Button onClick={() => openStatusPortal(item.id, 'ARRIVED', 'arrivedDate', 'ARRIVAL HANDSHAKE')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">ARRIVED</Button>
                               <Button onClick={() => { 
                                 setSelectedTrip(item); 
                                 setCNData({ ...item, invoices: item.invoices || [] }); 
@@ -473,8 +495,8 @@ export default function TR21Page() {
                           )}
                           {activeTab === 'Arrived' && (
                             <>
-                              <Button onClick={() => handleUpdateStatus(item.id, 'POD')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">UNLOAD</Button>
-                              <Button onClick={() => handleUpdateStatus(item.id, 'REJECTION')} className="h-6 w-20 text-[8px] font-normal bg-red-600 text-white rounded-none">REJECT</Button>
+                              <Button onClick={() => openStatusPortal(item.id, 'POD', 'unloadDate', 'UNLOADING PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">UNLOAD</Button>
+                              <Button onClick={() => openStatusPortal(item.id, 'REJECTION', 'rejectionDate', 'REJECTION PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-red-600 text-white rounded-none">REJECT</Button>
                               <Button onClick={() => { 
                                 setSelectedTrip(item); 
                                 setCNData({ ...item, invoices: item.invoices || [] }); 
@@ -609,6 +631,16 @@ export default function TR21Page() {
                   value={assignData.assignWeight || ''} 
                   onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} 
                   className="h-9 w-full border border-[#0056d2] px-3 text-xs font-normal outline-none" 
+                />
+             </div>
+
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-normal text-slate-400 uppercase">Assign Date *</label>
+                <input 
+                  type="datetime-local" 
+                  value={assignData.assignDate || ''} 
+                  onChange={e => setAssignData({...assignData, assignDate: e.target.value})} 
+                  className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" 
                 />
              </div>
 
@@ -751,6 +783,33 @@ export default function TR21Page() {
           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
              <Button onClick={() => setShowVehiclePortal(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-normal px-10">Cancel</Button>
              <Button onClick={() => { updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { vehicleNo: vehicleData.vehicleNo.toUpperCase(), driverMobile: vehicleData.driverMobile, updatedAt: new Date().toISOString() }); setShowVehiclePortal(false); }} className="bg-blue-900 text-white rounded-none h-10 uppercase text-[10px] font-normal px-16">Update</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showStatusPortal} onOpenChange={setShowStatusPortal}>
+        <DialogContent className="max-w-md rounded-none border-[3px] border-[#1e3a8a] font-mono p-0 overflow-hidden text-left text-black">
+          <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
+             <DialogTitle className="text-[12px] font-normal uppercase text-[#1e3a8a] italic mb-4">{statusUpdateData.label}</DialogTitle>
+          </DialogHeader>
+          <div className="p-8 space-y-6">
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-normal text-slate-400 uppercase flex items-center gap-2">
+                   <Clock className="h-3 w-3 text-blue-500" /> Protocol Date & Time *
+                </label>
+                <input 
+                  type="datetime-local" 
+                  autoFocus 
+                  value={statusUpdateData.timestamp} 
+                  onChange={e => setStatusUpdateData({...statusUpdateData, timestamp: e.target.value})} 
+                  className="h-10 w-full border border-slate-400 px-3 text-xs font-normal bg-white focus:bg-yellow-50 outline-none" 
+                />
+             </div>
+             <p className="text-[9px] text-slate-400 italic uppercase">Warning: This action will record a permanent transactional node in the control registry.</p>
+          </div>
+          <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
+             <Button onClick={() => setShowStatusPortal(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-normal px-10">Exit</Button>
+             <Button onClick={handleCommitStatusUpdate} className="bg-[#1e3a8a] text-white rounded-none h-10 uppercase text-[10px] font-normal px-16">Sync Status</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
