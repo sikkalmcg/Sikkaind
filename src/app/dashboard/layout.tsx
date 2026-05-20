@@ -113,7 +113,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     const filtered = baseFavs
-      .filter((f: any) => authorizedTcodes.includes(f.code))
+      .filter((fav: any) => authorizedTcodes.includes(fav.code))
       .map((fav: any) => {
         const master = MASTER_TCODES.find(m => m.code === fav.code);
         return { ...fav, icon: master?.icon || Grid2X2 };
@@ -121,16 +121,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     setUserFavorites(filtered);
   }, [mounted, isProfileLoading, authorizedTcodes]);
-
-  React.useEffect(() => {
-    if (!mounted || isProfileLoading) return;
-    
-    const currentTcode = searchParams.get('tcode');
-    if (currentTcode && !authorizedTcodes.includes(currentTcode)) {
-      alert(`AUTHORIZATION ERROR: Node ${currentTcode} is restricted for your profile.`);
-      router.push('/dashboard');
-    }
-  }, [searchParams, authorizedTcodes, mounted, isProfileLoading, router]);
 
   const executeTCode = React.useCallback((cmd: string) => {
     const input = cmd.toUpperCase().trim();
