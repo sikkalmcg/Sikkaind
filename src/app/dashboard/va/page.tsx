@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Download, Upload, Loader2, X, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Upload, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, useUser, useDoc } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
@@ -110,7 +110,7 @@ export default function VAPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const db = useFirestore();
-  const { user, isUserLoading: isAuthLoading } = useUser();
+  const { user } = useUser();
   const activeTCode = searchParams.get('tcode') || 'VA03';
   const isReadOnly = activeTCode === 'VA03';
   
@@ -136,12 +136,13 @@ export default function VAPage() {
     if (!registryId || isBootstrapAdmin) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'users_master', registryId);
   }, [db, registryId, isBootstrapAdmin]);
-  const { data: userProfile } = useDoc(profileRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
 
   const authorizedPlantCodes = React.useMemo(() => {
+    if (isProfileLoading) return undefined;
     if (isBootstrapAdmin) return null;
     return userProfile?.plantAccess || [];
-  }, [isBootstrapAdmin, userProfile]);
+  }, [isBootstrapAdmin, userProfile, isProfileLoading]);
 
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
@@ -152,10 +153,17 @@ export default function VAPage() {
   const { data: allCustomers } = useCollection(customersQuery);
 
   const filteredPlants = React.useMemo(() => {
-    if (!allPlants) return [];
+    if (!allPlants || authorizedPlantCodes === undefined) return [];
     if (!authorizedPlantCodes) return allPlants;
     return allPlants.filter(p => authorizedPlantCodes.includes(p.plantCode));
   }, [allPlants, authorizedPlantCodes]);
+
+  // Handle single plant auto-selection to prevent empty/disabled state
+  React.useEffect(() => {
+    if (mounted && filteredPlants.length === 1 && !formData.plantCode && !isReadOnly) {
+      setFormData(prev => ({ ...prev, plantCode: filteredPlants[0].plantCode }));
+    }
+  }, [mounted, filteredPlants, formData.plantCode, isReadOnly]);
 
   const filteredCustomersForSelection = React.useMemo(() => {
     if (!allCustomers) return [];
@@ -319,6 +327,7 @@ export default function VAPage() {
   };
 
   const filteredOrders = React.useMemo(() => {
+    if (authorizedPlantCodes === undefined) return [];
     return (allOrders || [])
       .filter(o => {
         if (authorizedPlantCodes && !authorizedPlantCodes.includes(o.plantCode)) return false;
@@ -375,41 +384,53 @@ export default function VAPage() {
                 <label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Registry:</label>
                 <input className="h-9 w-full border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:bg-yellow-50" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ENTER ORDER NO OR CUSTOMER..." />
              </div>
-             <table className="w-full text-left text-[11px] min-w-[1550px] border-collapse">
-                <thead className="bg-[#f8fafc] border-b border-slate-300 font-black uppercase text-slate-500 sticky top-0 z-20">
-                  <tr>
-                    <th className="p-4 border-r w-[80px]">Plant</th>
-                    <th className="p-4 border-r w-[120px]">Sale Order</th>
-                    <th className="p-4 border-r w-[120px]">Order Date</th>
-                    <th className="p-4 border-r w-[200px]">Consignor</th>
-                    <th className="p-4 border-r w-[150px] flex flex-col justify-center leading-none"><span>From</span><span className="text-[7px] text-blue-600 mt-0.5">Via</span></th>
-                    <th className="p-4 border-r w-[200px]">Consignee</th>
-                    <th className="p-4 border-r w-[200px]">Ship to Party</th>
-                    <th className="p-4 border-r w-[150px]">Destination</th>
-                    <th className="p-4 border-r w-[150px]">Material</th>
-                    <th className="p-4 text-right w-[100px]">Weight</th>
-                  </tr>
-                </thead>
-                <tbody className="font-bold uppercase">
-                  {filteredOrders.map(o => (
-                    <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50/40 cursor-pointer">
-                      <td className="p-4 border-r text-slate-600">{o.plantCode}</td>
-                      <td className="p-4 border-r text-[#0056d2] font-black">{o.orderNo}</td>
-                      <td className="p-4 border-r whitespace-nowrap">{o.orderDate ? format(new Date(o.orderDate), 'dd-MMM-yyyy') : '-'}</td>
-                      <td className="p-4 border-r truncate max-w-[200px]" title={o.consignorName}>{o.consignorName}</td>
-                      <td className="p-4 border-r flex flex-col justify-center leading-tight">
-                        <span className="truncate">{o.from}</span>
-                        {o.via && <span className="text-[8px] text-blue-600 font-black uppercase truncate">VIA: {o.via}</span>}
-                      </td>
-                      <td className="p-4 border-r truncate max-w-[200px]" title={o.consigneeName}>{o.consigneeName}</td>
-                      <td className="p-4 border-r truncate max-w-[200px]" title={o.shipToParty}>{o.shipToParty}</td>
-                      <td className="p-4 border-r truncate max-w-[150px]">{o.destination}</td>
-                      <td className="p-4 border-r truncate max-w-[150px]">{o.materialName}</td>
-                      <td className="p-4 text-right text-blue-800 font-black">{o.quantity} MT</td>
-                    </tr>
-                  ))}
-                </tbody>
-             </table>
+             {isProfileLoading ? (
+                <div className="p-20 flex flex-col items-center justify-center gap-4 text-slate-300">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Validating Authorization...</span>
+                </div>
+             ) : (
+                <table className="w-full text-left text-[11px] min-w-[1550px] border-collapse">
+                   <thead className="bg-[#f8fafc] border-b border-slate-300 font-black uppercase text-slate-500 sticky top-0 z-20">
+                     <tr>
+                       <th className="p-4 border-r w-[80px]">Plant</th>
+                       <th className="p-4 border-r w-[120px]">Sale Order</th>
+                       <th className="p-4 border-r w-[120px]">Order Date</th>
+                       <th className="p-4 border-r w-[200px]">Consignor</th>
+                       <th className="p-4 border-r w-[150px] flex flex-col justify-center leading-none"><span>From</span><span className="text-[7px] text-blue-600 mt-0.5">Via</span></th>
+                       <th className="p-4 border-r w-[200px]">Consignee</th>
+                       <th className="p-4 border-r w-[200px]">Ship to Party</th>
+                       <th className="p-4 border-r w-[150px]">Destination</th>
+                       <th className="p-4 border-r w-[150px]">Material</th>
+                       <th className="p-4 text-right w-[100px]">Weight</th>
+                     </tr>
+                   </thead>
+                   <tbody className="font-bold uppercase">
+                     {filteredOrders.map(o => (
+                       <tr key={o.id} onClick={() => setFormData(o)} className="border-b border-slate-100 hover:bg-blue-50/40 cursor-pointer">
+                         <td className="p-4 border-r text-slate-600">{o.plantCode}</td>
+                         <td className="p-4 border-r text-[#0056d2] font-black">{o.orderNo}</td>
+                         <td className="p-4 border-r whitespace-nowrap">{o.orderDate ? format(new Date(o.orderDate), 'dd-MMM-yyyy') : '-'}</td>
+                         <td className="p-4 border-r truncate max-w-[200px]" title={o.consignorName}>{o.consignorName}</td>
+                         <td className="p-4 border-r flex flex-col justify-center leading-tight">
+                           <span className="truncate">{o.from}</span>
+                           {o.via && <span className="text-[8px] text-blue-600 font-black uppercase truncate">VIA: {o.via}</span>}
+                         </td>
+                         <td className="p-4 border-r truncate max-w-[200px]" title={o.consigneeName}>{o.consigneeName}</td>
+                         <td className="p-4 border-r truncate max-w-[200px]" title={o.shipToParty}>{o.shipToParty}</td>
+                         <td className="p-4 border-r truncate max-w-[150px]">{o.destination}</td>
+                         <td className="p-4 border-r truncate max-w-[150px]">{o.materialName}</td>
+                         <td className="p-4 text-right text-blue-800 font-black">{o.quantity} MT</td>
+                       </tr>
+                     ))}
+                     {filteredOrders.length === 0 && !isProfileLoading && (
+                       <tr>
+                         <td colSpan={10} className="p-20 text-center text-slate-300 italic uppercase font-black text-[10px] tracking-widest">No matching registry records found.</td>
+                       </tr>
+                     )}
+                   </tbody>
+                </table>
+             )}
              <div className="p-3 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black">
                 <div className="flex gap-2">
                   <Button disabled={currentPage === 1} onClick={() => setCurrentPage(v => v - 1)} variant="outline" className="h-7 w-7 p-0 rounded-none"><ChevronLeft className="h-3 w-3" /></Button>
@@ -426,7 +447,7 @@ export default function VAPage() {
                  <select 
                    value={formData.plantCode || ''} 
                    onChange={e => setFormData({...formData, plantCode: e.target.value})} 
-                   disabled={isReadOnly || (!isBootstrapAdmin && authorizedPlantCodes?.length === 1)} 
+                   disabled={isReadOnly || (!isBootstrapAdmin && authorizedPlantCodes?.length === 1 && formData.plantCode)} 
                    className={cn("h-8 w-80 border bg-white px-2 text-[12px] font-black outline-none", errors.includes('plantCode') ? "border-red-500 bg-red-50" : "border-slate-400")}
                  >
                    <option value="">Select Plant...</option>
@@ -467,4 +488,3 @@ export default function VAPage() {
     </div>
   );
 }
-

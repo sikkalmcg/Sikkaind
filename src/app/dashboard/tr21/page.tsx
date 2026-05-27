@@ -97,7 +97,7 @@ export default function TR21Page() {
     if (!registryId || isBootstrapAdmin) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'users_master', registryId);
   }, [db, registryId, isBootstrapAdmin]);
-  const { data: userProfile } = useDoc(profileRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
 
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
@@ -110,6 +110,19 @@ export default function TR21Page() {
   const { data: plants } = useCollection(plantsQuery);
   const { data: companies } = useCollection(companiesQuery);
   const { data: vendors } = useCollection(vendorsQuery);
+
+  const authorizedPlantCodes = React.useMemo(() => {
+    if (isProfileLoading) return undefined;
+    if (isBootstrapAdmin) return null;
+    return userProfile?.plantAccess || [];
+  }, [isBootstrapAdmin, userProfile, isProfileLoading]);
+
+  // Sync plant filter with authorized access on mount
+  React.useEffect(() => {
+    if (mounted && authorizedPlantCodes && authorizedPlantCodes.length > 0 && plantFilter === 'ALL') {
+      setPlantFilter(authorizedPlantCodes[0]);
+    }
+  }, [mounted, authorizedPlantCodes, plantFilter]);
 
   React.useEffect(() => {
     if (!assignData.fixRate) {
@@ -173,19 +186,8 @@ export default function TR21Page() {
     }
   }, [showCNPortal, selectedTrip, trips, companies]);
 
-  const authorizedPlantCodes = React.useMemo(() => {
-    if (isBootstrapAdmin) return null;
-    return userProfile?.plantAccess || [];
-  }, [isBootstrapAdmin, userProfile]);
-
-  React.useEffect(() => {
-    if (authorizedPlantCodes && authorizedPlantCodes.length > 0 && plantFilter === 'ALL') {
-      setPlantFilter(authorizedPlantCodes[0]);
-    }
-  }, [authorizedPlantCodes, plantFilter]);
-
   const filteredData = React.useMemo(() => {
-    if (!orders || !trips || !mounted) return [];
+    if (!orders || !trips || !mounted || authorizedPlantCodes === undefined) return [];
     let baseData: any[] = [];
 
     if (activeTab === 'Open Orders') {
@@ -361,173 +363,185 @@ export default function TR21Page() {
 
         <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner custom-scrollbar relative flex flex-col">
           <div className="flex-1 overflow-auto">
-            <table className="w-full text-left border-collapse min-w-[2200px] text-[11px]">
-              <thead className="bg-[#f8fafc] sticky top-0 z-20 border-b border-slate-300 font-normal uppercase text-slate-500">
-                {activeTab === 'Open Orders' ? (
-                  <tr>
-                    <th className="p-3 border-r w-[80px]">Plant</th>
-                    <th className="p-3 border-r w-[180px]">Sale Order/Date</th>
-                    <th className="p-3 border-r w-[200px]">Consignor</th>
-                    <th className="p-3 border-r w-[200px]">Consignee</th>
-                    <th className="p-3 border-r w-[200px]">Ship to Party</th>
-                    <th className="p-3 border-r w-[200px]">Route</th>
-                    <th className="p-3 border-r w-[100px] text-right">Assign Qty</th>
-                    <th className="p-3 border-r w-[100px] text-right">Order Qty</th>
-                    <th className="p-3 border-r w-[100px] text-right">Dispatch Qty</th>
-                    <th className="p-3 border-r w-[100px] text-right">Balance Qty</th>
-                    <th className="p-3 text-center">Action</th>
-                  </tr>
-                ) : (
-                  <tr>
-                    <th className="p-3 border-r w-[60px]">Plant</th>
-                    <th className="p-3 border-r w-[150px]">Sale Order/Date</th>
-                    <th className="p-3 border-r w-[150px]">Trip ID/Date</th>
-                    <th className="p-3 border-r w-[180px]">Consignor</th>
-                    <th className="p-3 border-r w-[180px]">Consignee</th>
-                    <th className="p-3 border-r w-[180px]">Ship to Party</th>
-                    <th className="p-3 border-r w-[180px]">Route</th>
-                    <th className="p-3 border-r w-[100px] text-right">Assign Qty</th>
-                    <th className="p-3 border-r w-[150px]">Vehicle/Mobile</th>
-                    <th className="p-3 border-r w-[180px]">Arrange By</th>
-                    <th className="p-3 border-r w-[100px]">Fleet Type</th>
-                    <th className="p-3 border-r w-[150px]">CN No/Date</th>
-                    {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
-                      <>
-                        <th className="p-3 border-r w-[120px]">Out Date/Time</th>
-                        <th className="p-3 border-r w-[120px]">Arrived Date/Time</th>
-                      </>
-                    )}
-                    <th className="p-3 text-center">Action</th>
-                  </tr>
-                )}
-              </thead>
-              <tbody>
-                {paginated.map((item: any) => (
-                  <tr key={item.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors group h-[60px] font-normal uppercase">
-                    <td className="p-3 border-r text-center font-normal">{item.plantCode}</td>
-                    <td className="p-3 border-r">
-                      <div className="flex flex-col leading-tight">
-                        <span className="font-normal text-slate-800">{item.orderNo}</span>
-                        <span className="text-[9px] text-slate-400 font-normal">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
-                      </div>
-                    </td>
-                    
-                    {activeTab !== 'Open Orders' && (
-                      <td className="p-3 border-r text-left">
+            {isProfileLoading ? (
+              <div className="p-20 flex flex-col items-center justify-center gap-4 text-slate-300">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Identifying Local Profile...</span>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse min-w-[2200px] text-[11px]">
+                <thead className="bg-[#f8fafc] sticky top-0 z-20 border-b border-slate-300 font-normal uppercase text-slate-500">
+                  {activeTab === 'Open Orders' ? (
+                    <tr>
+                      <th className="p-3 border-r w-[80px]">Plant</th>
+                      <th className="p-3 border-r w-[180px]">Sale Order/Date</th>
+                      <th className="p-3 border-r w-[200px]">Consignor</th>
+                      <th className="p-3 border-r w-[200px]">Consignee</th>
+                      <th className="p-3 border-r w-[200px]">Ship to Party</th>
+                      <th className="p-3 border-r w-[200px]">Route</th>
+                      <th className="p-3 border-r w-[100px] text-right">Assign Qty</th>
+                      <th className="p-3 border-r w-[100px] text-right">Order Qty</th>
+                      <th className="p-3 border-r w-[100px] text-right">Dispatch Qty</th>
+                      <th className="p-3 border-r w-[100px] text-right">Balance Qty</th>
+                      <th className="p-3 text-center">Action</th>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <th className="p-3 border-r w-[60px]">Plant</th>
+                      <th className="p-3 border-r w-[150px]">Sale Order/Date</th>
+                      <th className="p-3 border-r w-[150px]">Trip ID/Date</th>
+                      <th className="p-3 border-r w-[180px]">Consignor</th>
+                      <th className="p-3 border-r w-[180px]">Consignee</th>
+                      <th className="p-3 border-r w-[180px]">Ship to Party</th>
+                      <th className="p-3 border-r w-[180px]">Route</th>
+                      <th className="p-3 border-r w-[100px] text-right">Assign Qty</th>
+                      <th className="p-3 border-r w-[150px]">Vehicle/Mobile</th>
+                      <th className="p-3 border-r w-[180px]">Arrange By</th>
+                      <th className="p-3 border-r w-[100px]">Fleet Type</th>
+                      <th className="p-3 border-r w-[150px]">CN No/Date</th>
+                      {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
+                        <>
+                          <th className="p-3 border-r w-[120px]">Out Date/Time</th>
+                          <th className="p-3 border-r w-[120px]">Arrived Date/Time</th>
+                        </>
+                      )}
+                      <th className="p-3 text-center">Action</th>
+                    </tr>
+                  )}
+                </thead>
+                <tbody>
+                  {paginated.map((item: any) => (
+                    <tr key={item.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors group h-[60px] font-normal uppercase">
+                      <td className="p-3 border-r text-center font-normal">{item.plantCode}</td>
+                      <td className="p-3 border-r">
                         <div className="flex flex-col leading-tight">
-                          <span className="font-normal text-blue-700">{item.tripNo || '-'}</span>
-                          <span className="text-[9px] text-slate-400 font-normal">{item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '-'}</span>
+                          <span className="font-normal text-slate-800">{item.orderNo}</span>
+                          <span className="text-[9px] text-slate-400 font-normal">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
                         </div>
                       </td>
-                    )}
+                      
+                      {activeTab !== 'Open Orders' && (
+                        <td className="p-3 border-r text-left">
+                          <div className="flex flex-col leading-tight">
+                            <span className="font-normal text-blue-700">{item.tripNo || '-'}</span>
+                            <span className="text-[9px] text-slate-400 font-normal">{item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '-'}</span>
+                          </div>
+                        </td>
+                      )}
 
-                    <td className="p-3 border-r truncate max-w-[200px] font-normal">{item.consignorName || item.consignorCode}</td>
-                    <td className="p-3 border-r truncate max-w-[200px] font-normal">{item.consigneeName || item.consigneeCode}</td>
-                    <td className="p-3 border-r truncate max-w-[200px] font-normal">{item.shipToParty || item.shipToPartyCode}</td>
-                    <td className="p-3 border-r italic text-[10px] uppercase font-normal">{item.from} → {item.destination}</td>
+                      <td className="p-3 border-r truncate max-w-[200px] font-normal">{item.consignorName || item.consignorCode}</td>
+                      <td className="p-3 border-r truncate max-w-[200px] font-normal">{item.consigneeName || item.consigneeCode}</td>
+                      <td className="p-3 border-r truncate max-w-[200px] font-normal">{item.shipToParty || item.shipToPartyCode}</td>
+                      <td className="p-3 border-r italic text-[10px] uppercase font-normal">{item.from} → {item.destination}</td>
 
-                    {activeTab === 'Open Orders' ? (
-                      <>
-                        <td className="p-3 border-r text-right font-normal text-slate-800 italic bg-blue-50/30">0.000</td>
-                        <td className="p-3 border-r text-right text-slate-400 font-normal">{parseFloat(item.quantity || 0).toFixed(3)}</td>
-                        <td className="p-3 border-r text-right text-emerald-600 font-normal">{parseFloat(item.dispatched || 0).toFixed(3)}</td>
-                        <td className="p-3 border-r text-right font-normal text-blue-600">{parseFloat(item.balance || 0).toFixed(3)}</td>
-                        <td className="p-3 text-center">
-                          <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3) }); setShowAssign(true); }} className="h-7 w-20 text-[9px] font-normal bg-[#1e3a8a] rounded-none">Assign</Button>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="p-3 border-r text-right font-normal text-slate-800 italic bg-blue-50/30">{parseFloat(item.assignWeight || 0).toFixed(3)}</td>
-                        <td className="p-3 border-r text-left">
-                          <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline">
-                            <span className="font-normal text-blue-800">{item.vehicleNo || 'ADD'}</span>
-                            <span className="text-[9px] text-slate-400 font-normal">{item.driverMobile || '-'}</span>
-                          </button>
-                        </td>
-                        <td className="p-3 border-r text-left">
-                           {(() => {
-                              const carrier = (companies || []).find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(item.plantCode));
-                              return (
-                                <div className="flex flex-col leading-tight overflow-hidden">
-                                  <span className="text-[#0056d2] font-normal text-[10px] truncate" title={carrier?.companyName || item.carrierName}>
-                                    {carrier?.companyName || item.carrierName || 'PENDING'}
-                                  </span>
-                                  <span className="text-slate-500 font-normal text-[9px] truncate" title={item.vendorName}>
-                                    {item.vendorName || '-'}
-                                  </span>
-                                </div>
-                              );
-                           })()}
-                        </td>
-                        <td className="p-3 border-r text-[9px] font-normal text-slate-400">{item.fleetType}</td>
-                        <td className="p-3 border-r text-left">
-                           <div className="flex flex-col leading-tight">
-                             {item.cnNumber ? (
-                               <button onClick={() => handleOpenPrint(item.id)} className="text-left group font-normal">
-                                  <span className="font-normal text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
-                                  <span className="text-[9px] text-slate-400 font-normal">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
-                               </button>
-                             ) : <span className="text-slate-300 italic text-[9px] font-normal">PENDING</span>}
-                           </div>
-                        </td>
-                        {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
-                          <>
-                            <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.outDate ? format(new Date(item.outDate), 'dd-MM HH:mm') : '-'}</td>
-                            <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.arrivedDate ? format(new Date(item.arrivedDate), 'dd-MM HH:mm') : '-'}</td>
-                          </>
-                        )}
-                        <td className="p-3 text-center flex flex-row gap-2 items-center justify-center min-w-[200px]">
-                          {activeTab === 'Loading' && (
+                      {activeTab === 'Open Orders' ? (
+                        <>
+                          <td className="p-3 border-r text-right font-normal text-slate-800 italic bg-blue-50/30">0.000</td>
+                          <td className="p-3 border-r text-right text-slate-400 font-normal">{parseFloat(item.quantity || 0).toFixed(3)}</td>
+                          <td className="p-3 border-r text-right text-emerald-600 font-normal">{parseFloat(item.dispatched || 0).toFixed(3)}</td>
+                          <td className="p-3 border-r text-right font-normal text-blue-600">{parseFloat(item.balance || 0).toFixed(3)}</td>
+                          <td className="p-3 text-center">
+                            <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3) }); setShowAssign(true); }} className="h-7 w-20 text-[9px] font-normal bg-[#1e3a8a] rounded-none">Assign</Button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-3 border-r text-right font-normal text-slate-800 italic bg-blue-50/30">{parseFloat(item.assignWeight || 0).toFixed(3)}</td>
+                          <td className="p-3 border-r text-left">
+                            <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline">
+                              <span className="font-normal text-blue-800">{item.vehicleNo || 'ADD'}</span>
+                              <span className="text-[9px] text-slate-400 font-normal">{item.driverMobile || '-'}</span>
+                            </button>
+                          </td>
+                          <td className="p-3 border-r text-left">
+                            {(() => {
+                                const carrier = (companies || []).find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(item.plantCode));
+                                return (
+                                  <div className="flex flex-col leading-tight overflow-hidden">
+                                    <span className="text-[#0056d2] font-normal text-[10px] truncate" title={carrier?.companyName || item.carrierName}>
+                                      {carrier?.companyName || item.carrierName || 'PENDING'}
+                                    </span>
+                                    <span className="text-slate-500 font-normal text-[9px] truncate" title={item.vendorName}>
+                                      {item.vendorName || '-'}
+                                    </span>
+                                  </div>
+                                );
+                            })()}
+                          </td>
+                          <td className="p-3 border-r text-[9px] font-normal text-slate-400">{item.fleetType}</td>
+                          <td className="p-3 border-r text-left">
+                            <div className="flex flex-col leading-tight">
+                              {item.cnNumber ? (
+                                <button onClick={() => handleOpenPrint(item.id)} className="text-left group font-normal">
+                                    <span className="font-normal text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
+                                    <span className="text-[9px] text-slate-400 font-normal">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
+                                </button>
+                              ) : <span className="text-slate-300 italic text-[9px] font-normal">PENDING</span>}
+                            </div>
+                          </td>
+                          {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
                             <>
-                              <Button onClick={() => openStatusPortal(item, 'IN-TRANSIT', 'outDate', 'GATE OUT PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
-                              <Button onClick={() => { 
-                                setSelectedTrip(item); 
-                                const invs = (item.invoices || []).length > 0 ? item.invoices : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
-                                setCNData({ ...(item.cnNumber ? item : { ...cnData, cnNumber: '', cnDate: format(new Date(), 'yyyy-MM-dd') }), id: item.id, invoices: invs }); 
-                                setShowCNPortal(true); 
-                              }} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">CN ENTRY</Button>
+                              <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.outDate ? format(new Date(item.outDate), 'dd-MM HH:mm') : '-'}</td>
+                              <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.arrivedDate ? format(new Date(item.arrivedDate), 'dd-MM HH:mm') : '-'}</td>
                             </>
                           )}
-                          {activeTab === 'In-Transit' && (
-                            <>
-                              <Button onClick={() => openStatusPortal(item, 'ARRIVED', 'arrivedDate', 'ARRIVAL HANDSHAKE')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">ARRIVED</Button>
-                              <Button onClick={() => { 
-                                setSelectedTrip(item); 
-                                setCNData({ ...item, invoices: item.invoices || [] }); 
-                                setShowCNPortal(true); 
-                              }} variant="outline" className="h-6 w-20 text-[8px] font-normal border-slate-300 rounded-none">CN EDIT</Button>
-                            </>
-                          )}
-                          {activeTab === 'Arrived' && (
-                            <>
-                              <Button onClick={() => openStatusPortal(item, 'POD', 'unloadDate', 'UNLOADING PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">UNLOAD</Button>
-                              <Button onClick={() => openStatusPortal(item, 'REJECTION', 'rejectionDate', 'REJECTION PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-red-600 text-white rounded-none">REJECT</Button>
-                              <Button onClick={() => { 
-                                setSelectedTrip(item); 
-                                setCNData({ ...item, invoices: item.invoices || [] }); 
-                                setShowCNPortal(true); 
-                              }} variant="outline" className="h-6 w-20 text-[8px] font-normal border-slate-300 rounded-none">CN EDIT</Button>
-                            </>
-                          )}
-                          {activeTab === 'Reject' && (
-                            <>
-                              <Button className="h-6 w-20 text-[8px] font-normal bg-blue-600 text-white rounded-none">RESENT</Button>
-                              <Button className="h-6 w-20 text-[8px] font-normal bg-slate-800 text-white rounded-none">SRN</Button>
-                            </>
-                          )}
-                          {(activeTab === 'POD Verify' || activeTab === 'Closed') && (
-                            <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className={cn("h-6 w-24 text-[8px] font-normal rounded-none", item.podUrl ? "bg-emerald-600" : "bg-orange-600")}>
-                               {item.podUrl ? 'VIEW POD' : 'UPLOAD POD'}
-                            </Button>
-                          )}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          <td className="p-3 text-center flex flex-row gap-2 items-center justify-center min-w-[200px]">
+                            {activeTab === 'Loading' && (
+                              <>
+                                <Button onClick={() => openStatusPortal(item, 'IN-TRANSIT', 'outDate', 'GATE OUT PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
+                                <Button onClick={() => { 
+                                  setSelectedTrip(item); 
+                                  const invs = (item.invoices || []).length > 0 ? item.invoices : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
+                                  setCNData({ ...(item.cnNumber ? item : { ...cnData, cnNumber: '', cnDate: format(new Date(), 'yyyy-MM-dd') }), id: item.id, invoices: invs }); 
+                                  setShowCNPortal(true); 
+                                }} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">CN ENTRY</Button>
+                              </>
+                            )}
+                            {activeTab === 'In-Transit' && (
+                              <>
+                                <Button onClick={() => openStatusPortal(item, 'ARRIVED', 'arrivedDate', 'ARRIVAL HANDSHAKE')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">ARRIVED</Button>
+                                <Button onClick={() => { 
+                                  setSelectedTrip(item); 
+                                  setCNData({ ...item, invoices: item.invoices || [] }); 
+                                  setShowCNPortal(true); 
+                                }} variant="outline" className="h-6 w-20 text-[8px] font-normal border-slate-300 rounded-none">CN EDIT</Button>
+                              </>
+                            )}
+                            {activeTab === 'Arrived' && (
+                              <>
+                                <Button onClick={() => openStatusPortal(item, 'POD', 'unloadDate', 'UNLOADING PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">UNLOAD</Button>
+                                <Button onClick={() => openStatusPortal(item, 'REJECTION', 'rejectionDate', 'REJECTION PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-red-600 text-white rounded-none">REJECT</Button>
+                                <Button onClick={() => { 
+                                  setSelectedTrip(item); 
+                                  setCNData({ ...item, invoices: item.invoices || [] }); 
+                                  setShowCNPortal(true); 
+                                }} variant="outline" className="h-6 w-20 text-[8px] font-normal border-slate-300 rounded-none">CN EDIT</Button>
+                              </>
+                            )}
+                            {activeTab === 'Reject' && (
+                              <>
+                                <Button className="h-6 w-20 text-[8px] font-normal bg-blue-600 text-white rounded-none">RESENT</Button>
+                                <Button className="h-6 w-20 text-[8px] font-normal bg-slate-800 text-white rounded-none">SRN</Button>
+                              </>
+                            )}
+                            {(activeTab === 'POD Verify' || activeTab === 'Closed') && (
+                              <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className={cn("h-6 w-24 text-[8px] font-normal rounded-none", item.podUrl ? "bg-emerald-600" : "bg-orange-600")}>
+                                {item.podUrl ? 'VIEW POD' : 'UPLOAD POD'}
+                              </Button>
+                            )}
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                  {paginated.length === 0 && !isProfileLoading && (
+                    <tr>
+                      <td colSpan={15} className="p-20 text-center text-slate-300 italic uppercase font-black text-[10px] tracking-widest">No active trips found in current protocol registry.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
           <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center shrink-0">
             <div className="flex gap-2 items-center">
