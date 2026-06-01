@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Toaster } from "@/components/ui/toaster";
 import Header from '@/components/website/Header';
 import Footer from '@/components/website/Footer';
-import { FirebaseClientProvider } from '@/firebase';
+import { MongoClientProvider } from '@/mongodb';
 
 /**
  * @fileOverview Client-side Root Layout Wrapper.
@@ -29,7 +29,7 @@ export default function RootLayoutClient({ children }: { children: ReactNode }) 
   const showHeaderFooter = mounted && !isDashboardOrLogin;
 
   return (
-    <FirebaseClientProvider>
+    <MongoClientProvider>
       {showHeaderFooter && <Header />}
       <main className={showHeaderFooter ? 'block' : 'contents'}>
         <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400">Loading...</div>}>
@@ -38,6 +38,6 @@ export default function RootLayoutClient({ children }: { children: ReactNode }) 
       </main>
       {showHeaderFooter && <Footer />}
       <Toaster />
-    </FirebaseClientProvider>
+    </MongoClientProvider>
   );
 }

@@ -9,8 +9,8 @@ import {
   Loader2, CheckCircle, FileUp, ExternalLink, Calculator, History, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc, useUser } from '@/firebase';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc, useUser } from '@/mongodb';
+import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -23,7 +23,7 @@ const PAGE_SIZE = 15;
 export default function TR21Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const db = useFirestore();
+  const db = useMongoStore();
   const { user } = useUser();
   const [mounted, setMounted] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('Open Orders');
@@ -87,23 +87,23 @@ export default function TR21Page() {
     setIsBootstrapAdmin(isAd);
     setRegistryId(rId);
 
-    setAssignData(prev => ({ ...prev, assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }));
-    setCNData(prev => ({ ...prev, cnDate: format(new Date(), 'yyyy-MM-dd') }));
+    setAssignData((prev: any) => ({ ...prev, assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }));
+    setCNData((prev: any) => ({ ...prev, cnDate: format(new Date(), 'yyyy-MM-dd') }));
 
     setMounted(true); 
   }, []);
 
-  const profileRef = useMemoFirebase(() => {
+  const profileRef = useMemoMongo(() => {
     if (!registryId || isBootstrapAdmin) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'users_master', registryId);
   }, [db, registryId, isBootstrapAdmin]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
 
-  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
-  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
-  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
-  const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
+  const ordersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
+  const tripsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
+  const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const companiesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
+  const vendorsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
@@ -129,7 +129,7 @@ export default function TR21Page() {
       const weight = parseFloat(assignData.assignWeight) || 0;
       const rate = parseFloat(assignData.rate) || 0;
       const total = (weight * rate).toFixed(2);
-      setAssignData(prev => ({ ...prev, freightAmount: total }));
+      setAssignData((prev: any) => ({ ...prev, freightAmount: total }));
     }
   }, [assignData.rate, assignData.assignWeight, assignData.fixRate]);
 
@@ -166,21 +166,21 @@ export default function TR21Page() {
               const digits = match[2];
               const nextVal = (parseInt(digits, 10) + 1).toString();
               const padded = nextVal.padStart(digits.length, '0');
-              setCNData(prev => ({ ...prev, cnNumber: prefix + padded }));
+              setCNData((prev: any) => ({ ...prev, cnNumber: prefix + padded }));
             } else {
-              setCNData(prev => ({ ...prev, cnNumber: lastFull }));
+              setCNData((prev: any) => ({ ...prev, cnNumber: lastFull }));
             }
           }
         } else {
           setLastGeneratedCN('NONE (NUMERIC REQ)');
           if (!selectedTrip.cnNumber) {
-            setCNData(prev => ({ ...prev, cnNumber: '000001' }));
+            setCNData((prev: any) => ({ ...prev, cnNumber: '000001' }));
           }
         }
       } else {
         setLastGeneratedCN('NONE (INITIAL)');
         if (!selectedTrip.cnNumber) {
-          setCNData(prev => ({ ...prev, cnNumber: '000001' }));
+          setCNData((prev: any) => ({ ...prev, cnNumber: '000001' }));
         }
       }
     }
@@ -853,3 +853,5 @@ export default function TR21Page() {
     </div>
   );
 }
+
+

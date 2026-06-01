@@ -8,9 +8,8 @@ import { Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import placeholderData from '@/app/lib/placeholder-images.json';
-import { useAuth, useFirestore } from '@/firebase';
-import { signInAnonymously } from 'firebase/auth';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { useAuth, useMongoStore } from '@/mongodb';
+import { collection, query, where, getDocs } from '@/lib/mongo-store';
 import { cn } from '@/lib/utils';
 
 /**
@@ -20,7 +19,7 @@ import { cn } from '@/lib/utils';
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
-  const db = useFirestore();
+  const db = useMongoStore();
 
   const [credentials, setCredentials] = React.useState({ username: '', password: '' });
   const [showPassword, setShowPassword] = React.useState(false);
@@ -42,7 +41,7 @@ export default function LoginPage() {
       // Admin Credential Verification
       const isMasterAdmin = username === 'Sikkaind' && password === 'Sikka@lmc2105';
 
-      await signInAnonymously(auth);
+      await auth.signInAnonymously();
       
       if (isMasterAdmin) {
         localStorage.setItem('sap_bootstrap_session', 'true');
@@ -199,3 +198,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

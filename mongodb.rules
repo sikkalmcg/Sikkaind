@@ -1,0 +1,25 @@
+# MongoDB access rules mirrored in src/app/api/mongodb/route.ts
+#
+# Public reads:
+# - users/Sikkaind/companies/**
+# - users/Sikkaind/customers/**
+# - users/Sikkaind/sales_orders/**
+# - users/Sikkaind/plants/**
+# - users/Sikkaind/vendors/**
+# - users/Sikkaind/trip_board/**
+# - users/Sikkaind/**
+# - public_trips/**
+# - public_orders/**
+#
+# Signed-session writes:
+# - users/Sikkaind/**
+# - public_trips/**
+# - public_orders/**
+# - user_profiles/**
+# - user_registry/**
+#
+# Private user trees:
+# - users/{userId}/** requires a signed Mongo session and userId != Sikkaind.
+#
+# Global fallback:
+# - all other read/write operations require a signed Mongo session.

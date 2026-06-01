@@ -6,8 +6,8 @@ import {
   Grid2X2, Package, Truck, Radar, ShoppingBag, XCircle,
   Activity, BarChart3
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, onSnapshot, doc } from 'firebase/firestore';
+import { useMongoStore, useCollection, useMemoMongo, useUser, useDoc } from '@/mongodb';
+import { collection, onSnapshot, doc } from '@/lib/mongo-store';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
@@ -15,7 +15,7 @@ const SHARED_HUB_ID = 'Sikkaind';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const db = useFirestore();
+  const db = useMongoStore();
   const { user } = useUser();
   const [mounted, setMounted] = React.useState(false);
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
@@ -27,7 +27,7 @@ export default function DashboardPage() {
     setMounted(true);
   }, []);
 
-  const profileRef = useMemoFirebase(() => {
+  const profileRef = useMemoMongo(() => {
     if (!registryId || isBootstrapAdmin) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'users_master', registryId);
   }, [db, registryId, isBootstrapAdmin]);
@@ -37,7 +37,7 @@ export default function DashboardPage() {
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); 
   const [counts, setCounts] = React.useState({ open: 0, loading: 0, transit: 0, arrived: 0, pod: 0 });
 
-  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const { data: allPlants } = useCollection(plantsQuery);
 
   const authorizedPlants = React.useMemo(() => {
@@ -133,4 +133,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 

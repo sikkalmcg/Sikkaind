@@ -5,8 +5,8 @@ import { Radar, MapPin, Truck, Loader2, Settings, X, RefreshCw, Upload, AlertCir
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useFirestore, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useMongoStore, setDocumentNonBlocking, useDoc, useMemoMongo } from '@/mongodb';
+import { doc } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 
 const SHARED_HUB_ID = 'Sikkaind';
@@ -22,7 +22,7 @@ declare global {
  * Integrates live Wheelseye API data with ArcGIS Maps for real-time tracking.
  */
 export default function WGPS24Page() {
-  const db = useFirestore();
+  const db = useMongoStore();
   const [view, setView] = React.useState<'MAP' | 'SETTING'>('MAP');
   const [gpsData, setGpsData] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -30,7 +30,7 @@ export default function WGPS24Page() {
   const [resolvedAddress, setResolvedAddress] = React.useState<string>('RESOLVING...');
   
   // Persistent Settings
-  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
+  const settingsRef = useMemoMongo(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
   const [activeIcon, setActiveIcon] = React.useState<string>('https://static.arcgis.com/images/Symbols/Shapes/GreenCircleLargeB.png');
@@ -474,3 +474,4 @@ export default function WGPS24Page() {
     </div>
   );
 }
+

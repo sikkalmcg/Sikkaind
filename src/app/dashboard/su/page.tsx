@@ -4,8 +4,8 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight, Trash2, ShieldCheck, Layout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/mongodb';
+import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -26,7 +26,7 @@ const ALL_TCODES = [
 export default function SUPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const db = useFirestore();
+  const db = useMongoStore();
   const activeTCode = searchParams.get('tcode') || 'SU03';
   const isReadOnly = activeTCode === 'SU03';
   
@@ -35,8 +35,8 @@ export default function SUPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [errors, setErrors] = React.useState<string[]>([]);
 
-  const usersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'users_master'), [db]);
-  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const usersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'users_master'), [db]);
+  const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   
   const { data: users } = useCollection(usersQuery);
   const { data: plants } = useCollection(plantsQuery);
@@ -238,3 +238,4 @@ export default function SUPage() {
     </div>
   );
 }
+

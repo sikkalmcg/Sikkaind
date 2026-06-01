@@ -5,12 +5,12 @@ import {
   Query,
   onSnapshot,
   DocumentData,
-  FirestoreError,
+  MongoStoreError,
   QuerySnapshot,
   CollectionReference,
-} from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+} from '@/lib/mongo-store';
+import { errorEmitter } from '@/mongodb/error-emitter';
+import { MongoPermissionError } from '@/mongodb/errors';
 
 /** Utility type to add an 'id' field to a given type T. */
 export type WithId<T> = T & { id: string };
@@ -22,12 +22,9 @@ export type WithId<T> = T & { id: string };
 export interface UseCollectionResult<T> {
   data: WithId<T>[] | null; // Document data with ID, or null.
   isLoading: boolean;       // True if loading.
-  error: FirestoreError | Error | null; // Error object, or null.
+  error: MongoStoreError | Error | null; // Error object, or null.
 }
 
-/* Internal implementation of Query:
-  https://github.com/firebase/firebase-js-sdk/blob/c5f08a9bc5da0d2b0207802c972d53724ccef055/packages/firestore/src/lite-api/reference.ts#L143
-*/
 export interface InternalQuery extends Query<DocumentData> {
   _query: {
     path: {
@@ -38,7 +35,7 @@ export interface InternalQuery extends Query<DocumentData> {
 }
 
 /**
- * React hook to subscribe to a Firestore collection or query in real-time.
+ * React hook to subscribe to a MongoStore collection or query in real-time.
  * Handles nullable references/queries.
  * 
  *
@@ -48,7 +45,7 @@ export interface InternalQuery extends Query<DocumentData> {
  *  
  * @template T Optional type for document data. Defaults to any.
  * @param {CollectionReference<DocumentData> | Query<DocumentData> | null | undefined} targetRefOrQuery -
- * The Firestore CollectionReference or Query. Waits if null/undefined.
+ * The MongoStore CollectionReference or Query. Waits if null/undefined.
  * @returns {UseCollectionResult<T>} Object with data, isLoading, error.
  */
 export function useCollection<T = any>(
@@ -59,7 +56,7 @@ export function useCollection<T = any>(
 
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const [error, setError] = useState<MongoStoreError | Error | null>(null);
 
   useEffect(() => {
     if (!memoizedTargetRefOrQuery) {
@@ -84,14 +81,14 @@ export function useCollection<T = any>(
         setError(null);
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
+      (error: MongoStoreError) => {
         // This logic extracts the path from either a ref or a query
         const path: string =
           memoizedTargetRefOrQuery.type === 'collection'
             ? (memoizedTargetRefOrQuery as CollectionReference).path
             : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
 
-        const contextualError = new FirestorePermissionError({
+        const contextualError = new MongoPermissionError({
           operation: 'list',
           path,
         })
@@ -108,7 +105,8 @@ export function useCollection<T = any>(
     return () => unsubscribe();
   }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
+    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoMongo');
   }
   return { data, isLoading, error };
 }
+

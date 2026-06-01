@@ -4,8 +4,8 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/mongodb';
+import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -15,7 +15,7 @@ const PAGE_SIZE = 15;
 export default function OXPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const db = useFirestore();
+  const db = useMongoStore();
   const { user, isUserLoading: isAuthLoading } = useUser();
   const activeTCode = searchParams.get('tcode') || 'OX03';
   const isReadOnly = activeTCode === 'OX03';
@@ -25,7 +25,7 @@ export default function OXPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [errors, setErrors] = React.useState<string[]>([]);
 
-  const plantsQuery = useMemoFirebase(() => {
+  const plantsQuery = useMemoMongo(() => {
     if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'plants');
   }, [db, user, isAuthLoading]);
@@ -183,3 +183,4 @@ export default function OXPage() {
     </div>
   );
 }
+

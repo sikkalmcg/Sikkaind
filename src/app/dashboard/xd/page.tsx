@@ -4,8 +4,8 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight, Download, Upload, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, useUser, useDoc } from '@/firebase';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
+import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -15,7 +15,7 @@ const PAGE_SIZE = 15;
 export default function XDPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const db = useFirestore();
+  const db = useMongoStore();
   const { user } = useUser();
   const activeTCode = searchParams.get('tcode') || 'XD03';
   const isReadOnly = activeTCode === 'XD03';
@@ -38,7 +38,7 @@ export default function XDPage() {
     setMounted(true);
   }, []);
 
-  const profileRef = useMemoFirebase(() => {
+  const profileRef = useMemoMongo(() => {
     if (!registryId || isBootstrapAdmin) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'users_master', registryId);
   }, [db, registryId, isBootstrapAdmin]);
@@ -50,8 +50,8 @@ export default function XDPage() {
     return userProfile?.plantAccess || [];
   }, [isBootstrapAdmin, userProfile, isProfileLoading]);
 
-  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
-  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const customersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const { data: allCustomers } = useCollection(customersQuery);
   const { data: plants } = useCollection(plantsQuery);
 
@@ -212,7 +212,7 @@ export default function XDPage() {
     return (allCustomers || [])
       .filter(c => {
         if (authorizedPlantCodes) {
-          const hasAccess = Array.isArray(c.plantCodes) && c.plantCodes.some(p => authorizedPlantCodes.includes(p));
+          const hasAccess = Array.isArray(c.plantCodes) && c.plantCodes.some((p: string) => authorizedPlantCodes.includes(p));
           if (!hasAccess) return false;
         }
 
@@ -392,3 +392,5 @@ export default function XDPage() {
     </div>
   );
 }
+
+

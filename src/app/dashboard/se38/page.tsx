@@ -3,20 +3,20 @@
 import * as React from 'react';
 import { FileText, PlayCircle, Download, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useMongoStore, useCollection, useMemoMongo } from '@/mongodb';
+import { collection } from '@/lib/mongo-store';
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
 export default function SE38Page() {
-  const db = useFirestore();
+  const db = useMongoStore();
   const [view, setView] = React.useState<'filter' | 'result'>('filter');
   const [search, setSearch] = React.useState({ plant: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') });
   const [results, setResults] = React.useState<any[]>([]);
 
-  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
+  const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const tripsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
   
   const { data: plants } = useCollection(plantsQuery);
   const { data: trips } = useCollection(tripsQuery);
@@ -97,3 +97,4 @@ export default function SE38Page() {
     </div>
   );
 }
+

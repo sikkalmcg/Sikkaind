@@ -4,8 +4,8 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Download, Upload, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, useUser, useDoc } from '@/firebase';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
+import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -109,7 +109,7 @@ function SAPAutocomplete({ value, options, onSelect, disabled, hasError, placeho
 export default function VAPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const db = useFirestore();
+  const db = useMongoStore();
   const { user } = useUser();
   const activeTCode = searchParams.get('tcode') || 'VA03';
   const isReadOnly = activeTCode === 'VA03';
@@ -132,7 +132,7 @@ export default function VAPage() {
     setMounted(true);
   }, []);
 
-  const profileRef = useMemoFirebase(() => {
+  const profileRef = useMemoMongo(() => {
     if (!registryId || isBootstrapAdmin) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'users_master', registryId);
   }, [db, registryId, isBootstrapAdmin]);
@@ -144,9 +144,9 @@ export default function VAPage() {
     return userProfile?.plantAccess || [];
   }, [isBootstrapAdmin, userProfile, isProfileLoading]);
 
-  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
-  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const ordersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
+  const customersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
 
   const { data: allPlants } = useCollection(plantsQuery);
   const { data: allOrders } = useCollection(ordersQuery);
@@ -161,7 +161,7 @@ export default function VAPage() {
   // Handle single plant auto-selection to prevent empty/disabled state
   React.useEffect(() => {
     if (mounted && filteredPlants.length === 1 && !formData.plantCode && !isReadOnly) {
-      setFormData(prev => ({ ...prev, plantCode: filteredPlants[0].plantCode }));
+      setFormData((prev: any) => ({ ...prev, plantCode: filteredPlants[0].plantCode }));
     }
   }, [mounted, filteredPlants, formData.plantCode, isReadOnly]);
 
@@ -502,3 +502,5 @@ export default function VAPage() {
     </div>
   );
 }
+
+

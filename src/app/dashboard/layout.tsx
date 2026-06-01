@@ -8,8 +8,8 @@ import {
   Truck, Radar, FileText, ShieldAlert, XCircle, Save, ArrowLeft, LogOut as ExitIcon, Printer, Search,
   Plus, Minus, Lock
 } from 'lucide-react';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useUser, useMongoStore, useDoc, useMemoMongo } from '@/mongodb';
+import { doc } from '@/lib/mongo-store';
 import placeholderData from '@/app/lib/placeholder-images.json';
 import { cn } from '@/lib/utils';
 import {
@@ -53,7 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useUser();
-  const db = useFirestore();
+  const db = useMongoStore();
   
   const [mounted, setMounted] = React.useState(false);
   const [tCode, setTCode] = React.useState('');
@@ -80,7 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setRegistryId(localStorage.getItem('sap_registry_id'));
   }, []);
 
-  const profileRef = useMemoFirebase(() => {
+  const profileRef = useMemoMongo(() => {
     if (!user || !registryId) return null;
     return doc(db, 'users', 'Sikkaind', 'users_master', registryId);
   }, [user, db, registryId]);
@@ -337,3 +337,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+

@@ -1,6 +1,7 @@
 
-# Firebase Studio
+# Sikka Industries Logistics
 
-This is a NextJS starter in Firebase Studio.
+Next.js logistics dashboard using MongoDB for application data.
 
 To get started, take a look at src/app/page.tsx.
+

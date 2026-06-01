@@ -1,12 +1,12 @@
 'use client';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { MongoPermissionError } from '@/mongodb/errors';
 
 /**
  * Defines the shape of all possible events and their corresponding payload types.
  * This centralizes event definitions for type safety across the application.
  */
 export interface AppEvents {
-  'permission-error': FirestorePermissionError;
+  'permission-error': MongoPermissionError;
 }
 
 // A generic type for a callback function.
@@ -62,3 +62,4 @@ function createEventEmitter<T extends Record<string, any>>() {
 
 // Create and export a singleton instance of the emitter, typed with our AppEvents interface.
 export const errorEmitter = createEventEmitter<AppEvents>();
+

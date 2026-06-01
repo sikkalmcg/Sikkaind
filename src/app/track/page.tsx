@@ -9,8 +9,8 @@ import {
   Map as MapIcon, ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useMongoStore, useCollection, useMemoMongo } from '@/mongodb';
+import { collection } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 const SHARED_HUB_ID = 'Sikkaind';
 
 export default function TrackPage() {
-  const db = useFirestore();
+  const db = useMongoStore();
   const [searchSo, setSearchSo] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [view, setView] = React.useState<'search' | 'order_details' | 'mapping'>('search');
@@ -26,9 +26,9 @@ export default function TrackPage() {
   const [linkedTrips, setLinkedTrips] = React.useState<any[]>([]);
   const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
 
-  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
-  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
-  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const ordersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
+  const tripsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
+  const customersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);

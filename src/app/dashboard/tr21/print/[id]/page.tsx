@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { useMongoStore, useDoc, useMemoMongo, useCollection } from '@/mongodb';
+import { doc, collection } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { Loader2, Printer, X } from 'lucide-react';
@@ -19,20 +19,20 @@ export default function CNPrintPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const db = useFirestore();
+  const db = useMongoStore();
   const id = params.id as string;
   const isAuto = searchParams.get('auto') === 'true';
 
-  const tripRef = useMemoFirebase(() => {
+  const tripRef = useMemoMongo(() => {
     if (!id) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'trip_board', id);
   }, [db, id]);
   const { data: trip, isLoading: isTripLoading } = useDoc(tripRef);
 
-  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
+  const companiesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
   const { data: companies } = useCollection(companiesQuery);
   
-  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const customersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const { data: customers } = useCollection(customersQuery);
 
   React.useEffect(() => {
@@ -268,3 +268,5 @@ export default function CNPrintPage() {
     </div>
   );
 }
+
+

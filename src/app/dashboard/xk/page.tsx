@@ -4,8 +4,8 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking } from '@/mongodb';
+import { collection, doc } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 
 const SHARED_HUB_ID = 'Sikkaind';
@@ -14,7 +14,7 @@ const PAGE_SIZE = 15;
 export default function XKPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const db = useFirestore();
+  const db = useMongoStore();
   const activeTCode = searchParams.get('tcode') || 'XK03';
   const isReadOnly = activeTCode === 'XK03';
   
@@ -22,7 +22,7 @@ export default function XKPage() {
   const [searchId, setSearchId] = React.useState('');
   const [currentPage, setCurrentPage] = React.useState(1);
 
-  const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
+  const vendorsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
   const { data: vendors } = useCollection(vendorsQuery);
 
   const handleSave = React.useCallback(() => {

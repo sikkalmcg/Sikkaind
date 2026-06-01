@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { Radar, Truck, MapPin, Search, Map as MapIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useMongoStore, useCollection, useMemoMongo, useDoc } from '@/mongodb';
+import { collection, doc } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,7 @@ declare global {
 }
 
 export default function TR24Page() {
-  const db = useFirestore();
+  const db = useMongoStore();
   const [view, setView] = React.useState<'search' | 'details' | 'mapping'>('search');
   const [q, setQ] = React.useState('');
   const [order, setOrder] = React.useState<any>(null);
@@ -26,10 +26,10 @@ export default function TR24Page() {
   const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
   const [gpsLive, setGpsLive] = React.useState<any[]>([]);
 
-  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
-  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
-  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
-  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
+  const ordersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
+  const tripsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
+  const customersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const settingsRef = useMemoMongo(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
@@ -296,3 +296,4 @@ export default function TR24Page() {
     </div>
   );
 }
+

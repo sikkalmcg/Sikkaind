@@ -5,8 +5,8 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight, Upload, X, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking } from '@/mongodb';
+import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ const PAGE_SIZE = 15;
 export default function FMPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const db = useFirestore();
+  const db = useMongoStore();
   const activeTCode = searchParams.get('tcode') || 'FM03';
   const isReadOnly = activeTCode === 'FM03';
   
@@ -25,8 +25,8 @@ export default function FMPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [errors, setErrors] = React.useState<string[]>([]);
 
-  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
-  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const companiesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
+  const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const { data: companies } = useCollection(companiesQuery);
   const { data: plants } = useCollection(plantsQuery);
 
@@ -275,3 +275,4 @@ export default function FMPage() {
     </div>
   );
 }
+

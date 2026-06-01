@@ -8,9 +8,9 @@ import {
   CollectionReference,
   DocumentReference,
   SetOptions,
-} from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import {FirestorePermissionError} from '@/firebase/errors';
+} from '@/lib/mongo-store';
+import { errorEmitter } from '@/mongodb/error-emitter';
+import {MongoPermissionError} from '@/mongodb/errors';
 
 /**
  * Initiates a setDoc operation for a document reference.
@@ -20,7 +20,7 @@ export function setDocumentNonBlocking(docRef: DocumentReference, data: any, opt
   setDoc(docRef, data, options).catch(error => {
     errorEmitter.emit(
       'permission-error',
-      new FirestorePermissionError({
+      new MongoPermissionError({
         path: docRef.path,
         operation: 'write', // or 'create'/'update' based on options
         requestResourceData: data,
@@ -41,7 +41,7 @@ export function addDocumentNonBlocking(colRef: CollectionReference, data: any) {
     .catch(error => {
       errorEmitter.emit(
         'permission-error',
-        new FirestorePermissionError({
+        new MongoPermissionError({
           path: colRef.path,
           operation: 'create',
           requestResourceData: data,
@@ -61,7 +61,7 @@ export function updateDocumentNonBlocking(docRef: DocumentReference, data: any) 
     .catch(error => {
       errorEmitter.emit(
         'permission-error',
-        new FirestorePermissionError({
+        new MongoPermissionError({
           path: docRef.path,
           operation: 'update',
           requestResourceData: data,
@@ -80,10 +80,11 @@ export function deleteDocumentNonBlocking(docRef: DocumentReference) {
     .catch(error => {
       errorEmitter.emit(
         'permission-error',
-        new FirestorePermissionError({
+        new MongoPermissionError({
           path: docRef.path,
           operation: 'delete',
         })
       )
     });
 }
+

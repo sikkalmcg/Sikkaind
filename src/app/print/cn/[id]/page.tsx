@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useMongoStore, useDoc, useMemoMongo } from '@/mongodb';
+import { doc } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { Loader2, FileText, AlertCircle } from 'lucide-react';
@@ -18,7 +18,7 @@ const SHARED_HUB_ID = 'Sikkaind';
 export default function PublicCNPreviewPage() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const db = useFirestore();
+  const db = useMongoStore();
   const id = params.id as string;
   const isAuto = searchParams.get('auto') === 'true';
 
@@ -28,7 +28,7 @@ export default function PublicCNPreviewPage() {
     return () => document.removeEventListener('contextmenu', handleContextMenu);
   }, []);
 
-  const tripRef = useMemoFirebase(() => {
+  const tripRef = useMemoMongo(() => {
     if (!id) return null;
     return doc(db, 'users', SHARED_HUB_ID, 'trip_board', id);
   }, [db, id]);
@@ -266,3 +266,5 @@ export default function PublicCNPreviewPage() {
     </div>
   );
 }
+
+
