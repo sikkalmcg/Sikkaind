@@ -28,10 +28,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
-        <Script 
-          src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
-          strategy="beforeInteractive"
-        />
+        <link rel="stylesheet" href="https://js.arcgis.com/4.31/esri/themes/light/main.css" />
+        <Script src="https://js.arcgis.com/4.31/" strategy="afterInteractive" />
       </head>
       <body className="font-body antialiased bg-background">
         <RootLayoutClient>{children}</RootLayoutClient>

@@ -11,6 +11,12 @@ import { Badge } from '@/components/ui/badge';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
+declare global {
+  interface Window {
+    require?: any;
+  }
+}
+
 export default function TR24Page() {
   const db = useFirestore();
   const [view, setView] = React.useState<'search' | 'details' | 'mapping'>('search');
@@ -32,6 +38,18 @@ export default function TR24Page() {
 
   const mapContainerRef = React.useRef<HTMLDivElement>(null);
   const mapInstance = React.useRef<any>(null);
+  const graphicsLayer = React.useRef<any>(null);
+
+  const loadArcgisModules = React.useCallback((moduleNames: string[]) => {
+    return new Promise<any[]>((resolve, reject) => {
+      if (!window.require) {
+        reject(new Error('ArcGIS SDK did not load yet.'));
+        return;
+      }
+
+      window.require(moduleNames, (...modules: any[]) => resolve(modules), reject);
+    });
+  }, []);
 
   React.useEffect(() => {
     const fetchGps = async () => {
@@ -68,28 +86,86 @@ export default function TR24Page() {
   };
 
   React.useEffect(() => {
-    if (view === 'mapping' && selectedTrip && mapContainerRef.current && window.google) {
+    const initializeMap = async () => {
+      if (view !== 'mapping' || !selectedTrip || !mapContainerRef.current) return;
+
       const liveNode = gpsLive.find(n => n.vehicleNumber?.trim() === selectedTrip.vehicleNo?.trim());
       const lat = liveNode ? parseFloat(liveNode.latitude) : 20.5937;
       const lng = liveNode ? parseFloat(liveNode.longitude) : 78.9629;
+      const apiKey = process.env.NEXT_PUBLIC_ARCGIS_API_KEY;
 
-      mapInstance.current = new window.google.maps.Map(mapContainerRef.current, {
-        center: { lat, lng },
-        zoom: 12,
-        styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
-      });
+      if (!apiKey) return;
 
-      new window.google.maps.Marker({
-        position: { lat, lng },
-        map: mapInstance.current,
-        icon: {
-          url: liveNode?.status === 'RUNNING' ? (settings?.activeIcon || 'https://maps.google.com/mapfiles/ms/icons/green-dot.png') : (settings?.stoppedIcon || 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'),
-          scaledSize: new window.google.maps.Size(42, 42),
-          anchor: new window.google.maps.Point(21, 21)
+      try {
+        const [esriConfig, ArcGISMap, MapView, GraphicsLayer, Graphic] = await loadArcgisModules([
+          'esri/config',
+          'esri/Map',
+          'esri/views/MapView',
+          'esri/layers/GraphicsLayer',
+          'esri/Graphic',
+        ]);
+
+        esriConfig.apiKey = apiKey;
+
+        if (!mapInstance.current) {
+          graphicsLayer.current = new GraphicsLayer();
+          const map = new ArcGISMap({
+            basemap: 'arcgis/navigation',
+            layers: [graphicsLayer.current],
+          });
+
+          mapInstance.current = new MapView({
+            container: mapContainerRef.current,
+            map,
+            center: [lng, lat],
+            zoom: 12,
+            constraints: {
+              snapToZoom: false,
+            },
+            ui: {
+              components: ['zoom', 'attribution'],
+            },
+          });
         }
-      });
-    }
-  }, [view, selectedTrip, gpsLive, settings]);
+
+        graphicsLayer.current.removeAll();
+        graphicsLayer.current.add(new Graphic({
+          geometry: {
+            type: 'point',
+            longitude: lng,
+            latitude: lat,
+          },
+          symbol: {
+            type: 'picture-marker',
+            url: liveNode?.status === 'RUNNING'
+              ? (settings?.activeIcon || 'https://static.arcgis.com/images/Symbols/Shapes/GreenCircleLargeB.png')
+              : (settings?.stoppedIcon || 'https://static.arcgis.com/images/Symbols/Shapes/RedCircleLargeB.png'),
+            width: '32px',
+            height: '32px',
+          },
+        }));
+
+        mapInstance.current.goTo({
+          center: [lng, lat],
+          zoom: 12,
+        });
+      } catch (error) {
+        console.error('ArcGIS trace map failed:', error);
+      }
+    };
+
+    initializeMap();
+  }, [view, selectedTrip, gpsLive, settings, loadArcgisModules]);
+
+  React.useEffect(() => {
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.destroy();
+        mapInstance.current = null;
+        graphicsLayer.current = null;
+      }
+    };
+  }, []);
 
   if (view === 'mapping' && selectedTrip) {
     const startPin = getCustomerPincode(selectedTrip.consignorCode);

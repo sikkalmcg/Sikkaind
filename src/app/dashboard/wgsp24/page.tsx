@@ -7,12 +7,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useFirestore, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
+declare global {
+  interface Window {
+    require?: any;
+  }
+}
+
 /**
  * @fileOverview WGPS24 – Global Fleet Monitoring.
- * Integrates live Wheelseye API data with Google Maps for real-time tracking.
+ * Integrates live Wheelseye API data with ArcGIS Maps for real-time tracking.
  */
 export default function WGPS24Page() {
   const db = useFirestore();
@@ -26,15 +33,16 @@ export default function WGPS24Page() {
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
-  const [activeIcon, setActiveIcon] = React.useState<string>('https://maps.google.com/mapfiles/ms/icons/green-dot.png');
-  const [stoppedIcon, setStoppedIcon] = React.useState<string>('https://maps.google.com/mapfiles/ms/icons/red-dot.png');
+  const [activeIcon, setActiveIcon] = React.useState<string>('https://static.arcgis.com/images/Symbols/Shapes/GreenCircleLargeB.png');
+  const [stoppedIcon, setStoppedIcon] = React.useState<string>('https://static.arcgis.com/images/Symbols/Shapes/RedCircleLargeB.png');
 
   const activeFileInputRef = React.useRef<HTMLInputElement>(null);
   const stoppedFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const mapRef = React.useRef<HTMLDivElement>(null);
-  const googleMap = React.useRef<any>(null);
-  const markersRef = React.useRef<any[]>([]);
+  const arcgisView = React.useRef<any>(null);
+  const graphicsLayer = React.useRef<any>(null);
+  const [mapError, setMapError] = React.useState<string | null>(null);
 
   // Update icons when settings load
   React.useEffect(() => {
@@ -87,67 +95,150 @@ export default function WGPS24Page() {
     return () => clearInterval(interval);
   }, [fetchGps]);
 
-  const reverseGeocode = React.useCallback((lat: number, lng: number) => {
-    if (!window.google) return;
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ location: { lat, lng } }, (results: any, status: string) => {
-      if (status === 'OK' && results?.[0]) {
-        setResolvedAddress(results[0].formatted_address);
-      } else {
-        setResolvedAddress('COORDINATE LOCK ACQUIRED (ADDRESS UNAVAILABLE)');
+  const loadArcgisModules = React.useCallback((moduleNames: string[]) => {
+    return new Promise<any[]>((resolve, reject) => {
+      if (!window.require) {
+        reject(new Error('ArcGIS SDK did not load yet.'));
+        return;
       }
+
+      window.require(moduleNames, (...modules: any[]) => resolve(modules), reject);
     });
   }, []);
 
   React.useEffect(() => {
-    if (!window.google || !mapRef.current || view !== 'MAP') return;
+    let cancelled = false;
 
-    if (!googleMap.current) {
-      googleMap.current = new window.google.maps.Map(mapRef.current, {
-        center: { lat: 20.5937, lng: 78.9629 },
-        zoom: 5,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        styles: [
-          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-          { featureType: 'transit', stylers: [{ visibility: 'off' }] }
-        ]
-      });
-    }
+    const initializeMap = async () => {
+      if (!mapRef.current || view !== 'MAP') return;
 
-    markersRef.current.forEach(marker => marker.setMap(null));
-    markersRef.current = [];
+      const apiKey = process.env.NEXT_PUBLIC_ARCGIS_API_KEY;
+      if (!apiKey) {
+        setMapError('ArcGIS API key missing. Add `NEXT_PUBLIC_ARCGIS_API_KEY` in `.env.local`.');
+        return;
+      }
 
-    gpsData.forEach(v => {
-      if (!v.latitude || !v.longitude) return;
+      try {
+        const [esriConfig, ArcGISMap, MapView, GraphicsLayer, Graphic] = await loadArcgisModules([
+          'esri/config',
+          'esri/Map',
+          'esri/views/MapView',
+          'esri/layers/GraphicsLayer',
+          'esri/Graphic',
+        ]);
 
-      const marker = new window.google.maps.Marker({
-        position: { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) },
-        map: googleMap.current,
-        title: `${v.vehicleNumber} - ${v.status}`,
-        icon: {
-          url: v.status === 'RUNNING' ? activeIcon : stoppedIcon,
-          scaledSize: new window.google.maps.Size(42, 42),
-          anchor: new window.google.maps.Point(21, 21)
+        if (cancelled || !mapRef.current) return;
+
+        esriConfig.apiKey = apiKey;
+        setMapError(null);
+
+        if (!arcgisView.current) {
+          graphicsLayer.current = new GraphicsLayer();
+          const map = new ArcGISMap({
+            basemap: 'arcgis/navigation',
+            layers: [graphicsLayer.current],
+          });
+
+          arcgisView.current = new MapView({
+            container: mapRef.current,
+            map,
+            center: [78.9629, 20.5937],
+            zoom: 5,
+            constraints: {
+              snapToZoom: false,
+            },
+            ui: {
+              components: ['zoom', 'attribution'],
+            },
+          });
         }
-      });
 
-      marker.addListener('click', () => {
-        handleSelectVehicle(v);
-      });
+        graphicsLayer.current.removeAll();
 
-      markersRef.current.push(marker);
-    });
-  }, [gpsData, view, activeIcon, stoppedIcon]);
+        gpsData.forEach(v => {
+          if (!v.latitude || !v.longitude) return;
+
+          const point = {
+            type: 'point',
+            longitude: parseFloat(v.longitude),
+            latitude: parseFloat(v.latitude),
+          };
+
+          const graphic = new Graphic({
+            geometry: point,
+            attributes: v,
+            symbol: {
+              type: 'picture-marker',
+              url: v.status === 'RUNNING' ? activeIcon : stoppedIcon,
+              width: '32px',
+              height: '32px',
+            },
+          });
+
+          graphicsLayer.current.add(graphic);
+        });
+
+        if (!arcgisView.current.__sikkaClickHandler) {
+          arcgisView.current.__sikkaClickHandler = arcgisView.current.on('click', async (event: any) => {
+            const hit = await arcgisView.current.hitTest(event);
+            const result = hit.results?.find((item: any) => item.graphic?.layer === graphicsLayer.current);
+            if (result?.graphic?.attributes) {
+              handleSelectVehicle(result.graphic.attributes);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('ArcGIS map initialization failed:', error);
+        setMapError('ArcGIS map did not load. Check `NEXT_PUBLIC_ARCGIS_API_KEY` and API key restrictions.');
+      }
+    };
+
+    initializeMap();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [gpsData, view, activeIcon, stoppedIcon, loadArcgisModules]);
+
+  const reverseGeocode = React.useCallback(async (lat: number, lng: number) => {
+    try {
+      const [Locator] = await loadArcgisModules(['esri/rest/locator']);
+      const response = await Locator.locationToAddress(
+        'https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer',
+        {
+          location: {
+            longitude: lng,
+            latitude: lat,
+          },
+        }
+      );
+
+      setResolvedAddress(response?.address || 'COORDINATE LOCK ACQUIRED (ADDRESS UNAVAILABLE)');
+    } catch (error) {
+      console.error('ArcGIS reverse geocode failed:', error);
+      setResolvedAddress('COORDINATE LOCK ACQUIRED (ADDRESS UNAVAILABLE)');
+    }
+  }, [loadArcgisModules]);
+
+  React.useEffect(() => {
+    return () => {
+      if (arcgisView.current) {
+        arcgisView.current.destroy();
+        arcgisView.current = null;
+        graphicsLayer.current = null;
+      }
+    };
+  }, []);
 
   const handleSelectVehicle = (v: any) => {
     setSelectedVehicle(v);
     setResolvedAddress('SYNCHRONIZING LOCATION...');
     reverseGeocode(parseFloat(v.latitude), parseFloat(v.longitude));
-    if (googleMap.current) {
-      googleMap.current.setCenter({ lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) });
-      googleMap.current.setZoom(14);
+    if (arcgisView.current) {
+      arcgisView.current.goTo({
+        center: [parseFloat(v.longitude), parseFloat(v.latitude)],
+        zoom: 14,
+      });
     }
   };
 
@@ -278,6 +369,25 @@ export default function WGPS24Page() {
                     </div>
                  </div>
                )}
+
+                 {mapError && (
+                   <div className="absolute inset-0 bg-white/90 flex items-center justify-center z-40 p-6">
+                     <div className="max-w-xl bg-red-50 border border-red-200 p-6 text-center">
+                       <h4 className="text-sm font-black text-red-700 mb-2">Map Load Error</h4>
+                       <p className="text-[11px] text-red-600 mb-3">{mapError}</p>
+                       <p className="text-[10px] text-slate-500 mb-4">Quick fixes:</p>
+                       <ul className="text-[10px] text-slate-500 list-disc list-inside text-left mb-4">
+                         <li>Confirm `NEXT_PUBLIC_ARCGIS_API_KEY` in your `.env.local` is a valid ArcGIS API key.</li>
+                         <li>Allow your local app URL in the API key referrers, or remove restrictions while testing.</li>
+                         <li>Make sure the key has ArcGIS location services enabled.</li>
+                       </ul>
+                       <div className="flex justify-center gap-3">
+                         <a href="https://developers.arcgis.com/api-keys/" target="_blank" rel="noreferrer" className="px-4 py-1 bg-red-600 text-white text-[11px] font-black">Open API Keys</a>
+                         <button onClick={() => window.location.reload()} className="px-4 py-1 border border-slate-200 text-[11px] font-black">Reload</button>
+                       </div>
+                     </div>
+                   </div>
+                 )}
             </div>
           </>
         ) : (
