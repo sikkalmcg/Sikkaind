@@ -182,15 +182,29 @@ export default function VAPage() {
       return;
     }
 
-    const isDuplicate = (allOrders || []).some(o => o.orderNo === formData.orderNo && o.id !== formData.id);
+    const normalizedOrderNo = (formData.orderNo || '').trim().toUpperCase();
+    if (!normalizedOrderNo) {
+      setErrors(prev => [...new Set([...prev, 'orderNo'])]);
+      alert('Error: Sale Order No cannot be blank.');
+      return;
+    }
+
+    if (allOrders === undefined) {
+      alert('Please wait while existing sale orders are loaded.');
+      return;
+    }
+
+    const isDuplicate = (allOrders || []).some(o => ((o.orderNo || '').trim().toUpperCase() === normalizedOrderNo) && o.id !== formData.id);
     if (isDuplicate) {
-      alert(`Duplicate Sale Order not allowed`);
+      setErrors(prev => [...new Set([...prev, 'orderNo'])]);
+      alert('Duplicate Sale Order not allowed. Please use a unique Sale Order number.');
       return;
     }
 
     const docId = formData.id || crypto.randomUUID();
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { 
-      ...formData, 
+      ...formData,
+      orderNo: normalizedOrderNo,
       id: docId, 
       updatedAt: serverTimestamp(),
       createdAt: formData.createdAt || serverTimestamp(),
@@ -256,14 +270,14 @@ export default function VAPage() {
 
       for (let i = 0; i < rows.length; i++) {
         const columns = rows[i].split(',').map(c => c.trim());
-        const plant = columns[headerIndices['PLANT']];
-        const orderNo = columns[headerIndices['SALE ORDER']];
-        const orderDate = columns[headerIndices['ORDER DATE']];
-        const cnrCode = columns[headerIndices['CONSIGNOR CODE']];
-        const cneCode = columns[headerIndices['CONSIGNEE CODE']];
-        const stpCode = columns[headerIndices['SHIP TO PARTY CODE']];
-        const material = columns[headerIndices['MATERIAL']];
-        const weight = columns[headerIndices['WEIGHT']];
+        const plant = (columns[headerIndices['PLANT']] || '').trim();
+        const orderNo = (columns[headerIndices['SALE ORDER']] || '').trim().toUpperCase();
+        const orderDate = (columns[headerIndices['ORDER DATE']] || '').trim();
+        const cnrCode = (columns[headerIndices['CONSIGNOR CODE']] || '').trim();
+        const cneCode = (columns[headerIndices['CONSIGNEE CODE']] || '').trim();
+        const stpCode = (columns[headerIndices['SHIP TO PARTY CODE']] || '').trim();
+        const material = (columns[headerIndices['MATERIAL']] || '').trim();
+        const weight = (columns[headerIndices['WEIGHT']] || '').trim();
 
         const rowId = orderNo || `Row ${i + 2}`;
         let errorReason = '';
@@ -277,7 +291,7 @@ export default function VAPage() {
         else if (fileOrderNos.has(orderNo)) {
           errorReason = 'Duplicate Sale Order in File';
         }
-        else if (allOrders?.some(o => o.orderNo === orderNo)) {
+        else if (allOrders?.some(o => ((o.orderNo || '').trim().toUpperCase() === orderNo))) {
           errorReason = 'Duplicate Sale Order in Database';
         }
         else {

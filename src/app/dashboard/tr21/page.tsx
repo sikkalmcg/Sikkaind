@@ -9,7 +9,7 @@ import {
   Loader2, CheckCircle, FileUp, ExternalLink, Calculator, History, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc, useUser } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -287,6 +287,17 @@ export default function TR21Page() {
     alert(`Node Status Updated: ${statusUpdateData.newStatus}`);
   };
 
+  const handleUnassign = (trip: any) => {
+    if (!window.confirm(`Confirm unassign of ${trip.tripNo || trip.orderNo}? This will return the order to Open Orders.`)) {
+      return;
+    }
+    deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', trip.id));
+    if (activeTab === 'Loading') {
+      setCurrentPage(1);
+    }
+    alert('Order unassigned and returned to Open Orders. Please reassign or short close the order.');
+  };
+
   const handlePODUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -489,6 +500,7 @@ export default function TR21Page() {
                             {activeTab === 'Loading' && (
                               <>
                                 <Button onClick={() => openStatusPortal(item, 'IN-TRANSIT', 'outDate', 'GATE OUT PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
+                                <Button onClick={() => handleUnassign(item)} className="h-6 w-20 text-[8px] font-normal bg-orange-600 text-white rounded-none">UNASSIGN</Button>
                                 <Button onClick={() => { 
                                   setSelectedTrip(item); 
                                   const invs = (item.invoices || []).length > 0 ? item.invoices : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
