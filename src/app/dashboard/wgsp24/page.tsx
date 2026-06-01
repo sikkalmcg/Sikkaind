@@ -103,7 +103,7 @@ export default function WGPS24Page() {
           window.require(moduleNames, (...modules: any[]) => resolve(modules), reject);
         } else {
           attempts++;
-          if (attempts > 50) {
+          if (attempts > 150) { // 15 seconds
             reject(new Error('ArcGIS SDK did not load yet.'));
           } else {
             setTimeout(checkRequire, 100);
