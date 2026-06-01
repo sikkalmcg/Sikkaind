@@ -599,9 +599,14 @@ export default function TR21Page() {
               </div>
               
               {selectedTrip?.podUrl && (
-                <div className="p-4 bg-emerald-50 border border-emerald-100 flex items-center justify-between">
-                   <span className="text-[9px] font-normal uppercase text-emerald-700">Current POD Active</span>
-                   <Button variant="outline" className="h-6 text-[8px] font-normal rounded-none border-emerald-300" onClick={() => window.open(selectedTrip.podUrl, '_blank')}>View Original</Button>
+                <div className="p-4 bg-emerald-50 border border-emerald-100 space-y-4">
+                   <div className="flex items-center justify-between">
+                     <span className="text-[9px] font-normal uppercase text-emerald-700">Current POD Active</span>
+                     <Button variant="outline" className="h-6 text-[8px] font-normal rounded-none border-emerald-300" onClick={() => window.open(selectedTrip.podUrl, '_blank')}>View Original</Button>
+                   </div>
+                   <div className="w-full flex justify-center bg-white border border-emerald-200 p-2">
+                     <img src={selectedTrip.podUrl} alt="POD Preview" className="max-h-64 object-contain" />
+                   </div>
                 </div>
               )}
            </div>
