@@ -97,12 +97,20 @@ export default function WGPS24Page() {
 
   const loadArcgisModules = React.useCallback((moduleNames: string[]) => {
     return new Promise<any[]>((resolve, reject) => {
-      if (!window.require) {
-        reject(new Error('ArcGIS SDK did not load yet.'));
-        return;
-      }
-
-      window.require(moduleNames, (...modules: any[]) => resolve(modules), reject);
+      let attempts = 0;
+      const checkRequire = () => {
+        if (window.require) {
+          window.require(moduleNames, (...modules: any[]) => resolve(modules), reject);
+        } else {
+          attempts++;
+          if (attempts > 50) {
+            reject(new Error('ArcGIS SDK did not load yet.'));
+          } else {
+            setTimeout(checkRequire, 100);
+          }
+        }
+      };
+      checkRequire();
     });
   }, []);
 
