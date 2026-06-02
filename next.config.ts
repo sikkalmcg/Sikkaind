@@ -42,6 +42,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    optimizePackageImports: ['@radix-ui/react-select', '@radix-ui/react-dialog', 'lucide-react'],
+  },
+  compress: true,
 };
 
 export default nextConfig;

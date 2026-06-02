@@ -6,12 +6,30 @@ import {
   Grid2X2, Package, Truck, Radar, ShoppingBag, XCircle,
   Activity, BarChart3
 } from 'lucide-react';
-import { useMongoStore, useCollection, useMemoMongo, useUser, useDoc } from '@/mongodb';
+import { useMongoStore, useCollectionOptimized, useMemoMongo, useUser, useDoc } from '@/mongodb';
 import { collection, onSnapshot, doc } from '@/lib/mongo-store';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
 const SHARED_HUB_ID = 'Sikkaind'; 
+
+// Stats card with skeleton
+function StatCard({ label, count, className }: { label: string; count: number | null; className: string }) {
+  return (
+    <div className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-all cursor-default group">
+      <span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest h-6 flex items-center group-hover:text-blue-600 transition-colors">
+        {label}
+      </span>
+      {count === null ? (
+        <div className="h-8 w-16 bg-slate-200 rounded animate-pulse" />
+      ) : (
+        <span className={cn("text-3xl font-black italic tracking-tighter", className)}>
+          {count}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -35,10 +53,10 @@ export default function DashboardPage() {
   const { data: userProfile } = useDoc(profileRef);
   
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); 
-  const [counts, setCounts] = React.useState({ open: 0, loading: 0, transit: 0, arrived: 0, pod: 0 });
+  const [counts, setCounts] = React.useState({ open: null, loading: null, transit: null, arrived: null, pod: null });
 
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const { data: allPlants } = useCollection(plantsQuery);
+  const { data: allPlants } = useCollectionOptimized(plantsQuery);
 
   const authorizedPlants = React.useMemo(() => {
     if (isBootstrapAdmin) return allPlants || [];
@@ -55,34 +73,46 @@ export default function DashboardPage() {
     }
   }, [authorizedPlants, homePlantFilter, isBootstrapAdmin]);
 
+  // Optimized: Use ref instead of refetch to reduce re-renders
   React.useEffect(() => {
+    if (!db) return;
+
     const tripsRef = collection(db, 'users', SHARED_HUB_ID, 'trip_board');
     const ordersRef = collection(db, 'users', SHARED_HUB_ID, 'sales_orders');
 
-    const unsubscribeTrips = onSnapshot(tripsRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => doc.data());
+    // Batch updates to reduce state changes
+    let tripsData: any[] = [];
+    let ordersData: any[] = [];
+    let updateTimer: NodeJS.Timeout;
+
+    const updateCounts = () => {
       const authCodes = authorizedPlants.map(p => p.plantCode);
-      
-      setCounts(prev => ({
-        ...prev,
-        loading: data.filter((t: any) => t.status === 'LOADING' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
-        transit: data.filter((t: any) => t.status === 'IN-TRANSIT' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
-        arrived: data.filter((t: any) => t.status === 'ARRIVED' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
-        pod: data.filter((t: any) => t.status === 'POD' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
-      }));
+      setCounts({
+        loading: tripsData.filter((t: any) => t.status === 'LOADING' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
+        transit: tripsData.filter((t: any) => t.status === 'IN-TRANSIT' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
+        arrived: tripsData.filter((t: any) => t.status === 'ARRIVED' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
+        pod: tripsData.filter((t: any) => t.status === 'POD' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
+        open: ordersData.filter((o: any) => o.status === 'Open' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(o.plantCode)) : o.plantCode === homePlantFilter)).length,
+      });
+    };
+
+    const unsubscribeTrips = onSnapshot(tripsRef, (snapshot) => {
+      tripsData = snapshot.docs.map(doc => doc.data());
+      clearTimeout(updateTimer);
+      updateTimer = setTimeout(updateCounts, 100); // Batch updates every 100ms
     });
 
     const unsubscribeOrders = onSnapshot(ordersRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => doc.data());
-      const authCodes = authorizedPlants.map(p => p.plantCode);
-      
-      setCounts(prev => ({
-        ...prev,
-        open: data.filter((o: any) => o.status === 'Open' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(o.plantCode)) : o.plantCode === homePlantFilter)).length,
-      }));
+      ordersData = snapshot.docs.map(doc => doc.data());
+      clearTimeout(updateTimer);
+      updateTimer = setTimeout(updateCounts, 100);
     });
 
-    return () => { unsubscribeTrips(); unsubscribeOrders(); };
+    return () => {
+      unsubscribeTrips();
+      unsubscribeOrders();
+      clearTimeout(updateTimer);
+    };
   }, [db, homePlantFilter, authorizedPlants, isBootstrapAdmin]);
 
   if (!mounted) return null;
@@ -117,21 +147,15 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
-        {[
-          { l: 'OPEN ORDER', c: counts.open, cl: 'text-blue-600' }, 
-          { l: 'LOADING', c: counts.loading, cl: 'text-orange-600' }, 
-          { l: 'IN-TRANSIT', c: counts.transit, cl: 'text-emerald-600' }, 
-          { l: 'ARRIVED', c: counts.arrived, cl: 'text-indigo-600' }, 
-          { l: 'POD VERIFY', c: counts.pod, cl: 'text-purple-600' }
-        ].map(w => (
-          <div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-all cursor-default group">
-            <span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest h-6 flex items-center group-hover:text-blue-600 transition-colors">{w.l}</span>
-            <span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span>
-          </div>
-        ))}
+        <StatCard label="OPEN ORDER" count={counts.open} className="text-blue-600" />
+        <StatCard label="LOADING" count={counts.loading} className="text-orange-600" />
+        <StatCard label="IN-TRANSIT" count={counts.transit} className="text-emerald-600" />
+        <StatCard label="ARRIVED" count={counts.arrived} className="text-indigo-600" />
+        <StatCard label="POD VERIFY" count={counts.pod} className="text-purple-600" />
       </div>
     </div>
   );
 }
+
 
 

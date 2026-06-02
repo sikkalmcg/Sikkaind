@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight, Download, Upload, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
+import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
 import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -52,8 +52,8 @@ export default function XDPage() {
 
   const customersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const { data: allCustomers } = useCollection(customersQuery);
-  const { data: plants } = useCollection(plantsQuery);
+  const { data: allCustomers } = useCollectionOptimized(customersQuery);
+  const { data: plants } = useCollectionOptimized(plantsQuery);
 
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;

@@ -12,6 +12,7 @@ import { useUser, useMongoStore, useDoc, useMemoMongo } from '@/mongodb';
 import { doc } from '@/lib/mongo-store';
 import placeholderData from '@/app/lib/placeholder-images.json';
 import { cn } from '@/lib/utils';
+import { QuickAccessPrefetch } from '@/components/dashboard/QuickAccessPrefetch';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,8 @@ const MASTER_TCODES = [
   { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES', icon: Grid2X2, module: 'System' },
 ];
 
+const ALL_TCODES = MASTER_TCODES.map(t => t.code);
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -60,6 +63,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [history, setHistory] = React.useState<string[]>([]);
   const [showHistory, setShowHistory] = React.useState(false);
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(false);
   const [registryId, setRegistryId] = React.useState<string | null>(null);
 
   const [userFavorites, setUserFavorites] = React.useState<any[]>([]);
@@ -77,6 +81,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   React.useEffect(() => {
     setMounted(true);
     setIsBootstrapAdmin(localStorage.getItem('sap_bootstrap_session') === 'true');
+    const role = localStorage.getItem('sap_user_role');
+    setIsAdmin(role === 'admin' || role === 'ADMIN');
     setRegistryId(localStorage.getItem('sap_registry_id'));
   }, []);
 
@@ -87,10 +93,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
 
+  const tcodeAccessStr = JSON.stringify(userProfile?.tcodeAccess || []);
+
   const authorizedTcodes = React.useMemo(() => {
-    if (isBootstrapAdmin) return MASTER_TCODES.map(t => t.code);
-    return userProfile?.tcodeAccess || [];
-  }, [isBootstrapAdmin, userProfile]);
+    if (isBootstrapAdmin || isAdmin || userProfile?.role === 'admin' || userProfile?.role === 'ADMIN') {
+      return ALL_TCODES;
+    }
+    return JSON.parse(tcodeAccessStr);
+  }, [isBootstrapAdmin, isAdmin, userProfile?.role, tcodeAccessStr]);
 
   React.useEffect(() => {
     if (!mounted || isProfileLoading) return;
@@ -120,7 +130,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       });
 
     setUserFavorites(filtered);
-  }, [mounted, isProfileLoading, authorizedTcodes]);
+    
+    // Prefetch all favorites routes immediately
+    filtered.forEach(fav => {
+      const routeMap: any = {
+        'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
+        'XD': '/dashboard/xd', 'VA': '/dashboard/va', 'SU': '/dashboard/su',
+        'TR21': '/dashboard/tr21', 'TR24': '/dashboard/tr24', 'WGPS24': '/dashboard/wgsp24',
+        'SE38': '/dashboard/se38', 'ZCODE': '/dashboard/zcode'
+      };
+      const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(fav.code) ? fav.code : fav.code.substring(0, 2);
+      const targetRoute = routeMap[baseCode];
+      if (targetRoute) {
+        router.prefetch(`${targetRoute}?tcode=${fav.code}`);
+      }
+    });
+  }, [mounted, isProfileLoading, authorizedTcodes, router]);
 
   const executeTCode = React.useCallback((cmd: string) => {
     const input = cmd.toUpperCase().trim();
@@ -156,7 +181,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       };
       const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(target) ? target : target.substring(0, 2);
       const targetRoute = routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
-      window.open(`${window.location.origin}${targetRoute}?tcode=${target}`, '_blank');
+      React.startTransition(() => {
+        window.open(`${window.location.origin}${targetRoute}?tcode=${target}`, '_blank');
+      });
       setTCode('');
       return;
     }
@@ -182,7 +209,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(code) ? code : code.substring(0, 2);
     const targetRoute = routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
     
-    router.push(`${targetRoute}?tcode=${code}`);
+    React.startTransition(() => {
+      router.push(`${targetRoute}?tcode=${code}`);
+    });
     setTCode('');
     setShowHistory(false);
     setHistory(prev => [input, ...prev.filter(h => h !== input)].slice(0, 10));
@@ -208,6 +237,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setNewFavCode('');
     setShowAddFav(false);
   };
+
+  const handleQuickAccessClick = React.useCallback((code: string) => {
+    setSelectedFavCode(code);
+    React.startTransition(() => {
+      executeTCode(code);
+    });
+  }, [executeTCode]);
 
   const handleRemoveFavorite = () => {
     if (!selectedFavCode) return;
@@ -284,20 +320,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <div className="flex-1 overflow-y-auto green-scrollbar">
             {mounted && userFavorites.map(t => (
-              <div 
-                key={t.code} 
-                onClick={() => { setSelectedFavCode(t.code); executeTCode(t.code); }} 
-                className={cn(
-                  "flex items-center gap-3 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all",
-                  searchParams.get('tcode') === t.code && "bg-blue-50 border-l-4 border-l-[#0056d2]"
-                )}
-              >
-                <div className="flex items-center gap-3 overflow-hidden flex-1">
-                  <span className="text-[11px] font-black text-[#1e3a8a] uppercase shrink-0 w-12">{t.code}</span>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase truncate" title={t.description}>{t.description}</span>
+              <React.Fragment key={t.code}>
+                <QuickAccessPrefetch tcode={t.code} />
+                <div 
+                  onClick={() => handleQuickAccessClick(t.code)}
+                  className={cn(
+                    "flex items-center gap-3 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all",
+                    searchParams.get('tcode') === t.code && "bg-blue-50 border-l-4 border-l-[#0056d2]"
+                  )}
+                >
+                  <div className="flex items-center gap-3 overflow-hidden flex-1">
+                    <span className="text-[11px] font-black text-[#1e3a8a] uppercase shrink-0 w-12">{t.code}</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase truncate" title={t.description}>{t.description}</span>
+                  </div>
+                  <t.icon className={cn("h-3.5 w-3.5 text-slate-300 group-hover:text-blue-600 transition-colors shrink-0", searchParams.get('tcode') === t.code && "text-blue-600")} />
                 </div>
-                <t.icon className={cn("h-3.5 w-3.5 text-slate-300 group-hover:text-blue-600 transition-colors shrink-0", searchParams.get('tcode') === t.code && "text-blue-600")} />
-              </div>
+              </React.Fragment>
             ))}
           </div>
           <div className="p-4 border-t border-slate-100 bg-slate-50">
@@ -314,7 +352,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-8 overflow-hidden flex-1">
           <span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span>
           <span className="shrink-0">{searchParams.get('tcode') || 'HOME'}</span>
-          <span className="truncate">USER: {!mounted || isProfileLoading ? 'IDENTIFYING...' : (isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.employeeName || 'IDENTIFYING...') )}</span>
+          <span className="truncate">USER: {!mounted || isProfileLoading ? 'IDENTIFYING...' : (isBootstrapAdmin ? 'SUPER ADMIN' : isAdmin ? 'ADMIN' : (userProfile?.employeeName || 'IDENTIFYING...') )}</span>
         </div>
         <div className="shrink-0 ml-4 hidden sm:block text-blue-400 font-bold italic tracking-wider">SIKKA INDUSTRIES & LOGISTICS</div>
       </div>
@@ -337,4 +375,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
-

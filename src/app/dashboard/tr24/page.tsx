@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Radar, Truck, MapPin, Search, Map as MapIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollection, useMemoMongo, useDoc } from '@/mongodb';
+import { useMongoStore, useCollectionOptimized, useMemoMongo, useDoc } from '@/mongodb';
 import { collection, doc } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -31,9 +31,9 @@ export default function TR24Page() {
   const customersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const settingsRef = useMemoMongo(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
 
-  const { data: orders } = useCollection(ordersQuery);
-  const { data: trips } = useCollection(tripsQuery);
-  const { data: customers } = useCollection(customersQuery);
+  const { data: orders } = useCollectionOptimized(ordersQuery);
+  const { data: trips } = useCollectionOptimized(tripsQuery);
+  const { data: customers } = useCollectionOptimized(customersQuery);
   const { data: settings } = useDoc(settingsRef);
 
   const mapContainerRef = React.useRef<HTMLDivElement>(null);

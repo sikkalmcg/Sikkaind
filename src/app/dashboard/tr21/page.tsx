@@ -9,7 +9,7 @@ import {
   Loader2, CheckCircle, FileUp, ExternalLink, Calculator, History, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc, useUser } from '@/mongodb';
+import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc, useUser } from '@/mongodb';
 import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -105,11 +105,11 @@ export default function TR21Page() {
   const companiesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
   const vendorsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
 
-  const { data: orders } = useCollection(ordersQuery);
-  const { data: trips } = useCollection(tripsQuery);
-  const { data: plants } = useCollection(plantsQuery);
-  const { data: companies } = useCollection(companiesQuery);
-  const { data: vendors } = useCollection(vendorsQuery);
+  const { data: orders } = useCollectionOptimized(ordersQuery);
+  const { data: trips } = useCollectionOptimized(tripsQuery);
+  const { data: plants } = useCollectionOptimized(plantsQuery);
+  const { data: companies } = useCollectionOptimized(companiesQuery);
+  const { data: vendors } = useCollectionOptimized(vendorsQuery);
 
   const authorizedPlantCodes = React.useMemo(() => {
     if (isProfileLoading) return undefined;

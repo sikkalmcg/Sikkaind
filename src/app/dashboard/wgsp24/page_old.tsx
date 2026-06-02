@@ -8,13 +8,12 @@ import { Button } from '@/components/ui/button';
 import { useMongoStore, setDocumentNonBlocking, useDoc, useMemoMongo } from '@/mongodb';
 import { doc } from '@/lib/mongo-store';
 import { format } from 'date-fns';
-import 'leaflet/dist/leaflet.css';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
 /**
  * @fileOverview WGPS24 – Global Fleet Monitoring.
- * Integrates live Wheelseye API data with MapTiler for real-time tracking.
+ * Integrates live Wheelseye API data with ArcGIS Maps for real-time tracking.
  */
 export default function WGPS24Page() {
   const db = useMongoStore();
@@ -23,21 +22,20 @@ export default function WGPS24Page() {
   const [loading, setLoading] = React.useState(true);
   const [selectedVehicle, setSelectedVehicle] = React.useState<any>(null);
   const [resolvedAddress, setResolvedAddress] = React.useState<string>('RESOLVING...');
-  const [addressCache, setAddressCache] = React.useState<Record<string, string>>({});
   
   // Persistent Settings
   const settingsRef = useMemoMongo(() => doc(db, 'users', SHARED_HUB_ID, 'gps_tracking', 'settings'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
-  const [activeIcon, setActiveIcon] = React.useState<string>('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png');
-  const [stoppedIcon, setStoppedIcon] = React.useState<string>('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png');
+  const [activeIcon, setActiveIcon] = React.useState<string>('https://static.arcgis.com/images/Symbols/Shapes/GreenCircleLargeB.png');
+  const [stoppedIcon, setStoppedIcon] = React.useState<string>('https://static.arcgis.com/images/Symbols/Shapes/RedCircleLargeB.png');
 
   const activeFileInputRef = React.useRef<HTMLInputElement>(null);
   const stoppedFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const mapRef = React.useRef<HTMLDivElement>(null);
-  const mapInstance = React.useRef<any>(null);
-  const markersRef = React.useRef<Map<string, any>>(new Map());
+  const arcgisView = React.useRef<any>(null);
+  const graphicsLayer = React.useRef<any>(null);
   const [mapError, setMapError] = React.useState<string | null>(null);
 
   // Update icons when settings load
@@ -87,7 +85,7 @@ export default function WGPS24Page() {
 
   React.useEffect(() => {
     fetchGps();
-    const interval = setInterval(fetchGps, 20000); // 20 Sec Refresh
+    const interval = setInterval(fetchGps, 900000); // 15 Min Refresh
     return () => clearInterval(interval);
   }, [fetchGps]);
 
@@ -97,101 +95,88 @@ export default function WGPS24Page() {
     const initializeMap = async () => {
       if (!mapRef.current || view !== 'MAP') return;
 
-      let styleUrl = process.env.NEXT_PUBLIC_MAPTILER_STYLE_URL;
-      // Fallback to OSM if URL is missing or if user accidentally provided a Vector style.json (Leaflet needs raster tiles)
-      if (!styleUrl || styleUrl.includes('style.json')) {
-        styleUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      const apiKey = process.env.NEXT_PUBLIC_ARCGIS_API_KEY;
+      if (!apiKey) {
+        setMapError('ArcGIS API key missing. Add `NEXT_PUBLIC_ARCGIS_API_KEY` in `.env.local`.');
+        return;
       }
 
       try {
-        // Dynamic import for Leaflet to reduce bundle size
-        const Leaflet = await import('leaflet');
-        const L = Leaflet.default || Leaflet;
+        const esriConfig = (await import('@arcgis/core/config')).default;
+        const ArcGISMap = (await import('@arcgis/core/Map')).default;
+        const MapView = (await import('@arcgis/core/views/MapView')).default;
+        const GraphicsLayer = (await import('@arcgis/core/layers/GraphicsLayer')).default;
+        const Graphic = (await import('@arcgis/core/Graphic')).default;
 
         if (cancelled || !mapRef.current) return;
 
-        // Destroy existing map ONLY if the map view container changed
-        if (mapInstance.current && mapInstance.current._container !== mapRef.current) {
-          mapInstance.current.remove();
-          mapInstance.current = null;
-          markersRef.current.clear();
+        esriConfig.apiKey = apiKey;
+        setMapError(null);
+
+        // Destroy previous view if it exists
+        if (arcgisView.current) {
+          arcgisView.current.destroy();
+          arcgisView.current = null;
         }
 
-        if (!mapInstance.current && mapRef.current instanceof HTMLElement) {
-          // Initialize map
-          mapInstance.current = L.map(mapRef.current).setView([20.5937, 78.9629], 5);
+        if (!arcgisView.current && mapRef.current instanceof HTMLElement) {
+          graphicsLayer.current = new GraphicsLayer();
+          const map = new ArcGISMap({
+            basemap: 'arcgis/navigation',
+            layers: [graphicsLayer.current],
+          });
 
-          // Add tile layer
-          L.tileLayer(styleUrl, {
-            attribution: styleUrl.includes('openstreetmap')
-              ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              : '<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a>',
-            maxZoom: 20,
-          }).addTo(mapInstance.current);
-          
-          setTimeout(() => {
-            mapInstance.current?.invalidateSize();
-          }, 100);
+          arcgisView.current = new MapView({
+            container: mapRef.current as HTMLDivElement,
+            map,
+            center: [78.9629, 20.5937],
+            zoom: 5,
+            constraints: {
+              snapToZoom: false,
+            },
+            ui: {
+              components: ['zoom', 'attribution'],
+            },
+          });
         }
 
-        const currentVehicleNumbers = new Set(gpsData.map(v => v.vehicleNumber));
-
-        // Remove stale markers (Vehicles that are no longer coming from API)
-        markersRef.current.forEach((marker, vehicleNumber) => {
-          if (!currentVehicleNumbers.has(vehicleNumber)) {
-            mapInstance.current.removeLayer(marker);
-            markersRef.current.delete(vehicleNumber);
-          }
-        });
+        graphicsLayer.current.removeAll();
 
         gpsData.forEach(v => {
           if (!v.latitude || !v.longitude) return;
 
-          const lat = parseFloat(v.latitude);
-          const lng = parseFloat(v.longitude);
-          const speedNum = parseFloat(v.speed || 0);
-          const isRunning = ['RUNNING', 'MOVING'].includes(v.status?.toUpperCase()) || speedNum > 0;
-          
-          // Create custom HTML icon
-          const iconHtml = `
-            <div style="display: flex; align-items: center; justify-content: center;">
-              <img src="${isRunning ? activeIcon : stoppedIcon}" 
-                   style="width: 24px; height: auto; cursor: pointer;" 
-                   alt="${v.vehicleNumber}" />
-            </div>
-          `;
+          const point = {
+            type: 'point',
+            longitude: parseFloat(v.longitude),
+            latitude: parseFloat(v.latitude),
+          };
 
-          const customIcon = L.divIcon({
-            html: iconHtml,
-            iconSize: [24, 41],
-            iconAnchor: [12, 41],
-            className: 'custom-marker',
+          const graphic = new Graphic({
+            geometry: point,
+            attributes: v,
+            symbol: {
+              type: 'picture-marker',
+              url: v.status === 'RUNNING' ? activeIcon : stoppedIcon,
+              width: '32px',
+              height: '32px',
+            },
           });
 
-          // Show location text or placeholder, but avoid coordinates
-          const locationText = addressCache[v.vehicleNumber] || v.location || v.address || 'Click to view location...';
-          const popupContent = `<strong>${v.vehicleNumber}</strong><br/>Location: ${locationText}<br/>Speed: ${v.speed || 0} km/h`;
-
-          if (markersRef.current.has(v.vehicleNumber)) {
-            // Update existing marker position instead of recreating it
-            const existingMarker = markersRef.current.get(v.vehicleNumber);
-            existingMarker.setLatLng([lat, lng]);
-            existingMarker.setIcon(customIcon);
-            existingMarker.setPopupContent(popupContent);
-          } else {
-            // Create new marker
-            const marker = L.marker([lat, lng], { icon: customIcon })
-              .bindPopup(popupContent)
-              .on('click', () => handleSelectVehicle(v))
-              .addTo(mapInstance.current);
-            markersRef.current.set(v.vehicleNumber, marker);
-          }
+          graphicsLayer.current.add(graphic);
         });
 
-        setMapError(null);
+        if (!arcgisView.current.__sikkaClickHandler) {
+          arcgisView.current.__sikkaClickHandler = arcgisView.current.on('click', async (event: any) => {
+            const hit = await arcgisView.current.hitTest(event);
+            const result = hit.results?.find((item: any) => item.graphic?.layer === graphicsLayer.current);
+            if (result?.graphic?.attributes) {
+              handleSelectVehicle(result.graphic.attributes);
+            }
+          });
+        }
       } catch (error) {
-        console.error('MapTiler map initialization failed:', error);
-        setMapError('MapTiler map did not load. Check `NEXT_PUBLIC_MAPTILER_STYLE_URL` in `.env.local`.');
+        console.error('ArcGIS map initialization failed:', error);
+        setMapError('ArcGIS map did not load. Check `NEXT_PUBLIC_ARCGIS_API_KEY` and API key restrictions.');
       }
     };
 
@@ -202,46 +187,45 @@ export default function WGPS24Page() {
     };
   }, [gpsData, view, activeIcon, stoppedIcon]);
 
+  const reverseGeocode = React.useCallback(async (lat: number, lng: number) => {
+    try {
+      const Locator = (await import('@arcgis/core/rest/locator'));
+      const response = await Locator.locationToAddress(
+        'https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer',
+        {
+          location: {
+            longitude: lng,
+            latitude: lat,
+          } as any,
+        }
+      );
+
+      setResolvedAddress(response?.address || 'COORDINATE LOCK ACQUIRED (ADDRESS UNAVAILABLE)');
+    } catch (error) {
+      console.error('ArcGIS reverse geocode failed:', error);
+      setResolvedAddress('COORDINATE LOCK ACQUIRED (ADDRESS UNAVAILABLE)');
+    }
+  }, []);
+
   React.useEffect(() => {
     return () => {
-      if (mapInstance.current) {
-        mapInstance.current.remove();
-        mapInstance.current = null;
-        markersRef.current.clear();
+      if (arcgisView.current) {
+        arcgisView.current.destroy();
+        arcgisView.current = null;
+        graphicsLayer.current = null;
       }
     };
   }, []);
 
   const handleSelectVehicle = (v: any) => {
     setSelectedVehicle(v);
-    const knownAddress = addressCache[v.vehicleNumber] || v.location || v.address;
-    setResolvedAddress(knownAddress || 'Resolving location...');
-    
-    if (mapInstance.current) {
-      mapInstance.current.setView(
-        [parseFloat(v.latitude), parseFloat(v.longitude)],
-        14,
-        { animate: true }
-      );
-    }
-
-    // Lazy fetch exact address if the API didn't provide one
-    if (!knownAddress && v.latitude && v.longitude) {
-      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${v.latitude}&lon=${v.longitude}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.display_name) {
-            setResolvedAddress(data.display_name);
-            setAddressCache(prev => ({ ...prev, [v.vehicleNumber]: data.display_name }));
-            if (markersRef.current.has(v.vehicleNumber)) {
-              const updatedContent = `<strong>${v.vehicleNumber}</strong><br/>Location: ${data.display_name}<br/>Speed: ${v.speed || 0} km/h`;
-              markersRef.current.get(v.vehicleNumber).setPopupContent(updatedContent);
-            }
-          } else {
-            setResolvedAddress('Location unavailable');
-          }
-        })
-        .catch(() => setResolvedAddress('Location unavailable'));
+    setResolvedAddress('SYNCHRONIZING LOCATION...');
+    reverseGeocode(parseFloat(v.latitude), parseFloat(v.longitude));
+    if (arcgisView.current) {
+      arcgisView.current.goTo({
+        center: [parseFloat(v.longitude), parseFloat(v.latitude)],
+        zoom: 14,
+      });
     }
   };
 
@@ -289,42 +273,30 @@ export default function WGPS24Page() {
                  </button>
               </div>
               <div className="flex-1 overflow-y-auto green-scrollbar">
-                {gpsData.map((v: any, i: number) => {
-                  const speedNum = parseFloat(v.speed || 0);
-                  const isRunning = ['RUNNING', 'MOVING'].includes(v.status?.toUpperCase()) || speedNum > 0;
-                  const statusBgClass = isRunning ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700";
-                  const iconColorClass = isRunning ? "text-emerald-500" : "text-red-500";
-
-                  return (
-                    <div 
-                      key={i} 
-                      onClick={() => handleSelectVehicle(v)} 
-                      className={cn(
-                        "p-4 border-b border-slate-100 hover:bg-blue-50 cursor-pointer transition-all", 
-                        selectedVehicle?.vehicleNumber === v.vehicleNumber && "bg-blue-50 border-l-4 border-l-[#0056d2]"
-                      )}
-                    >
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-[11px] font-black text-slate-800">{v.vehicleNumber}</span>
-                        <div className={cn("px-2 py-0.5 text-[8px] font-black rounded-none", statusBgClass)}>
-                          {isRunning ? 'RUNNING' : 'STOPPED'}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start gap-1.5 mt-2 mb-2">
-                         <MapPin className={cn("h-3 w-3 shrink-0 mt-0.5", iconColorClass)} />
-                         <span className="text-[9px] font-bold text-slate-600 leading-tight line-clamp-2">
-                           {addressCache[v.vehicleNumber] || v.location || v.address || 'Click to fetch exact location...'}
-                         </span>
-                      </div>
-
-                      <div className="text-[8px] font-black text-slate-300 flex justify-between mt-1">
-                        <span>SPEED: {v.speed || 0} KM/H</span>
-                        <span>HB: {v.lastHeartbeatTime ? format(new Date(v.lastHeartbeatTime), 'HH:mm:ss') : '-'}</span>
+                {gpsData.map((v: any, i: number) => (
+                  <div 
+                    key={i} 
+                    onClick={() => handleSelectVehicle(v)} 
+                    className={cn(
+                      "p-4 border-b border-slate-100 hover:bg-blue-50 cursor-pointer transition-all", 
+                      selectedVehicle?.vehicleNumber === v.vehicleNumber && "bg-blue-50 border-l-4 border-l-[#0056d2]"
+                    )}
+                  >
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[11px] font-black text-slate-800">{v.vehicleNumber}</span>
+                      <div className={cn(
+                        "px-2 py-0.5 text-[8px] font-black rounded-none", 
+                        v.status === 'RUNNING' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                      )}>
+                        {v.status}
                       </div>
                     </div>
-                  );
-                })}
+                    <div className="text-[8px] font-black text-slate-300 flex justify-between mt-2">
+                      <span>SPEED: {v.speed || 0} KM/H</span>
+                      <span>HB: {v.lastHeartbeatTime ? format(new Date(v.lastHeartbeatTime), 'HH:mm:ss') : '-'}</span>
+                    </div>
+                  </div>
+                ))}
                 {gpsData.length === 0 && !loading && (
                   <div className="p-10 text-center space-y-3">
                      <AlertCircle className="h-6 w-6 text-slate-200 mx-auto" />
@@ -335,7 +307,7 @@ export default function WGPS24Page() {
             </div>
 
             <div className="flex-1 relative bg-slate-200">
-               <div ref={mapRef} className="w-full h-full leaflet-container" />
+               <div ref={mapRef} className="w-full h-full" />
                
                {selectedVehicle && (
                  <div className="absolute top-4 left-4 right-4 bg-white border border-slate-300 p-4 shadow-2xl animate-fade-in z-20">
@@ -347,9 +319,9 @@ export default function WGPS24Page() {
                              </h4>
                              <Badge className={cn(
                                "rounded-none h-4 px-2 text-[8px] border-none",
-                               (['RUNNING', 'MOVING'].includes(selectedVehicle.status?.toUpperCase()) || parseFloat(selectedVehicle.speed || 0) > 0) ? "bg-emerald-500" : "bg-red-500"
+                               selectedVehicle.status === 'RUNNING' ? "bg-emerald-500" : "bg-red-500"
                              )}>
-                               {(['RUNNING', 'MOVING'].includes(selectedVehicle.status?.toUpperCase()) || parseFloat(selectedVehicle.speed || 0) > 0) ? 'RUNNING' : 'STOPPED'}
+                               {selectedVehicle.status}
                              </Badge>
                           </div>
                           <div className="space-y-1">
@@ -392,12 +364,12 @@ export default function WGPS24Page() {
                        <p className="text-[11px] text-red-600 mb-3">{mapError}</p>
                        <p className="text-[10px] text-slate-500 mb-4">Quick fixes:</p>
                        <ul className="text-[10px] text-slate-500 list-disc list-inside text-left mb-4">
-                         <li>Confirm `NEXT_PUBLIC_MAPTILER_STYLE_URL` in your `.env.local` is a valid MapTiler style URL.</li>
-                         <li>Include your MapTiler API key in the URL: `?key=YOUR_KEY`</li>
-                         <li>Make sure MapTiler service is active and accessible.</li>
+                         <li>Confirm `NEXT_PUBLIC_ARCGIS_API_KEY` in your `.env.local` is a valid ArcGIS API key.</li>
+                         <li>Allow your local app URL in the API key referrers, or remove restrictions while testing.</li>
+                         <li>Make sure the key has ArcGIS location services enabled.</li>
                        </ul>
                        <div className="flex justify-center gap-3">
-                         <a href="https://cloud.maptiler.com/account/tokens/" target="_blank" rel="noreferrer" className="px-4 py-1 bg-red-600 text-white text-[11px] font-black">Open MapTiler</a>
+                         <a href="https://developers.arcgis.com/api-keys/" target="_blank" rel="noreferrer" className="px-4 py-1 bg-red-600 text-white text-[11px] font-black">Open API Keys</a>
                          <button onClick={() => window.location.reload()} className="px-4 py-1 border border-slate-200 text-[11px] font-black">Reload</button>
                        </div>
                      </div>
@@ -427,24 +399,21 @@ export default function WGPS24Page() {
                          />
                          <div 
                             onClick={() => activeFileInputRef.current?.click()}
-                            className="cursor-pointer h-24 border-2 border-dashed border-slate-300 rounded-lg p-4 flex items-center justify-center hover:border-blue-500 hover:bg-blue-50 transition-all"
+                            className="border-2 border-dashed border-slate-200 p-12 text-center rounded-none bg-slate-50 hover:bg-slate-100 hover:border-blue-300 transition-all cursor-pointer group min-h-[180px] flex flex-col items-center justify-center"
                          >
-                            <div className="text-center">
-                               {activeIcon && activeIcon.startsWith('data:') ? (
-                                 <img src={activeIcon} alt="active" className="h-16 w-16 object-contain mx-auto" />
-                               ) : (
-                                 <>
-                                    <Upload className="h-6 w-6 text-slate-400 mx-auto mb-2" />
-                                    <p className="text-[9px] text-slate-500 font-black">Click to upload</p>
-                                 </>
-                               )}
-                            </div>
+                            {activeIcon.startsWith('data:') || activeIcon.startsWith('http') ? (
+                               <div className="relative w-20 h-20 mb-4">
+                                  <img src={activeIcon} alt="Active Preview" className="object-contain w-full h-full" />
+                               </div>
+                            ) : (
+                               <Truck className="h-10 w-10 mx-auto text-emerald-500 mb-4 group-hover:scale-110 transition-transform" />
+                            )}
+                            <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-600">Update Active Icon</span>
                          </div>
                       </div>
-
                       <div className="space-y-4">
                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider text-black">Stopped Icon</label>
+                            <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider text-black">Stopped (Idle) Icon</label>
                             <span className="text-[9px] text-slate-400 italic">Recommended: 64x64 PNG/SVG</span>
                          </div>
                          <input 
@@ -456,20 +425,33 @@ export default function WGPS24Page() {
                          />
                          <div 
                             onClick={() => stoppedFileInputRef.current?.click()}
-                            className="cursor-pointer h-24 border-2 border-dashed border-slate-300 rounded-lg p-4 flex items-center justify-center hover:border-blue-500 hover:bg-blue-50 transition-all"
+                            className="border-2 border-dashed border-slate-200 p-12 text-center rounded-none bg-slate-50 hover:bg-slate-100 hover:border-blue-300 transition-all cursor-pointer group min-h-[180px] flex flex-col items-center justify-center"
                          >
-                            <div className="text-center">
-                               {stoppedIcon && stoppedIcon.startsWith('data:') ? (
-                                 <img src={stoppedIcon} alt="stopped" className="h-16 w-16 object-contain mx-auto" />
-                               ) : (
-                                 <>
-                                    <Upload className="h-6 w-6 text-slate-400 mx-auto mb-2" />
-                                    <p className="text-[9px] text-slate-500 font-black">Click to upload</p>
-                                 </>
-                               )}
-                            </div>
+                            {stoppedIcon.startsWith('data:') || stoppedIcon.startsWith('http') ? (
+                               <div className="relative w-20 h-20 mb-4">
+                                  <img src={stoppedIcon} alt="Stopped Preview" className="object-contain w-full h-full" />
+                               </div>
+                            ) : (
+                               <Truck className="h-10 w-10 mx-auto text-red-500 mb-4 group-hover:scale-110 transition-transform" />
+                            )}
+                            <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-600">Update Stopped Icon</span>
                          </div>
                       </div>
+                   </div>
+                </div>
+
+                <div className="space-y-6">
+                   <h3 className="text-sm font-black uppercase italic text-slate-400 border-b border-slate-200 pb-3">Operational Status</h3>
+                   <div className="p-6 bg-blue-50 border border-blue-100 shadow-sm flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-black text-blue-700 uppercase tracking-tight">
+                          SATELLITE GATEWAY: <span className="text-emerald-600">ACTIVE & VERIFIED</span>
+                        </p>
+                        <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest italic">
+                          PROTOCOL: WHEELSEYE_LMC_V1
+                        </p>
+                      </div>
+                      <Badge className="bg-blue-600 rounded-none text-[9px] font-black h-5 uppercase tracking-widest">Connected</Badge>
                    </div>
                 </div>
              </div>
@@ -479,3 +461,4 @@ export default function WGPS24Page() {
     </div>
   );
 }
+

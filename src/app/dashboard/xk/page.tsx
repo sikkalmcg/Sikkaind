@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking } from '@/mongodb';
+import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking } from '@/mongodb';
 import { collection, doc } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 
@@ -23,7 +23,7 @@ export default function XKPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
 
   const vendorsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
-  const { data: vendors } = useCollection(vendorsQuery);
+  const { data: vendors } = useCollectionOptimized(vendorsQuery);
 
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;

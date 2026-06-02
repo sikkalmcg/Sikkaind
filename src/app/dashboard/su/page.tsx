@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight, Trash2, ShieldCheck, Layout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/mongodb';
+import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/mongodb';
 import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -38,8 +38,8 @@ export default function SUPage() {
   const usersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'users_master'), [db]);
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   
-  const { data: users } = useCollection(usersQuery);
-  const { data: plants } = useCollection(plantsQuery);
+  const { data: users } = useCollectionOptimized(usersQuery);
+  const { data: plants } = useCollectionOptimized(plantsQuery);
 
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;

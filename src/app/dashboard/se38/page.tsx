@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { FileText, PlayCircle, Download, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollection, useMemoMongo } from '@/mongodb';
+import { useMongoStore, useCollectionOptimized, useMemoMongo } from '@/mongodb';
 import { collection } from '@/lib/mongo-store';
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 
@@ -18,8 +18,8 @@ export default function SE38Page() {
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const tripsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
   
-  const { data: plants } = useCollection(plantsQuery);
-  const { data: trips } = useCollection(tripsQuery);
+  const { data: plants } = useCollectionOptimized(plantsQuery);
+  const { data: trips } = useCollectionOptimized(tripsQuery);
 
   const handleExecute = () => {
     if (!search.plant || !search.from || !search.to) { alert('Criteria Mandatory'); return; }

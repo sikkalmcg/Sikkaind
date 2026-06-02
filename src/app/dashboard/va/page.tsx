@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Download, Upload, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
+import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
 import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -148,9 +148,9 @@ export default function VAPage() {
   const ordersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const customersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
 
-  const { data: allPlants } = useCollection(plantsQuery);
-  const { data: allOrders } = useCollection(ordersQuery);
-  const { data: allCustomers } = useCollection(customersQuery);
+  const { data: allPlants } = useCollectionOptimized(plantsQuery);
+  const { data: allOrders } = useCollectionOptimized(ordersQuery);
+  const { data: allCustomers } = useCollectionOptimized(customersQuery);
 
   const filteredPlants = React.useMemo(() => {
     if (!allPlants || authorizedPlantCodes === undefined) return [];

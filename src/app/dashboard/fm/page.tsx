@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight, Upload, X, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking } from '@/mongodb';
+import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking } from '@/mongodb';
 import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -27,8 +27,8 @@ export default function FMPage() {
 
   const companiesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const { data: companies } = useCollection(companiesQuery);
-  const { data: plants } = useCollection(plantsQuery);
+  const { data: companies } = useCollectionOptimized(companiesQuery);
+  const { data: plants } = useCollectionOptimized(plantsQuery);
 
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;

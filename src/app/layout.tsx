@@ -29,7 +29,6 @@ export default function RootLayout({
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
         <link rel="stylesheet" href="https://js.arcgis.com/4.31/esri/themes/light/main.css" />
-        <script src="https://js.arcgis.com/4.31/"></script>
       </head>
       <body className="font-body antialiased bg-background">
         <RootLayoutClient>{children}</RootLayoutClient>

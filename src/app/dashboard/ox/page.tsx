@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/mongodb';
+import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/mongodb';
 import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -29,7 +29,7 @@ export default function OXPage() {
     if (isAuthLoading || !user) return null;
     return collection(db, 'users', SHARED_HUB_ID, 'plants');
   }, [db, user, isAuthLoading]);
-  const { data: plants } = useCollection(plantsQuery);
+  const { data: plants } = useCollectionOptimized(plantsQuery);
 
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;
