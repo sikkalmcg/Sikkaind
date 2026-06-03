@@ -132,7 +132,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setUserFavorites(filtered);
     
     // Prefetch all favorites routes immediately
-    filtered.forEach(fav => {
+    filtered.forEach((fav: { code: string }) => {
       const routeMap: any = {
         'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
         'XD': '/dashboard/xd', 'VA': '/dashboard/va', 'SU': '/dashboard/su',

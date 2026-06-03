@@ -53,7 +53,7 @@ export default function DashboardPage() {
   const { data: userProfile } = useDoc(profileRef);
   
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); 
-  const [counts, setCounts] = React.useState({ open: null, loading: null, transit: null, arrived: null, pod: null });
+  const [counts, setCounts] = React.useState<{ open: number | null; loading: number | null; transit: number | null; arrived: number | null; pod: number | null }>({ open: null, loading: null, transit: null, arrived: null, pod: null });
 
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const { data: allPlants } = useCollectionOptimized(plantsQuery);
@@ -156,6 +156,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-
-

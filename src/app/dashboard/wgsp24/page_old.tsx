@@ -135,7 +135,7 @@ export default function WGPS24Page() {
               snapToZoom: false,
             },
             ui: {
-              components: ['zoom', 'attribution'],
+              components: ['zoom'],
             },
           });
         }
@@ -146,7 +146,7 @@ export default function WGPS24Page() {
           if (!v.latitude || !v.longitude) return;
 
           const point = {
-            type: 'point',
+            type: 'point' as const,
             longitude: parseFloat(v.longitude),
             latitude: parseFloat(v.latitude),
           };
@@ -461,4 +461,3 @@ export default function WGPS24Page() {
     </div>
   );
 }
-

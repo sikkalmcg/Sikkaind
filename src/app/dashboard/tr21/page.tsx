@@ -46,6 +46,8 @@ export default function TR21Page() {
 
   const [lastGeneratedCN, setLastGeneratedCN] = React.useState<string>('N/A');
 
+  const cnPortalTripIdRef = React.useRef<string | null>(null);
+
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
   const [registryId, setRegistryId] = React.useState<string | null>(null);
 
@@ -134,55 +136,62 @@ export default function TR21Page() {
   }, [assignData.rate, assignData.assignWeight, assignData.fixRate]);
 
   React.useEffect(() => {
-    if (showCNPortal && selectedTrip && trips && companies) {
-      const carrier = companies.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies[0];
-      const carrierName = carrier?.companyName || '';
-      
-      const carrierCNs = (trips || [])
-        .filter(t => (t.carrierName === carrierName || (!t.carrierName && t.plantCode === selectedTrip.plantCode)) && t.cnNumber)
-        .map(t => t.cnNumber as string);
+    if (!showCNPortal) {
+      cnPortalTripIdRef.current = null;
+      return;
+    }
 
-      if (carrierCNs.length > 0) {
-        let lastFull = '';
-        let maxVal = -1;
+    if (!selectedTrip || !trips || !companies) return;
 
-        carrierCNs.forEach(cn => {
-          const match = cn.match(/(\d+)$/);
-          if (match) {
-            const val = parseInt(match[1], 10);
-            if (val > maxVal) {
-              maxVal = val;
-              lastFull = cn;
-            }
+    const carrier = companies.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies[0];
+    const carrierName = carrier?.companyName || '';
+    const carrierCNs = (trips || [])
+      .filter(t => (t.carrierName === carrierName || (!t.carrierName && t.plantCode === selectedTrip.plantCode)) && t.cnNumber)
+      .map(t => t.cnNumber as string);
+
+    let lastFull = '';
+    let suggestedCN = '000001';
+
+    if (carrierCNs.length > 0) {
+      let maxVal = -1;
+
+      carrierCNs.forEach(cn => {
+        const match = cn.match(/(\d+)$/);
+        if (match) {
+          const val = parseInt(match[1], 10);
+          if (val > maxVal) {
+            maxVal = val;
+            lastFull = cn;
           }
-        });
+        }
+      });
 
-        if (lastFull) {
-          setLastGeneratedCN(lastFull);
-          if (!selectedTrip.cnNumber) {
-            const match = lastFull.match(/^(.*?)(\d+)$/);
-            if (match) {
-              const prefix = match[1];
-              const digits = match[2];
-              const nextVal = (parseInt(digits, 10) + 1).toString();
-              const padded = nextVal.padStart(digits.length, '0');
-              setCNData((prev: any) => ({ ...prev, cnNumber: prefix + padded }));
-            } else {
-              setCNData((prev: any) => ({ ...prev, cnNumber: lastFull }));
-            }
-          }
+      if (lastFull) {
+        const match = lastFull.match(/^(.*?)(\d+)$/);
+        if (match) {
+          const prefix = match[1];
+          const digits = match[2];
+          const nextVal = (parseInt(digits, 10) + 1).toString();
+          suggestedCN = prefix + nextVal.padStart(digits.length, '0');
         } else {
-          setLastGeneratedCN('NONE (NUMERIC REQ)');
-          if (!selectedTrip.cnNumber) {
-            setCNData((prev: any) => ({ ...prev, cnNumber: '000001' }));
-          }
+          suggestedCN = lastFull;
         }
       } else {
-        setLastGeneratedCN('NONE (INITIAL)');
-        if (!selectedTrip.cnNumber) {
-          setCNData((prev: any) => ({ ...prev, cnNumber: '000001' }));
-        }
+        suggestedCN = '000001';
       }
+    }
+
+    setLastGeneratedCN(lastFull || (carrierCNs.length > 0 ? 'NONE (NUMERIC REQ)' : 'NONE (INITIAL)'));
+
+    if (cnPortalTripIdRef.current !== selectedTrip.id) {
+      cnPortalTripIdRef.current = selectedTrip.id;
+      setCNData((prev: any) => ({
+        ...prev,
+        id: selectedTrip.id,
+        cnNumber: selectedTrip.cnNumber || suggestedCN,
+        cnDate: prev.cnDate || format(new Date(), 'yyyy-MM-dd'),
+        invoices: (prev.invoices || []).length > 0 ? prev.invoices : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }],
+      }));
     }
   }, [showCNPortal, selectedTrip, trips, companies]);
 
@@ -249,10 +258,12 @@ export default function TR21Page() {
   };
 
   const handlePostCN = () => {
-    if (!cnData.cnNumber) return alert('CN Number Mandatory');
+    const cnNumber = cnData.cnNumber?.trim().toUpperCase();
+    if (!cnNumber) return alert('CN Number Mandatory');
     const carrier = companies?.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies?.[0];
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
       ...cnData, 
+      cnNumber,
       carrierName: carrier?.companyName || '',
       updatedAt: new Date().toISOString() 
     });
@@ -858,5 +869,3 @@ export default function TR21Page() {
     </div>
   );
 }
-
-

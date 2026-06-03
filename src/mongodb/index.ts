@@ -12,8 +12,8 @@ export function initializeMongoServices() {
 
 export * from './provider';
 export * from './client-provider';
-export * from './store/use-collection';
-export * from './store/use-collection-optimized';
+export { useCollection } from './store/use-collection';
+export { useCollectionOptimized } from './store/use-collection-optimized';
 export * from './store/use-doc';
 export * from './non-blocking-updates';
 export * from './non-blocking-login';
