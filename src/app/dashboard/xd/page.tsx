@@ -2,15 +2,36 @@
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Save, ChevronLeft, ChevronRight, Download, Upload, Loader2, X } from 'lucide-react';
+import { Save, ChevronLeft, ChevronRight, Download, Upload, Loader2, X, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
+import { useMongoStore, useCollection, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
 import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
+
+// CSV parse karne ke liye intelligent function jo commas inside quotes ko handle karega
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes; // Toggle quote state
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim().replace(/^"|"$/g, '')); // Clean bounding quotes
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim().replace(/^"|"$/g, ''));
+  return result;
+}
 
 export default function XDPage() {
   const searchParams = useSearchParams();
@@ -52,13 +73,12 @@ export default function XDPage() {
 
   const customersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const { data: allCustomers } = useCollectionOptimized(customersQuery);
-  const { data: plants } = useCollectionOptimized(plantsQuery);
+  const { data: allCustomers } = useCollection(customersQuery);
+  const { data: plants } = useCollection(plantsQuery);
 
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;
 
-    // DUPLICATE CUSTOMER ID CONTROL
     const isDuplicate = (allCustomers || []).some(c => c.customerCode === formData.customerCode && c.id !== formData.id);
     if (isDuplicate) {
       alert('Duplicate Customer ID not allowed');
@@ -87,7 +107,7 @@ export default function XDPage() {
     
     setFormData({});
     setErrors([]);
-    alert('Synchronized');
+    alert('Synchronized Successfully');
   }, [allCustomers, db, formData, isReadOnly]);
 
   React.useEffect(() => {
@@ -98,8 +118,8 @@ export default function XDPage() {
 
   const handleDownloadTemplate = () => {
     const headers = ['PLANTS', 'CUSTOMER CODE', 'CUSTOMER NAME', 'ADDRESS', 'CITY', 'PINCODE', 'GSTIN', 'MOBILE'];
-    const csv = headers.join(',') + '\n' + '1214;ID20,C001,EXAMPLE CORP,STREET 1,DELHI,110001,07AAAAA0000A1Z5,9999999999';
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = headers.join(',') + '\n' + '1426,101010101,"AADI TRADERS","A-196 SECTOR- 4B, POCKET- A","MEERUT(NA)",,09FIGPS4019L1ZP,';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -123,6 +143,7 @@ export default function XDPage() {
         return; 
       }
 
+      // Headers parsed using standard comma split since headers don't have commas
       const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
       const rows = lines.slice(1);
       const tempLog: typeof uploadLog = [];
@@ -134,7 +155,6 @@ export default function XDPage() {
         headerIndices[col] = headers.indexOf(col);
       });
       
-      // Optional indices
       headerIndices['PINCODE'] = headers.indexOf('PINCODE');
       headerIndices['GSTIN'] = headers.indexOf('GSTIN');
       headerIndices['MOBILE'] = headers.indexOf('MOBILE');
@@ -147,14 +167,17 @@ export default function XDPage() {
       }
 
       for (let i = 0; i < rows.length; i++) {
-        const columns = rows[i].split(',').map(c => c.trim());
-        const plantStr = columns[headerIndices['PLANTS']];
-        const code = columns[headerIndices['CUSTOMER CODE']];
-        const name = columns[headerIndices['CUSTOMER NAME']];
-        const address = columns[headerIndices['ADDRESS']];
-        const city = columns[headerIndices['CITY']];
+        // Smart parse logic applied here to protect strings with commas
+        const columns = parseCSVLine(rows[i]);
+        if (columns.length < mandatoryCols.length) continue;
+
+        const plantStr = columns[headerIndices['PLANTS']]?.toUpperCase();
+        const code = columns[headerIndices['CUSTOMER CODE']]?.toUpperCase();
+        const name = columns[headerIndices['CUSTOMER NAME']]?.toUpperCase();
+        const address = columns[headerIndices['ADDRESS']]?.toUpperCase();
+        const city = columns[headerIndices['CITY']]?.toUpperCase();
         const pincode = headerIndices['PINCODE'] !== -1 ? columns[headerIndices['PINCODE']] : '';
-        const gstin = headerIndices['GSTIN'] !== -1 ? columns[headerIndices['GSTIN']] : '';
+        const gstin = headerIndices['GSTIN'] !== -1 ? columns[headerIndices['GSTIN']]?.toUpperCase() : '';
         const mobile = headerIndices['MOBILE'] !== -1 ? columns[headerIndices['MOBILE']] : '';
 
         const rowId = code || `Row ${i + 2}`;
@@ -186,7 +209,7 @@ export default function XDPage() {
               address: address,
               city: city,
               pincode: pincode,
-              gstNo: gstin,
+              gstNo: gstin, 
               mobile: mobile,
               updatedAt: new Date().toISOString(),
               updatedBy: 'Sikkaind_System'
@@ -202,6 +225,7 @@ export default function XDPage() {
       }
       setUploadLog(tempLog);
       setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = ''; 
     };
     reader.readAsText(file);
   };
@@ -235,7 +259,18 @@ export default function XDPage() {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono text-black">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
-        <h2 className="text-[16px] font-bold uppercase italic">{activeTCode} - Customer Master</h2>
+        <div className="flex items-center gap-4">
+          {formData.id && (
+            <Button 
+              onClick={() => { setFormData({}); setErrors([]); }} 
+              variant="ghost" 
+              className="h-8 w-8 p-0 rounded-none border border-slate-300 hover:bg-slate-100"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <h2 className="text-[16px] font-bold uppercase italic">{activeTCode} - Customer Master</h2>
+        </div>
         <div className="flex gap-4">
            {activeTCode === 'XD01' && !formData.id && (
              <>
@@ -244,8 +279,13 @@ export default function XDPage() {
                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 border-[#0056d2] text-[#0056d2] rounded-none"><Upload className="h-3 w-3 mr-2" /> Bulk Upload</Button>
              </>
            )}
+           {formData.id && !isReadOnly && (
+             <Button onClick={handleSave} className="h-8 text-[10px] font-black uppercase px-6 bg-[#0056d2] text-white rounded-none hover:bg-blue-700">
+               <Save className="h-3 w-3 mr-2" /> Save Changes
+             </Button>
+           )}
            {isUploading && <Loader2 className="h-5 w-5 animate-spin text-blue-600" />}
-        </div>
+         </div>
       </div>
 
       <div className="px-2">
@@ -289,8 +329,8 @@ export default function XDPage() {
                         <td className="p-4 border-r text-[#0056d2] font-black">{c.customerCode}</td>
                         <td className="p-4 border-r">{c.customerName}</td>
                         <td className="p-4 border-r">{c.city}</td>
-                        <td className="p-4 border-r text-slate-400">{c.gstNo || c.gstin}</td>
-                        <td className="p-4 text-slate-300">{c.updatedAt ? format(new Date(c.updatedAt), 'dd/MM HH:mm') : '-'}</td>
+                        <td className="p-4 border-r text-slate-700">{c.gstNo || '-'}</td>
+                        <td className="p-4 text-slate-400">{c.updatedAt ? format(new Date(c.updatedAt), 'dd/MM HH:mm') : '-'}</td>
                       </tr>
                     ))}
                     {paginated.length === 0 && (
@@ -342,8 +382,8 @@ export default function XDPage() {
                  <input 
                    value={formData.customerCode || ''} 
                    onChange={e => setFormData({...formData, customerCode: e.target.value.toUpperCase()})} 
-                   disabled={isReadOnly} 
-                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none transition-all", errors.includes('customerCode') && !formData.customerCode ? "border-red-500 bg-red-50" : "border-slate-400 focus:bg-yellow-50")} 
+                   disabled={isReadOnly || !!formData.id} 
+                   className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none transition-all", errors.includes('customerCode') && !formData.customerCode ? "border-red-500 bg-red-50" : "border-slate-400 focus:bg-yellow-50 disabled:bg-slate-100")} 
                  />
                </div>
                <div className="flex items-center gap-8">
@@ -379,7 +419,7 @@ export default function XDPage() {
                </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">GSTIN:</label>
-                 <input value={formData.gstNo || formData.gstin || ''} onChange={e => setFormData({...formData, gstNo: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none focus:bg-yellow-50" />
+                 <input value={formData.gstNo || ''} onChange={e => setFormData({...formData, gstNo: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none focus:bg-yellow-50" />
                </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-40 text-right uppercase">Mobile:</label>
@@ -392,5 +432,3 @@ export default function XDPage() {
     </div>
   );
 }
-
-
