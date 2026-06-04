@@ -86,7 +86,7 @@ export default function SE38Page() {
                  <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.consignorName || r.consignor?.name || r.consignor || ''}>{r.consignorName || r.consignor?.name || r.consignor || '-'}</td>
                  <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.consigneeName || r.consignee?.name || r.consignee || ''}>{r.consigneeName || r.consignee?.name || r.consignee || '-'}</td>
                  <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.shipToPartyName || r.shipToParty?.name || r.shipToParty || ''}>{r.shipToPartyName || r.shipToParty?.name || r.shipToParty || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.itemDescription || r.materialDescription || r.materialGroup || r.itemName || ''}>{r.itemDescription || r.materialDescription || r.materialGroup || r.itemName || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.itemDescription || r.materialDescription || r.materialGroup || r.itemName || r.material || r.description || r.commodity || ''}>{r.itemDescription || r.materialDescription || r.materialGroup || r.itemName || r.material || r.description || r.commodity || '-'}</td>
                  <td className="p-3 border-r border-slate-100 uppercase font-black">{r.status || '-'}</td>
                  <td className="p-3 border-r border-slate-100 uppercase">{r.assignWeight || r.weight || r.quantity || '-'}</td>
                  <td className="p-3 border-r border-slate-100">{formatTime(r.createdAt || r.indentDate || r.indentTime)}</td>
