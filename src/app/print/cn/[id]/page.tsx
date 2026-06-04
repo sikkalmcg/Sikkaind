@@ -54,11 +54,18 @@ export default function PublicCNPreviewPage() {
   const logoFallback = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
   const copies = ['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'];
   
+  const validInvoices = (trip.invoices || []).filter((inv: any) => inv.invNo);
+
+  const chunkArray = (arr: any[], size: number) => {
+    return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
+      arr.slice(i * size, i * size + size)
+    );
+  };
+
   const packageSummary = (() => {
-    const invoices = trip.invoices || [];
-    if (invoices.length === 0) return "0 PKG";
+    if (validInvoices.length === 0) return "0 PKG";
     const groups: Record<string, number> = {};
-    invoices.forEach((inv: any) => {
+    validInvoices.forEach((inv: any) => {
       const uom = (inv.uom || "PKG").toUpperCase();
       const qty = parseInt(inv.pkg) || 0;
       groups[uom] = (groups[uom] || 0) + qty;
@@ -142,7 +149,7 @@ export default function PublicCNPreviewPage() {
                         <td className="p-2 border-r border-black text-center whitespace-nowrap">CN NO: {trip.cnNumber || 'DRAFT'}</td>
                         <td className="p-2 border-r border-black text-center">{trip.cnDate ? format(new Date(trip.cnDate), 'dd-MMM-yyyy') : '-'}</td>
                         <td className="p-2 border-r border-black text-center text-[10px]">{trip.from}</td>
-                        <td className="p-2 border-r border-black text-center text-[10px]">{trip.via || '-'}</td>
+                        <td className="p-2 border-r border-black text-center text-[10px]">{trip?.vehicleAssignOptionTick ? (trip.via || '-') : '-'}</td>
                         <td className="p-2 text-center text-[10px]">{trip.destination}</td>
                      </tr>
                   </tbody>
@@ -214,15 +221,49 @@ export default function PublicCNPreviewPage() {
                      </tr>
                   </thead>
                   <tbody>
-                     {(trip.invoices || []).filter((inv: any) => inv.invNo).map((inv: any, i: number) => (
-                        <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black text-[11px]">
-                           <td className="p-2 border-r border-black">{inv.invNo}</td>
-                           <td className="p-2 border-r border-black">{inv.ewaybillNo}</td>
-                           <td className="p-2 border-r border-black leading-snug text-[11px]">{inv.desc}</td>
-                           <td className="p-2 border-r border-black text-center">{inv.pkg} {inv.uom}</td>
-                           <td className="p-2 text-right">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
-                        </tr>
-                     ))}
+                 {validInvoices.length > 3 ? (
+                    <tr className="border-b border-black last:border-b-0 uppercase font-normal text-black text-[11px]">
+                       <td className="p-2 border-r border-black align-top">
+                          {(() => {
+                             const uniqueInv = Array.from(new Set(validInvoices.map((inv: any) => inv.invNo).filter(Boolean)));
+                             return chunkArray(uniqueInv, 2).map((chunk, idx) => (
+                                <div key={idx}>{chunk.join(', ')}</div>
+                             ));
+                          })()}
+                       </td>
+                       <td className="p-2 border-r border-black align-top">
+                          {(() => {
+                             const uniqueEway = Array.from(new Set(validInvoices.map((inv: any) => inv?.ewaybillEnteredAtCN ? inv.ewaybillNo : '').filter(Boolean)));
+                             if (uniqueEway.length === 0) return '-';
+                             return chunkArray(uniqueEway, 2).map((chunk, idx) => (
+                                <div key={idx}>{chunk.join(', ')}</div>
+                             ));
+                          })()}
+                       </td>
+                       <td className="p-2 border-r border-black leading-snug text-[11px] align-top">
+                          {(() => {
+                             const uniqueDesc = Array.from(new Set(validInvoices.map((inv: any) => {
+                                const d = inv.desc || '';
+                                const prefix = d.match(/^[^0-9]+/);
+                                return prefix ? prefix[0].trim() : d.trim();
+                             }).filter(Boolean)));
+                             return uniqueDesc.join(', ');
+                          })()}
+                       </td>
+                       <td className="p-2 border-r border-black text-center align-top">{packageSummary}</td>
+                       <td className="p-2 text-right align-top">{parseFloat(trip.assignWeight || 0).toFixed(3)}</td>
+                    </tr>
+                 ) : (
+                    validInvoices.map((inv: any, i: number) => (
+                       <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black text-[11px]">
+                          <td className="p-2 border-r border-black align-top">{inv.invNo}</td>
+                          <td className="p-2 border-r border-black align-top">{inv?.ewaybillEnteredAtCN ? inv.ewaybillNo : '-'}</td>
+                          <td className="p-2 border-r border-black leading-snug text-[11px] align-top">{inv.desc}</td>
+                          <td className="p-2 border-r border-black text-center align-top">{inv.pkg} {inv.uom}</td>
+                          <td className="p-2 text-right align-top">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
+                       </tr>
+                    ))
+                 )}
                   </tbody>
                   <tfoot>
                      <tr className="bg-white font-normal text-[15px] uppercase border-t border-black text-black">
@@ -266,5 +307,3 @@ export default function PublicCNPreviewPage() {
     </div>
   );
 }
-
-
