@@ -56,6 +56,7 @@ export default function SE38Page() {
                   <th className="p-3 border-r border-slate-200">Trip ID</th>
                   <th className="p-3 border-r border-slate-200">CN No</th>
                   <th className="p-3 border-r border-slate-200">Vehicle</th>
+                  <th className="p-3 border-r border-slate-200">Vehicle Type</th>
                   <th className="p-3 border-r border-slate-200">Transporter</th>
                   <th className="p-3 border-r border-slate-200">Source</th>
                   <th className="p-3 border-r border-slate-200">Destination</th>
@@ -75,23 +76,24 @@ export default function SE38Page() {
              <tbody>{results.map((r, i) => (
                <tr key={i} className="hover:bg-blue-50/30 border-b border-slate-100 whitespace-nowrap">
                  <td className="p-3 border-r border-slate-100 uppercase">{r.plantCode || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 font-black text-blue-700 uppercase">{r.tripNo || r.tripId || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase">{r.cnNumber || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase">{r.vehicleNo || r.vehicleNumber || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.carrier?.companyName || r.transporter || ''}>{r.carrier?.companyName || r.transporter || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.from || ''}>{r.from || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.destination || r.to || ''}>{r.destination || r.to || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.consignor?.name || r.consignor || ''}>{r.consignor?.name || r.consignor || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.consignee?.name || r.consignee || ''}>{r.consignee?.name || r.consignee || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.shipToParty?.name || r.shipToParty || ''}>{r.shipToParty?.name || r.shipToParty || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.itemDescription || r.materialDescription || ''}>{r.itemDescription || r.materialDescription || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 font-black text-blue-700 uppercase">{r.tripNo || r.tripId || r.id || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase">{r.cnNumber || r.cnNo || r.lrNo || r.lrNumber || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase">{r.vehicleNo || r.vehicleNumber || r.truckNo || r.truckNumber || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase">{r.vehicleType || r.truckType || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.transporterName || r.transporter?.name || r.carrierName || r.carrier?.name || r.vendorName || r.vendor?.name || r.carrier?.companyName || r.transporter || ''}>{r.transporterName || r.transporter?.name || r.carrierName || r.carrier?.name || r.vendorName || r.vendor?.name || r.carrier?.companyName || r.transporter || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.source || r.fromCity || r.from || ''}>{r.source || r.fromCity || r.from || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.destination || r.toCity || r.to || ''}>{r.destination || r.toCity || r.to || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.consignorName || r.consignor?.name || r.consignor || ''}>{r.consignorName || r.consignor?.name || r.consignor || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.consigneeName || r.consignee?.name || r.consignee || ''}>{r.consigneeName || r.consignee?.name || r.consignee || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.shipToPartyName || r.shipToParty?.name || r.shipToParty || ''}>{r.shipToPartyName || r.shipToParty?.name || r.shipToParty || '-'}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.itemDescription || r.materialDescription || r.materialGroup || r.itemName || ''}>{r.itemDescription || r.materialDescription || r.materialGroup || r.itemName || '-'}</td>
                  <td className="p-3 border-r border-slate-100 uppercase font-black">{r.status || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase">{r.assignWeight || '-'}</td>
-                 <td className="p-3 border-r border-slate-100">{formatTime(r.createdAt)}</td>
-                 <td className="p-3 border-r border-slate-100">{formatTime(r.assignedAt || r.vehicleAssignTime || r.assignTime)}</td>
-                 <td className="p-3 border-r border-slate-100">{formatTime(r.dispatchedAt || r.dispatchTime || r.cnDate)}</td>
+                 <td className="p-3 border-r border-slate-100 uppercase">{r.assignWeight || r.weight || r.quantity || '-'}</td>
+                 <td className="p-3 border-r border-slate-100">{formatTime(r.createdAt || r.indentDate || r.indentTime)}</td>
+                 <td className="p-3 border-r border-slate-100">{formatTime(r.assignedAt || r.vehicleAssignTime || r.assignTime || r.placementTime || r.placementDate || r.assignDate)}</td>
+                 <td className="p-3 border-r border-slate-100">{formatTime(r.dispatchedAt || r.dispatchTime || r.cnDate || r.invoiceDate)}</td>
                  <td className="p-3 border-r border-slate-100 uppercase font-black">{r.podStatus || '-'}</td>
-                 <td className="p-3">{formatTime(r.podAt || r.podDate || r.deliveredAt)}</td>
+                 <td className="p-3">{formatTime(r.podAt || r.podDate || r.deliveredAt || r.deliveryDate)}</td>
                </tr>
              ))}</tbody>
            </table>
