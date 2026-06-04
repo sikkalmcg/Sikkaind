@@ -41,12 +41,61 @@ export default function SE38Page() {
     }
   };
 
+  const exportToExcel = () => {
+    const headers = [
+      'Plant', 'Trip ID', 'CN No', 'Vehicle', 'Vehicle Type', 'Transporter',
+      'Source', 'Destination', 'Consignor', 'Consignee', 'Ship To Party',
+      'Item Description', 'Status', 'Qty (MT)', 'Indent Time', 'Assign Time',
+      'Dispatch Time', 'POD Status', 'POD Time'
+    ];
+
+    const csvRows = results.map(r => {
+      return [
+        r.plantCode || '-',
+        r.tripNo || r.tripId || r.id || '-',
+        r.cnNumber || r.cnNo || r.lrNo || r.lrNumber || '-',
+        r.vehicleNo || r.vehicleNumber || r.truckNo || r.truckNumber || '-',
+        r.vehicleType || r.truckType || '-',
+        r.transporterName || r.transporter?.name || r.carrierName || r.carrier?.name || r.vendorName || r.vendor?.name || r.carrier?.companyName || r.transporter || '-',
+        r.source || r.fromCity || r.from || '-',
+        r.destination || r.toCity || r.to || '-',
+        r.consignorName || r.consignor?.name || r.consignor || '-',
+        r.consigneeName || r.consignee?.name || r.consignee || '-',
+        r.shipToPartyName || r.shipToParty?.name || r.shipToParty || '-',
+        r.itemDescription || r.materialDescription || r.materialGroup || r.itemName || r.material || r.description || r.commodity || '-',
+        r.status || '-',
+        r.assignWeight || r.weight || r.quantity || '-',
+        formatTime(r.createdAt || r.indentDate || r.indentTime),
+        formatTime(r.assignedAt || r.vehicleAssignTime || r.assignTime || r.placementTime || r.placementDate || r.assignDate),
+        formatTime(r.dispatchedAt || r.dispatchTime || r.cnDate || r.invoiceDate),
+        r.podStatus || '-',
+        formatTime(r.podAt || r.podDate || r.deliveredAt || r.deliveryDate)
+      ].map(val => `"${String(val).replace(/"/g, '""')}"`).join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `SE38_Report_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (view === 'result') {
     return (
       <div className="flex-1 flex flex-col h-full bg-[#f2f2f2] font-mono">
         <div className="bg-white border-b border-slate-300 px-8 py-2 flex items-center justify-between shrink-0">
           <h2 className="text-[14px] font-black uppercase italic text-[#1e3a8a]">SE38 - Analysis Result</h2>
-          <Button onClick={() => setView('filter')} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none">New Selection</Button>
+          <div className="flex items-center gap-3">
+            <Button onClick={exportToExcel} variant="outline" className="h-8 text-[10px] font-black uppercase px-4 rounded-none gap-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100">
+              <Download className="w-3 h-3" />
+              Export Excel
+            </Button>
+            <Button onClick={() => setView('filter')} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none">New Selection</Button>
+          </div>
         </div>
         <div className="flex-1 overflow-auto bg-white m-4 border border-slate-300 green-scrollbar shadow-inner">
            <table className="w-full text-left border-collapse text-[10px]">
