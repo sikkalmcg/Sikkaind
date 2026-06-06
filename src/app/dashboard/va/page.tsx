@@ -48,7 +48,7 @@ function SAPAutocomplete({ value, options, onSelect, disabled, hasError, placeho
       if (isOpen && filteredOptions[highlightedIndex]) {
         if (e.key === 'Enter') e.preventDefault();
         onSelect(filteredOptions[highlightedIndex]);
-        setIsOpen(false);
+        isOpen(false);
       }
     } else if (e.key === 'Escape') { setIsOpen(false); }
   };
@@ -243,14 +243,32 @@ export default function VAPage() {
     const reader = new FileReader();
     reader.onload = async (event) => {
       const text = event.target?.result as string;
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      
+      // Lines split करें और पूरी तरह खाली लाइनों को इग्नोर करें
+      const lines = text
+        .split(/\r\n|\n|\r/)
+        .map(l => l.trim())
+        .filter(l => l.length > 0);
+
       if (lines.length <= 1) { 
         alert("File empty or missing headers"); 
         setIsUploading(false); 
+        if (fileInputRef.current) fileInputRef.current.value = '';
         return; 
       }
 
-      const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
+      // कोट्स, BOM कैरेक्टर और स्पेस हटाने के लिए हेल्पर फ़ंक्शन
+      const cleanCell = (str: string) => {
+        if (!str) return '';
+        return str
+          .replace(/^\uFEFF/, '') // Remove BOM
+          .trim()
+          .replace(/^["']|["']$/g, '') // Remove wrapping quotes
+          .trim();
+      };
+
+      // हेडर रो को सही से साफ़ करके अपरकेस में कनवर्ट करें
+      const headers = lines[0].split(',').map(h => cleanCell(h).toUpperCase());
       const rows = lines.slice(1);
       const tempLog: typeof uploadLog = [];
       const fileOrderNos = new Set<string>();
@@ -265,19 +283,22 @@ export default function VAPage() {
       if (missingCols.length > 0) {
         alert(`Invalid CSV. Missing required columns: ${missingCols.join(', ')}`);
         setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
-
+  
       for (let i = 0; i < rows.length; i++) {
-        const columns = rows[i].split(',').map(c => c.trim());
-        const plant = (columns[headerIndices['PLANT']] || '').trim();
-        const orderNo = (columns[headerIndices['SALE ORDER']] || '').trim().toUpperCase();
-        const orderDate = (columns[headerIndices['ORDER DATE']] || '').trim();
-        const cnrCode = (columns[headerIndices['CONSIGNOR CODE']] || '').trim();
-        const cneCode = (columns[headerIndices['CONSIGNEE CODE']] || '').trim();
-        const stpCode = (columns[headerIndices['SHIP TO PARTY CODE']] || '').trim();
-        const material = (columns[headerIndices['MATERIAL']] || '').trim();
-        const weight = (columns[headerIndices['WEIGHT']] || '').trim();
+        // कोट्स के अंदर के कॉमा को सेफ़ रखकर रो स्प्लिट करने के लिए RegEx
+        const columns = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => cleanCell(c));
+        
+        const plant = columns[headerIndices['PLANT']];
+        const orderNo = columns[headerIndices['SALE ORDER']].toUpperCase();
+        const orderDate = columns[headerIndices['ORDER DATE']];
+        const cnrCode = columns[headerIndices['CONSIGNOR CODE']];
+        const cneCode = columns[headerIndices['CONSIGNEE CODE']];
+        const stpCode = columns[headerIndices['SHIP TO PARTY CODE']];
+        const material = columns[headerIndices['MATERIAL']];
+        const weight = columns[headerIndices['WEIGHT']];
 
         const rowId = orderNo || `Row ${i + 2}`;
         let errorReason = '';
@@ -336,6 +357,7 @@ export default function VAPage() {
       }
       setUploadLog(tempLog);
       setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsText(file);
   };
@@ -502,5 +524,3 @@ export default function VAPage() {
     </div>
   );
 }
-
-

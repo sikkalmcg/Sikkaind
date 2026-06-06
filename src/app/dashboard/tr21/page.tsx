@@ -71,6 +71,10 @@ export default function TR21Page() {
   });
 
   const [vehicleData, setVehicleData] = React.useState({ vehicleNo: '', driverMobile: '' });
+  const [cnVehicleWeightData, setCnVehicleWeightData] = React.useState({
+    vehicleNo: '',
+    assignWeight: ''
+  });
 
   const [statusUpdateData, setStatusUpdateData] = React.useState({
     tripId: '',
@@ -260,11 +264,18 @@ export default function TR21Page() {
   const handlePostCN = () => {
     const cnNumber = cnData.cnNumber?.trim().toUpperCase();
     if (!cnNumber) return alert('CN Number Mandatory');
+
+    // Ensure TR21 edits (vehicle no + weight) are persisted so CN preview/print shows correctly.
+    const vehicleNo = (vehicleData.vehicleNo || selectedTrip?.vehicleNo || '').toString().toUpperCase().trim();
+    const assignWeightNum = parseFloat((assignData.assignWeight || selectedTrip?.assignWeight || 0).toString());
+
     const carrier = companies?.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies?.[0];
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
       ...cnData, 
       cnNumber,
       carrierName: carrier?.companyName || '',
+      ...(vehicleNo ? { vehicleNo } : {}),
+      ...(Number.isFinite(assignWeightNum) ? { assignWeight: assignWeightNum } : {}),
       updatedAt: new Date().toISOString() 
     });
     setShowCNPortal(false);
@@ -513,7 +524,12 @@ export default function TR21Page() {
                                 <Button onClick={() => openStatusPortal(item, 'IN-TRANSIT', 'outDate', 'GATE OUT PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
                                 <Button onClick={() => handleUnassign(item)} className="h-6 w-20 text-[8px] font-normal bg-orange-600 text-white rounded-none">UNASSIGN</Button>
                                 <Button onClick={() => { 
-                                  setSelectedTrip(item); 
+                                  setSelectedTrip(item);
+                                  setVehicleData({ vehicleNo: item.vehicleNo || '', driverMobile: item.driverMobile || '' });
+                                  setAssignData((prev: any) => ({
+                                    ...prev,
+                                    assignWeight: (item.assignWeight ?? item.balance ?? item.weight ?? 0).toString(),
+                                  }));
                                   const invs = (item.invoices || []).length > 0 ? item.invoices : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
                                   setCNData({ ...(item.cnNumber ? item : { ...cnData, cnNumber: '', cnDate: format(new Date(), 'yyyy-MM-dd') }), id: item.id, invoices: invs }); 
                                   setShowCNPortal(true); 
