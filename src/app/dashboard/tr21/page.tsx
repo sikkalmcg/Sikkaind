@@ -268,6 +268,7 @@ export default function TR21Page() {
     // Ensure TR21 edits (vehicle no + weight) are persisted so CN preview/print shows correctly.
     const vehicleNo = (vehicleData.vehicleNo || selectedTrip?.vehicleNo || '').toString().toUpperCase().trim();
     const assignWeightNum = parseFloat((assignData.assignWeight || selectedTrip?.assignWeight || 0).toString());
+    const freightAmountNum = assignData.fixRate ? selectedTrip?.freightAmount : (assignWeightNum * parseFloat(assignData.rate || 0));
 
     const carrier = companies?.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies?.[0];
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
@@ -276,6 +277,7 @@ export default function TR21Page() {
       carrierName: carrier?.companyName || '',
       ...(vehicleNo ? { vehicleNo } : {}),
       ...(Number.isFinite(assignWeightNum) ? { assignWeight: assignWeightNum } : {}),
+      ...(Number.isFinite(freightAmountNum) ? { freightAmount: freightAmountNum } : {}),
       updatedAt: new Date().toISOString() 
     });
     setShowCNPortal(false);
@@ -529,6 +531,8 @@ export default function TR21Page() {
                                   setAssignData((prev: any) => ({
                                     ...prev,
                                     assignWeight: (item.assignWeight ?? item.balance ?? item.weight ?? 0).toString(),
+                                    rate: (item.rate || 0).toString(),
+                                    fixRate: !!item.fixRate,
                                   }));
                                   const invs = (item.invoices || []).length > 0 ? item.invoices : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
                                   setCNData({ ...(item.cnNumber ? item : { ...cnData, cnNumber: '', cnDate: format(new Date(), 'yyyy-MM-dd') }), id: item.id, invoices: invs }); 
@@ -541,6 +545,13 @@ export default function TR21Page() {
                                 <Button onClick={() => openStatusPortal(item, 'ARRIVED', 'arrivedDate', 'ARRIVAL HANDSHAKE')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">ARRIVED</Button>
                                 <Button onClick={() => { 
                                   setSelectedTrip(item); 
+                                  setVehicleData({ vehicleNo: item.vehicleNo || '', driverMobile: item.driverMobile || '' });
+                                  setAssignData((prev: any) => ({
+                                    ...prev,
+                                    assignWeight: (item.assignWeight ?? item.balance ?? item.weight ?? 0).toString(),
+                                    rate: (item.rate || 0).toString(),
+                                    fixRate: !!item.fixRate,
+                                  }));
                                   setCNData({ ...item, invoices: item.invoices || [] }); 
                                   setShowCNPortal(true); 
                                 }} variant="outline" className="h-6 w-20 text-[8px] font-normal border-slate-300 rounded-none">CN EDIT</Button>
@@ -552,6 +563,13 @@ export default function TR21Page() {
                                 <Button onClick={() => openStatusPortal(item, 'REJECTION', 'rejectionDate', 'REJECTION PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-red-600 text-white rounded-none">REJECT</Button>
                                 <Button onClick={() => { 
                                   setSelectedTrip(item); 
+                                  setVehicleData({ vehicleNo: item.vehicleNo || '', driverMobile: item.driverMobile || '' });
+                                  setAssignData((prev: any) => ({
+                                    ...prev,
+                                    assignWeight: (item.assignWeight ?? item.balance ?? item.weight ?? 0).toString(),
+                                    rate: (item.rate || 0).toString(),
+                                    fixRate: !!item.fixRate,
+                                  }));
                                   setCNData({ ...item, invoices: item.invoices || [] }); 
                                   setShowCNPortal(true); 
                                 }} variant="outline" className="h-6 w-20 text-[8px] font-normal border-slate-300 rounded-none">CN EDIT</Button>
@@ -803,8 +821,31 @@ export default function TR21Page() {
                      className="h-9 w-full border border-slate-400 px-3 text-xs font-normal bg-white focus:bg-yellow-50 outline-none" 
                    />
                 </div>
-                <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">CN Date *</label><input type="date" value={cnData.cnDate} onChange={e => setCNData({...cnData, cnDate: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Payment Terms</label><select value={cnData.paymentTerms} onChange={e => setCNData({...cnData, paymentTerms: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"><option value="PAID">PAID</option><option value="TO PAY">TO PAY</option></select></div>
+                <div className="space-y-1.5 flex flex-col justify-end">
+                   <label className="text-[10px] font-normal text-slate-400 uppercase">CN Date *</label>
+                   <input type="date" value={cnData.cnDate} onChange={e => setCNData({...cnData, cnDate: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" />
+                </div>
+                <div className="space-y-1.5 flex flex-col justify-end">
+                   <label className="text-[10px] font-normal text-slate-400 uppercase">Payment Terms</label>
+                   <select value={cnData.paymentTerms} onChange={e => setCNData({...cnData, paymentTerms: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"><option value="PAID">PAID</option><option value="TO PAY">TO PAY</option></select>
+                </div>
+                <div className="space-y-1.5 flex flex-col justify-end">
+                   <label className="text-[10px] font-normal text-slate-400 uppercase">Vehicle Number</label>
+                   <input 
+                     value={vehicleData.vehicleNo || ''} 
+                     onChange={e => setVehicleData({...vehicleData, vehicleNo: e.target.value.toUpperCase()})} 
+                     className="h-9 w-full border border-slate-400 px-3 text-xs font-normal bg-white focus:bg-yellow-50 outline-none" 
+                   />
+                </div>
+                <div className="space-y-1.5 flex flex-col justify-end">
+                   <label className="text-[10px] font-normal text-slate-400 uppercase">Assign Qty (MT)</label>
+                   <input 
+                     type="number" step="0.001"
+                     value={assignData.assignWeight || ''} 
+                     onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} 
+                     className="h-9 w-full border border-slate-400 px-3 text-xs font-normal bg-white focus:bg-yellow-50 outline-none" 
+                   />
+                </div>
              </div>
              <div className="space-y-4">
                 <div className="flex justify-between items-end border-b border-slate-200 pb-2">
