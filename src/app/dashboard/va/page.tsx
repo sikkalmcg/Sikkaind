@@ -112,7 +112,7 @@ export default function VAPage() {
   const db = useMongoStore();
   const { user } = useUser();
   const activeTCode = searchParams.get('tcode') || 'VA03';
-  const isReadOnly = activeTCode === 'VA03';
+  const isReadOnly = activeTCode === 'VA03' || activeTCode === 'VA04';
   
   const [formData, setFormData] = React.useState<any>({});
   const [searchId, setSearchId] = React.useState('');
@@ -170,6 +170,20 @@ export default function VAPage() {
     if (!formData.plantCode) return allCustomers;
     return allCustomers.filter(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(formData.plantCode));
   }, [allCustomers, formData.plantCode]);
+
+  const handleShortClose = React.useCallback(() => {
+    if (!formData.id) return;
+    if (!window.confirm(`Are you sure you want to short close order ${formData.orderNo}?`)) return;
+
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', formData.id), { 
+      status: 'Short Closed',
+      updatedAt: serverTimestamp(),
+      updatedBy: 'Sikkaind_System'
+    }, { merge: true });
+    
+    setFormData({});
+    alert(`Order ${formData.orderNo} has been Short Closed.`);
+  }, [db, formData]);
 
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;
@@ -398,6 +412,11 @@ export default function VAPage() {
                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 border-[#0056d2] text-[#0056d2] rounded-none"><Upload className="h-3 w-3 mr-2" /> Bulk Upload</Button>
              </>
            )}
+           {activeTCode === 'VA04' && formData.id && formData.status !== 'Short Closed' && (
+             <Button onClick={handleShortClose} className="h-8 bg-red-600 hover:bg-red-700 text-white rounded-none text-[10px] font-black uppercase px-8 shadow-md">
+               Short Close Order
+             </Button>
+           )}
            {isUploading && <Loader2 className="h-5 w-5 animate-spin text-blue-600" />}
         </div>
       </div>
@@ -442,7 +461,8 @@ export default function VAPage() {
                        <th className="p-4 border-r w-[200px]">Ship to Party</th>
                        <th className="p-4 border-r w-[150px]">Destination</th>
                        <th className="p-4 border-r w-[150px]">Material</th>
-                       <th className="p-4 text-right w-[100px]">Weight</th>
+                       <th className="p-4 border-r text-right w-[100px]">Weight</th>
+                       <th className="p-4 text-center w-[100px]">Status</th>
                      </tr>
                    </thead>
                    <tbody className="font-bold uppercase">
@@ -460,12 +480,15 @@ export default function VAPage() {
                          <td className="p-4 border-r truncate max-w-[200px]" title={o.shipToParty}>{o.shipToParty}</td>
                          <td className="p-4 border-r truncate max-w-[150px]">{o.destination}</td>
                          <td className="p-4 border-r truncate max-w-[150px]">{o.materialName}</td>
-                         <td className="p-4 text-right text-blue-800 font-black">{o.quantity} MT</td>
+                         <td className="p-4 border-r text-right text-blue-800 font-black">{o.quantity} MT</td>
+                         <td className="p-4 text-center">
+                           <span className={cn("px-2 py-1 text-[9px] font-black rounded-sm whitespace-nowrap", o.status === 'Short Closed' ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700")}>{o.status || 'OPEN'}</span>
+                         </td>
                        </tr>
                      ))}
                      {filteredOrders.length === 0 && !isProfileLoading && (
                        <tr>
-                         <td colSpan={10} className="p-20 text-center text-slate-300 italic uppercase font-black text-[10px] tracking-widest">No matching registry records found.</td>
+                         <td colSpan={11} className="p-20 text-center text-slate-300 italic uppercase font-black text-[10px] tracking-widest">No matching registry records found.</td>
                        </tr>
                      )}
                    </tbody>
@@ -496,7 +519,10 @@ export default function VAPage() {
                </div>
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Sale Order No:</label>
-                 <input value={formData.orderNo || ''} onChange={e => setFormData({...formData, orderNo: e.target.value.toUpperCase()})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderNo') ? "border-red-500 bg-red-50" : "border-slate-400")} />
+                 <div className="flex items-center gap-4">
+                   <input value={formData.orderNo || ''} onChange={e => setFormData({...formData, orderNo: e.target.value.toUpperCase()})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderNo') ? "border-red-500 bg-red-50" : "border-slate-400")} />
+                   {formData.status === 'Short Closed' && <span className="px-3 py-1 bg-red-100 text-red-700 text-[10px] font-black uppercase whitespace-nowrap border border-red-200 shadow-sm">Short Closed</span>}
+                 </div>
                </div>
                
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Order Date:</label><input type="date" value={formData.orderDate || ''} onChange={e => setFormData({...formData, orderDate: e.target.value})} disabled={isReadOnly} className={cn("h-8 w-80 border px-2 text-[12px] font-black outline-none", errors.includes('orderDate') ? "border-red-500 bg-red-50" : "border-slate-400")} /></div>
