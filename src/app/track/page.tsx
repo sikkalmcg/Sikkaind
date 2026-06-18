@@ -134,9 +134,6 @@ export default function TrackPage() {
                            </div>
                            <div className="flex justify-between items-center border-t border-slate-50 pt-4 gap-2">
                               <Button onClick={() => handleSelectTrip(t)} variant="outline" className="flex-1 h-8 rounded-none text-[9px] font-black uppercase border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">Live Map</Button>
-                              {t.cnNumber && (
-                                <Button onClick={() => handleOpenPrint(t.id)} className="flex-1 h-8 rounded-none text-[9px] font-black uppercase bg-emerald-600 text-white"><ExternalLink className="h-3 w-3 mr-1" /> Open CN</Button>
-                              )}
                            </div>
                         </div>
                       </div>
@@ -166,9 +163,6 @@ export default function TrackPage() {
                    </div>
                 </div>
                 <div className="flex gap-2">
-                  {selectedTrip.cnNumber && (
-                    <Button onClick={() => handleOpenPrint(selectedTrip.id)} variant="outline" className="rounded-none font-black text-[10px] px-6 h-9 uppercase border-emerald-600 text-emerald-600">Open CN</Button>
-                  )}
                   <Badge className="bg-[#0056d2] rounded-none font-black text-[10px] px-8 py-1.5 uppercase shadow-lg tracking-widest">{selectedTrip.status}</Badge>
                 </div>
              </div>
@@ -206,10 +200,32 @@ export default function TrackPage() {
                 </div>
 
                 <div className="bg-slate-100 border-2 border-slate-200 rounded-sm relative flex flex-col items-center justify-center min-h-[350px] shadow-inner overflow-hidden group">
-                   <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
-                   <MapIcon className="h-16 w-16 text-slate-300 mb-4" />
-                   <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] italic">Satellite Geometry Active</span>
-                   <p className="mt-4 text-[9px] font-bold text-slate-300 uppercase tracking-widest">Mapping Pincode: {getCustomerPincode(selectedTrip.shipToPartyCode)}</p>
+                   <iframe
+                     width="100%"
+                     height="100%"
+                     frameBorder="0"
+                     scrolling="no"
+                     marginHeight={0}
+                     marginWidth={0}
+                     src={`https://maps.google.com/maps?q=${encodeURIComponent(selectedTrip.destination || getCustomerPincode(selectedTrip.shipToPartyCode))}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+                     title="Tracking Map"
+                     className="absolute inset-0 z-0"
+                   ></iframe>
+
+                   {/* Live Vehicle Marker Overlay */}
+                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center pointer-events-none">
+                      <div className="bg-[#0056d2] p-2.5 rounded-full shadow-2xl border-2 border-white animate-bounce relative">
+                         <Truck className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="w-3 h-1.5 bg-black/30 rounded-[100%] blur-[2px] mt-1 shadow-md"></div>
+                   </div>
+
+                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-4 py-2 border border-slate-200 shadow-lg z-10 pointer-events-none">
+                      <div className="flex items-center gap-2">
+                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                         <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Network Active</span>
+                      </div>
+                   </div>
                 </div>
              </div>
           </div>

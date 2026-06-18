@@ -48,7 +48,7 @@ function SAPAutocomplete({ value, options, onSelect, disabled, hasError, placeho
       if (isOpen && filteredOptions[highlightedIndex]) {
         if (e.key === 'Enter') e.preventDefault();
         onSelect(filteredOptions[highlightedIndex]);
-        isOpen(false);
+          setIsOpen(false);
       }
     } else if (e.key === 'Escape') { setIsOpen(false); }
   };
@@ -205,6 +205,8 @@ export default function VAPage() {
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { 
       ...formData,
       orderNo: normalizedOrderNo,
+      mode: formData.mode || 'Road',
+      via: formData.mode === 'Rail to Road' ? (formData.via || '') : '',
       id: docId, 
       updatedAt: serverTimestamp(),
       createdAt: formData.createdAt || serverTimestamp(),
@@ -330,6 +332,8 @@ export default function VAPage() {
               id: docId,
               plantCode: plant,
               orderNo,
+              mode: 'Road',
+              via: '',
               orderDate,
               consignorCode: cnrCode,
               consignorName: cnr.customerName,
@@ -517,6 +521,26 @@ export default function VAPage() {
                <div className="flex items-center gap-8 italic"><label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase">Ship to Code:</label><input value={formData.shipToPartyCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black text-[#0056d2]" /></div>
 
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Material:</label><input value={formData.materialName || ''} onChange={e => setFormData({...formData, materialName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
+
+               <div className="flex items-center gap-8">
+                 <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Transport Mode:</label>
+                 <select 
+                   value={formData.mode || 'Road'} 
+                   onChange={e => setFormData({...formData, mode: e.target.value, via: e.target.value === 'Road' ? '' : formData.via})} 
+                   disabled={isReadOnly} 
+                   className="h-8 w-80 border border-slate-400 bg-white px-2 text-[12px] font-black outline-none uppercase"
+                 >
+                   <option value="Road">Road</option>
+                   <option value="Rail to Road">Rail to Road</option>
+                 </select>
+               </div>
+
+               {formData.mode === 'Rail to Road' && (
+                 <div className="flex items-center gap-8">
+                   <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Station Name:</label>
+                   <input placeholder="ENTER STATION NAME..." value={formData.via || ''} onChange={e => setFormData({...formData, via: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none uppercase focus:bg-yellow-50" />
+                 </div>
+               )}
              </div>
           </div>
         )}

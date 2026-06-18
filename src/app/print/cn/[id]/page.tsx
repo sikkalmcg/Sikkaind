@@ -140,7 +140,7 @@ export default function PublicCNPreviewPage() {
                         <th className="p-1 border-r border-black text-center font-normal">CN Number</th>
                         <th className="p-1 border-r border-black text-center font-normal">Date</th>
                         <th className="p-1 border-r border-black text-center font-normal">From</th>
-                        <th className="p-1 border-r border-black text-center font-normal">Via</th>
+                        {trip.mode === 'Rail to Road' && <th className="p-1 border-r border-black text-center font-normal">Via</th>}
                         <th className="p-1 text-center font-normal">To</th>
                      </tr>
                   </thead>
@@ -149,7 +149,7 @@ export default function PublicCNPreviewPage() {
                         <td className="p-2 border-r border-black text-center whitespace-nowrap">CN NO: {trip.cnNumber || 'DRAFT'}</td>
                         <td className="p-2 border-r border-black text-center">{trip.cnDate ? format(new Date(trip.cnDate), 'dd-MMM-yyyy') : '-'}</td>
                         <td className="p-2 border-r border-black text-center text-[10px]">{trip.from}</td>
-                        <td className="p-2 border-r border-black text-center text-[10px]">{trip?.vehicleAssignOptionTick ? (trip.via || '-') : '-'}</td>
+                        {trip.mode === 'Rail to Road' && <td className="p-2 border-r border-black text-center text-[10px]">{trip.via || '-'}</td>}
                         <td className="p-2 text-center text-[10px]">{trip.destination}</td>
                      </tr>
                   </tbody>

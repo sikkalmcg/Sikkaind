@@ -476,7 +476,7 @@ export default function TR21Page() {
                           <td className="p-3 border-r text-right text-emerald-600 font-normal">{parseFloat(item.dispatched || 0).toFixed(3)}</td>
                           <td className="p-3 border-r text-right font-normal text-blue-600">{parseFloat(item.balance || 0).toFixed(3)}</td>
                           <td className="p-3 text-center">
-                            <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3) }); setShowAssign(true); }} className="h-7 w-20 text-[9px] font-normal bg-[#1e3a8a] rounded-none">Assign</Button>
+                            <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), mode: item.mode || 'Road', via: item.via || '' }); setShowAssign(true); }} className="h-7 w-20 text-[9px] font-normal bg-[#1e3a8a] rounded-none">Assign</Button>
                           </td>
                         </>
                       ) : (
@@ -700,8 +700,21 @@ export default function TR21Page() {
                   <option value="Market Vehicle">Market Vehicle</option>
                 </select>
              </div>
-             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Transport Mode</label><select value={assignData.mode} onChange={e => setAssignData({...assignData, mode: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"><option value="Road">Road</option><option value="Road from Rail">Road from Rail</option></select></div>
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-normal text-slate-400 uppercase">Transport Mode</label>
+                <select value={assignData.mode} onChange={e => setAssignData({...assignData, mode: e.target.value, via: e.target.value === 'Road' ? '' : assignData.via})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none">
+                  <option value="Road">Road</option>
+                  <option value="Rail to Road">Rail to Road</option>
+                </select>
+             </div>
              
+             {assignData.mode === 'Rail to Road' && (
+               <div className="space-y-1.5">
+                  <label className="text-[10px] font-normal text-slate-400 uppercase">Station Name</label>
+                  <input placeholder="ENTER STATION NAME..." value={assignData.via || ''} onChange={e => setAssignData({...assignData, via: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal outline-none focus:bg-yellow-50" />
+               </div>
+             )}
+
              <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Vehicle Number *</label><input value={assignData.vehicleNo || ''} onChange={e => setAssignData({...assignData, vehicleNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal outline-none focus:bg-yellow-50" /></div>
              <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Driver Mobile</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" /></div>
              
