@@ -12,14 +12,6 @@ import { Button } from '@/components/ui/button';
 import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc, useUser } from '@/mongodb';
 import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
-
-const formatDateTime = (value: any) => {
-  if (!value) return '-';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '-';
-  return format(d, 'dd-MM-yyyy HH:mm');
-};
-
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -430,17 +422,24 @@ export default function TR21Page() {
                     </tr>
                   ) : (
                     <tr>
-                      <th className="p-3 border-r w-[160px]">Driver Mobile</th>
-                      <th className="p-3 border-r w-[120px]">VIA</th>
-                      <th className="p-3 border-r w-[130px]">Invoice No</th>
-                      <th className="p-3 border-r w-[150px]">E-Way Bill No</th>
-                      <th className="p-3 border-r w-[260px]">Goods Description</th>
-                      <th className="p-3 border-r w-[180px]">Package with UOM</th>
-                      <th className="p-3 border-r w-[150px]">Out Date Time</th>
-                      <th className="p-3 border-r w-[170px]">Arrived Date Time</th>
-                      <th className="p-3 border-r w-[150px]">Unload Date Time</th>
-                      <th className="p-3 border-r w-[150px]">Reject Date Time</th>
-                      <th className="p-3">POD Status</th>
+                      <th className="p-3 border-r w-[60px]">Plant</th>
+                      <th className="p-3 border-r w-[150px]">Sale Order/Date</th>
+                      <th className="p-3 border-r w-[150px]">Trip ID/Date</th>
+                      <th className="p-3 border-r w-[180px]">Consignor</th>
+                      <th className="p-3 border-r w-[180px]">Consignee</th>
+                      <th className="p-3 border-r w-[180px]">Ship to Party</th>
+                      <th className="p-3 border-r w-[180px]">Route</th>
+                      <th className="p-3 border-r w-[100px] text-right">Assign Qty</th>
+                      <th className="p-3 border-r w-[150px]">Vehicle/Mobile</th>
+                      <th className="p-3 border-r w-[180px]">Arrange By</th>
+                      <th className="p-3 border-r w-[100px]">Fleet Type</th>
+                      <th className="p-3 border-r w-[150px]">CN No/Date</th>
+                      {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
+                        <>
+                          <th className="p-3 border-r w-[120px]">Out Date/Time</th>
+                          <th className="p-3 border-r w-[120px]">Arrived Date/Time</th>
+                        </>
+                      )}
                       <th className="p-3 text-center">Action</th>
                     </tr>
                   )}
@@ -482,32 +481,46 @@ export default function TR21Page() {
                         </>
                       ) : (
                         <>
-                          {(() => {
-                            const inv0 = Array.isArray(item.invoices) && item.invoices.length > 0 ? item.invoices[0] : {};
-                            const invoiceNo = (inv0?.invNo || '-') as string;
-                            const ewaybillNo = (inv0?.ewaybillNo || '-') as string;
-                            const goodsDesc = (inv0?.desc || '-') as string;
-                            const pkg = inv0?.pkg != null && inv0?.pkg !== '' ? String(inv0.pkg) : '';
-                            const uom = (inv0?.uom || '-') as string;
-                            const packageWithUOM = pkg ? `${pkg} ${uom}`.trim() : '-';
-                            return (
-                              <>
-                                <td className="p-3 border-r text-left font-normal">{item.driverMobile || '-'}</td>
-                                <td className="p-3 border-r text-left font-normal">{item.via || '-'}</td>
-                                <td className="p-3 border-r text-left font-normal">{invoiceNo}</td>
-                                <td className="p-3 border-r text-left font-normal">{ewaybillNo}</td>
-                                <td className="p-3 border-r truncate max-w-[260px] font-normal">{goodsDesc}</td>
-                                <td className="p-3 border-r text-left font-normal">{packageWithUOM}</td>
-                                <td className="p-3 border-r text-left font-normal text-slate-400">{formatDateTime(item.outDate)}</td>
-                                <td className="p-3 border-r text-left font-normal text-slate-400">{formatDateTime(item.arrivedDate)}</td>
-                                <td className="p-3 border-r text-left font-normal text-slate-400">{formatDateTime(item.unloadDate)}</td>
-                                <td className="p-3 border-r text-left font-normal text-slate-400">{formatDateTime(item.rejectionDate)}</td>
-                                <td className="p-3 border-r text-left font-normal">{item.podUrl ? 'Receipt' : 'Pending'}</td>
-                              </>
-                            );
-                          })()}
+                          <td className="p-3 border-r text-right font-normal text-slate-800 italic bg-blue-50/30">{parseFloat(item.assignWeight || 0).toFixed(3)}</td>
+                          <td className="p-3 border-r text-left">
+                            <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline">
+                              <span className="font-normal text-blue-800">{item.vehicleNo || 'ADD'}</span>
+                              <span className="text-[9px] text-slate-400 font-normal">{item.driverMobile || '-'}</span>
+                            </button>
+                          </td>
+                          <td className="p-3 border-r text-left">
+                            {(() => {
+                                const carrier = (companies || []).find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(item.plantCode));
+                                return (
+                                  <div className="flex flex-col leading-tight overflow-hidden">
+                                    <span className="text-[#0056d2] font-normal text-[10px] truncate" title={carrier?.companyName || item.carrierName}>
+                                      {carrier?.companyName || item.carrierName || 'PENDING'}
+                                    </span>
+                                    <span className="text-slate-500 font-normal text-[9px] truncate" title={item.vendorName}>
+                                      {item.vendorName || '-'}
+                                    </span>
+                                  </div>
+                                );
+                            })()}
+                          </td>
+                          <td className="p-3 border-r text-[9px] font-normal text-slate-400">{item.fleetType}</td>
+                          <td className="p-3 border-r text-left">
+                            <div className="flex flex-col leading-tight">
+                              {item.cnNumber ? (
+                                <button onClick={() => handleOpenPrint(item.id)} className="text-left group font-normal">
+                                    <span className="font-normal text-emerald-700 group-hover:underline flex items-center gap-1.5"><FileText className="h-3 w-3" /> {item.cnNumber}</span>
+                                    <span className="text-[9px] text-slate-400 font-normal">{item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}</span>
+                                </button>
+                              ) : <span className="text-slate-300 italic text-[9px] font-normal">PENDING</span>}
+                            </div>
+                          </td>
+                          {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
+                            <>
+                              <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.outDate ? format(new Date(item.outDate), 'dd-MM HH:mm') : '-'}</td>
+                              <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.arrivedDate ? format(new Date(item.arrivedDate), 'dd-MM HH:mm') : '-'}</td>
+                            </>
+                          )}
                           <td className="p-3 text-center flex flex-row gap-2 items-center justify-center min-w-[200px]">
-
                             {activeTab === 'Loading' && (
                               <>
                                 <Button onClick={() => openStatusPortal(item, 'IN-TRANSIT', 'outDate', 'GATE OUT PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
