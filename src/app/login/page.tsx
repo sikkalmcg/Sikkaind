@@ -42,7 +42,17 @@ export default function LoginPage() {
       const isMasterAdmin = username === 'Sikkaind' && password === 'Sikka@lmc2105';
 
       await auth.signInAnonymously();
-      
+
+      // Ensure server sees a Bearer token (based on mongo_session_uid)
+      try {
+        const token = localStorage.getItem('mongo_session_uid');
+        if (!token) {
+          throw new Error('mongo_session_uid missing after signInAnonymously');
+        }
+      } catch (e: any) {
+        throw new Error(e?.message || 'mongo_session_uid missing');
+      }
+
       if (isMasterAdmin) {
         localStorage.setItem('sap_bootstrap_session', 'true');
         localStorage.setItem('sap_user_role', 'admin');
@@ -57,21 +67,50 @@ export default function LoginPage() {
         where('username', '==', username),
         where('password', '==', password)
       );
-      
+
       const snapshot = await getDocs(q);
-      
+
       if (snapshot.empty) {
         setErrorMsg('INVALID CREDENTIALS');
         await auth.signOut();
       } else {
         const userDoc = snapshot.docs[0];
+
+        // Store registry id for app use
         localStorage.setItem('sap_registry_id', userDoc.id);
         localStorage.removeItem('sap_bootstrap_session');
         localStorage.setItem('sap_user_role', 'user');
+
+        // IMPORTANT: Mongo rules/auth uid mapping ke liye cache set karo.
+        // Mongo permission engine currently expects `mongo_user_cache.uid`/`id`.
+        // userDoc.data() contains fields; we store uid/id consistently.
+        try {
+          const u = (userDoc.data?.() || {}) as any;
+          localStorage.setItem(
+            'mongo_user_cache',
+            JSON.stringify({
+              uid: u?.uid || userDoc.id,
+              id: u?.id || userDoc.id,
+              username,
+              role: u?.role || 'User',
+            }),
+          );
+        } catch {
+          // ignore cache errors
+        }
+
+        // Ensure session uid is set to the cached user id before going to dashboard.
+        // This prevents random uid generating and failing MongoDB rules.
+        await auth.signInAnonymously();
+
         router.push('/dashboard');
       }
+
     } catch (err: any) {
-      setErrorMsg('SYSTEM HANDSHAKE ERROR');
+      const msg = (err?.message || err?.error || '').toString();
+      console.error('Login error:', err);
+      // Show the actual underlying error to avoid hiding the root cause.
+      setErrorMsg(msg ? `SYSTEM ERROR: ${msg}` : 'SYSTEM ERROR');
       await auth.signOut();
     } finally {
       setIsLoading(false);

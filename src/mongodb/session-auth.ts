@@ -35,11 +35,24 @@ export function createMongoAuth(): MongoAuth {
     },
 
     async signInAnonymously() {
-      const uid = readUser()?.uid || crypto.randomUUID();
+      // If you already have an employee/user record cached (from UI login), reuse it.
+      // This avoids generating a random uid that will fail rule checks.
+      const existingUser = (() => {
+        try {
+          const raw = localStorage.getItem('mongo_user_cache');
+          if (!raw) return null;
+          return JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      })();
+
+      const uid = existingUser?.uid || existingUser?.id || readUser()?.uid || crypto.randomUUID();
       localStorage.setItem(SESSION_KEY, uid);
       emitAuthChange();
       return { uid, displayName: null, email: null };
     },
+
 
     async signOut() {
       localStorage.removeItem(SESSION_KEY);
