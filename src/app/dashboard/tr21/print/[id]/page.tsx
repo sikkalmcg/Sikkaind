@@ -141,7 +141,7 @@ export default function CNPrintPage() {
                   </thead>
                   <tbody>
                      <tr className="uppercase font-normal text-black text-[12px]">
-                        <td className="p-2 border-r border-black text-center whitespace-nowrap">CN NO: {trip.cnNumber || 'DRAFT'}</td>
+                        <td className="p-2 border-r border-black text-center whitespace-nowrap">{trip.cnNumber || 'DRAFT'}</td>
                         <td className="p-2 border-r border-black text-center">{trip.cnDate ? format(new Date(trip.cnDate), 'dd-MMM-yyyy') : '-'}</td>
                         <td className="p-2 border-r border-black text-center text-[10px]">{trip.from}</td>
                         <td className="p-2 border-r border-black text-center text-[10px]">{trip.via || '-'}</td>
