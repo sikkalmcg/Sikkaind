@@ -240,7 +240,7 @@ export default function TR21Page() {
     if (!assignData.vehicleNo || !assignData.assignWeight) return alert('Mandatory fields missing');
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
     const now = new Date().toISOString();
-    const payload = {
+      const payload = {
       id: crypto.randomUUID(), tripNo: tripId, orderNo: selectedOrder.orderNo, plantCode: selectedOrder.plantCode,
       consigneeName: selectedOrder.consigneeName, consigneeCode: selectedOrder.consigneeCode,
       shipToParty: selectedOrder.shipToParty, shipToPartyCode: selectedOrder.shipToPartyCode,
@@ -249,7 +249,11 @@ export default function TR21Page() {
       status: 'LOADING', assignDate: assignData.assignDate, mode: assignData.mode || 'Road',
       via: assignData.via || '', fleetType: assignData.fleetType, createdAt: now, updatedAt: now,
       consignorName: selectedOrder.consignorName, consignorCode: selectedOrder.consignorCode,
-      from: selectedOrder.from, materialName: selectedOrder.materialName,
+      from: selectedOrder.from,
+      materialName: selectedOrder.materialName,
+      invoiceNo: (selectedOrder?.invoiceNo || '').toString().trim().toUpperCase(),
+      eWaybillNo: (selectedOrder?.eWaybillNo || '').toString().trim(),
+      vehicleNoFromOrder: (selectedOrder?.vehicleNo || '').toString().trim().toUpperCase(),
       paymentTerms: assignData.paymentTerms || 'PAID', vendorName: assignData.vendorName || '',
       vendorMobile: assignData.vendorMobile || '', arrangeBy: assignData.arrangeBy || '',
       rate: parseFloat(assignData.rate) || 0, freightAmount: parseFloat(assignData.freightAmount) || 0,
@@ -476,7 +480,17 @@ export default function TR21Page() {
                           <td className="p-3 border-r text-right text-emerald-600 font-normal">{parseFloat(item.dispatched || 0).toFixed(3)}</td>
                           <td className="p-3 border-r text-right font-normal text-blue-600">{parseFloat(item.balance || 0).toFixed(3)}</td>
                           <td className="p-3 text-center">
-                            <Button onClick={() => { setSelectedOrder(item); setAssignData({ ...assignData, assignWeight: item.balance.toFixed(3), mode: item.mode || 'Road', via: item.via || '' }); setShowAssign(true); }} className="h-7 w-20 text-[9px] font-normal bg-[#1e3a8a] rounded-none">Assign</Button>
+                            <Button onClick={() => {
+                              setSelectedOrder(item);
+                              setAssignData({
+                                ...assignData,
+                                vehicleNo: (item?.vehicleNo || '').toString().trim().toUpperCase(),
+                                assignWeight: item.balance.toFixed(3),
+                                mode: item.mode || 'Road',
+                                via: item.via || '',
+                              });
+                              setShowAssign(true);
+                            }} className="h-7 w-20 text-[9px] font-normal bg-[#1e3a8a] rounded-none">Assign</Button>
                           </td>
                         </>
                       ) : (
@@ -534,9 +548,26 @@ export default function TR21Page() {
                                     rate: (item.rate || 0).toString(),
                                     fixRate: !!item.fixRate,
                                   }));
-                                  const invs = (item.invoices || []).length > 0 ? item.invoices : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
-                                  setCNData({ ...(item.cnNumber ? item : { ...cnData, cnNumber: '', cnDate: format(new Date(), 'yyyy-MM-dd') }), id: item.id, invoices: invs }); 
-                                  setShowCNPortal(true); 
+                                  const invs = (item.invoices || []).length > 0
+                                    ? item.invoices
+                                    : [
+                                        {
+                                          id: '1',
+                                          invNo: (selectedOrder?.invoiceNo || '').toString().trim().toUpperCase(),
+                                          ewaybillNo: (selectedOrder?.eWaybillNo || '').toString().trim(),
+                                          desc: (selectedOrder?.materialName || '').toString().trim().toUpperCase(),
+                                          pkg: '',
+                                          uom: 'Bag',
+                                        },
+                                      ];
+
+                                  setCNData({
+                                    ...(item.cnNumber ? item : { ...cnData, cnNumber: '', cnDate: format(new Date(), 'yyyy-MM-dd') }),
+                                    id: item.id,
+                                    invoices: invs,
+                                  });
+
+                                  setShowCNPortal(true);
                                 }} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">CN ENTRY</Button>
                               </>
                             )}

@@ -189,6 +189,7 @@ export default function VAPage() {
     if (isReadOnly) return;
     
     const mandatory = ['plantCode', 'orderNo', 'orderDate', 'consignorCode', 'consigneeCode', 'shipToPartyCode', 'materialName', 'quantity'];
+
     const missing = mandatory.filter(key => !formData[key]);
     if (missing.length > 0) {
       setErrors(missing);
@@ -219,6 +220,10 @@ export default function VAPage() {
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { 
       ...formData,
       orderNo: normalizedOrderNo,
+      invoiceNo: (formData.invoiceNo || '').toString().trim().toUpperCase(),
+      eWaybillNo: (formData.eWaybillNo || '').toString().trim(),
+      vehicleNo: (formData.vehicleNo || '').toString().trim().toUpperCase(),
+
       mode: formData.mode || 'Road',
       via: formData.mode === 'Rail to Road' ? (formData.via || '') : '',
       id: docId, 
@@ -240,7 +245,8 @@ export default function VAPage() {
   }, [handleSave]);
 
   const handleDownloadTemplate = () => {
-    const headers = ['Plant', 'Sale Order', 'Order Date', 'Consignor Code', 'Consignee Code', 'Ship To Party Code', 'Material', 'Weight'];
+    const headers = ['Plant', 'Sale Order', 'Order Date', 'Consignor Code', 'Consignee Code', 'Ship To Party Code', 'Material', 'Weight', 'Invoice No', 'E-Waybill', 'Vehicle No'];
+
     const csv = headers.join(',') + '\n';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -290,10 +296,16 @@ export default function VAPage() {
       const fileOrderNos = new Set<string>();
 
       const mandatoryCols = ['PLANT', 'SALE ORDER', 'ORDER DATE', 'CONSIGNOR CODE', 'CONSIGNEE CODE', 'SHIP TO PARTY CODE', 'MATERIAL', 'WEIGHT'];
+      const optionalCols = ['INVOICE NO', 'E-WAYBILL', 'VEHICLE NO'];
+
       const headerIndices: Record<string, number> = {};
       mandatoryCols.forEach(col => {
         headerIndices[col] = headers.indexOf(col);
       });
+      optionalCols.forEach(col => {
+        headerIndices[col] = headers.indexOf(col);
+      });
+
 
       const missingCols = mandatoryCols.filter(col => headerIndices[col] === -1);
       if (missingCols.length > 0) {
@@ -315,6 +327,11 @@ export default function VAPage() {
         const stpCode = columns[headerIndices['SHIP TO PARTY CODE']];
         const material = columns[headerIndices['MATERIAL']];
         const weight = columns[headerIndices['WEIGHT']];
+
+        const invoiceNo = headerIndices['INVOICE NO'] !== -1 ? columns[headerIndices['INVOICE NO']] : '';
+        const eWaybillNo = headerIndices['E-WAYBILL'] !== -1 ? columns[headerIndices['E-WAYBILL']] : '';
+        const vehicleNo = headerIndices['VEHICLE NO'] !== -1 ? columns[headerIndices['VEHICLE NO']] : '';
+
 
         const rowId = orderNo || `Row ${i + 2}`;
         let errorReason = '';
@@ -346,6 +363,7 @@ export default function VAPage() {
               id: docId,
               plantCode: plant,
               orderNo,
+
               mode: 'Road',
               via: '',
               orderDate,
@@ -358,7 +376,11 @@ export default function VAPage() {
               shipToParty: stp.customerName,
               destination: stp.city || '',
               materialName: material,
+              invoiceNo: (invoiceNo || '').toString().trim().toUpperCase(),
+              eWaybillNo: (eWaybillNo || '').toString().trim(),
+              vehicleNo: (vehicleNo || '').toString().trim().toUpperCase(),
               quantity: parseFloat(weight),
+
               status: 'Open',
               uom: 'MT',
               createdAt: new Date().toISOString(),
@@ -547,6 +569,12 @@ export default function VAPage() {
                <div className="flex items-center gap-8 italic"><label className="text-[12px] font-bold text-slate-400 w-48 text-right uppercase">Ship to Code:</label><input value={formData.shipToPartyCode || ''} readOnly className="h-8 w-80 border border-slate-300 bg-slate-50 px-2 text-[12px] font-black text-[#0056d2]" /></div>
 
                <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Material:</label><input value={formData.materialName || ''} onChange={e => setFormData({...formData, materialName: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none" /></div>
+
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Invoice No:</label><input value={formData.invoiceNo || ''} onChange={e => setFormData({...formData, invoiceNo: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none uppercase" /></div>
+
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">E-Waybill:</label><input value={formData.eWaybillNo || ''} onChange={e => setFormData({...formData, eWaybillNo: e.target.value})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none uppercase" /></div>
+
+               <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Vehicle No:</label><input value={formData.vehicleNo || ''} onChange={e => setFormData({...formData, vehicleNo: e.target.value.toUpperCase()})} disabled={isReadOnly} className="h-8 w-80 border border-slate-400 px-2 text-[12px] font-black outline-none uppercase" /></div>
 
                <div className="flex items-center gap-8">
                  <label className="text-[12px] font-bold text-slate-600 w-48 text-right uppercase">Transport Mode:</label>
