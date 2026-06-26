@@ -189,12 +189,100 @@ export default function TR21Page() {
 
     if (cnPortalTripIdRef.current !== selectedTrip.id) {
       cnPortalTripIdRef.current = selectedTrip.id;
+
+      const hasInvoices = (selectedTrip.invoices || []).length > 0;
+
+      // If trip has no invoices (fresh assignment), prefill using the selected order's VA01 fields.
+      // Requirement:
+      // - if >2 material rows exist, show unique material “name” (desc)
+      // - invoiceNo and eWaybillNo should be shown as 2-2 pairs per sale order no.
+      const prefills = (() => {
+        if (!selectedOrder) {
+          return [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
+        }
+
+        // Data model ambiguity resolved: we assume order stores repeated material rows as arrays.
+        // Common field names handled: materialName[] / invoiceNo[] / eWaybillNo[].
+        const materialNames: string[] = Array.isArray(selectedOrder.materialName)
+          ? selectedOrder.materialName
+          : (selectedOrder.materialName ? [selectedOrder.materialName] : []);
+
+        const invoiceNos: string[] = Array.isArray(selectedOrder.invoiceNo)
+          ? selectedOrder.invoiceNo
+          : (selectedOrder.invoiceNo ? [selectedOrder.invoiceNo] : []);
+
+        const ewaybillNos: string[] = Array.isArray(selectedOrder.eWaybillNo)
+          ? selectedOrder.eWaybillNo
+          : (selectedOrder.eWaybillNo ? [selectedOrder.eWaybillNo] : []);
+
+        // If the backend still provides single values (not arrays), fall back to old behavior.
+        if (materialNames.length <= 1 && invoiceNos.length <= 1 && ewaybillNos.length <= 1) {
+          return [
+            {
+              id: '1',
+              invNo: (selectedOrder?.invoiceNo || '').toString().trim().toUpperCase(),
+              ewaybillNo: (selectedOrder?.eWaybillNo || '').toString().trim(),
+              desc: (selectedOrder?.materialName || '').toString().trim().toUpperCase(),
+              pkg: '',
+              uom: 'Bag',
+            },
+          ];
+        }
+
+        // Unique “name” for desc when >2 material rows.
+        const uniqueDesc = Array.from(new Set(materialNames.map((m) => (m ?? '').toString().trim().toUpperCase()).filter(Boolean)));
+        const descToUse = uniqueDesc.length > 0 ? uniqueDesc.join(' / ') : (selectedOrder?.materialName || '').toString().trim().toUpperCase();
+
+        // Pairing rule: build rows by chunking index in steps of 2.
+        // invNo/ewaybillNo will come in same order as arrays.
+        const maxLen = Math.max(invoiceNos.length, ewaybillNos.length, materialNames.length);
+        const rows: any[] = [];
+
+        for (let i = 0; i < maxLen; i += 2) {
+          const inv1 = invoiceNos[i] ?? '';
+          const inv2 = invoiceNos[i + 1] ?? '';
+          const e1 = ewaybillNos[i] ?? '';
+          const e2 = ewaybillNos[i + 1] ?? '';
+
+          const row1 = {
+            id: `${selectedOrder?.orderNo || 'SO'}-${i}-1`,
+            invNo: inv1.toString().trim().toUpperCase(),
+            ewaybillNo: e1.toString().trim(),
+            desc: descToUse,
+            pkg: '',
+            uom: 'Bag',
+          };
+
+          const row2 = {
+            id: `${selectedOrder?.orderNo || 'SO'}-${i}-2`,
+            invNo: inv2.toString().trim().toUpperCase(),
+            ewaybillNo: e2.toString().trim(),
+            desc: descToUse,
+            pkg: '',
+            uom: 'Bag',
+          };
+
+          // Push only meaningful rows.
+          const shouldPush1 = row1.invNo || row1.ewaybillNo || row1.desc || row1.pkg;
+          const shouldPush2 = row2.invNo || row2.ewaybillNo || row2.desc || row2.pkg;
+
+          if (shouldPush1) rows.push(row1);
+          if (shouldPush2) rows.push(row2);
+        }
+
+        return rows.length > 0 ? rows : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
+      })();
+
       setCNData((prev: any) => ({
         ...prev,
         id: selectedTrip.id,
         cnNumber: selectedTrip.cnNumber || suggestedCN,
         cnDate: prev.cnDate || format(new Date(), 'yyyy-MM-dd'),
-        invoices: (prev.invoices || []).length > 0 ? prev.invoices : [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }],
+        invoices: hasInvoices
+          ? selectedTrip.invoices
+          : (prev.invoices || []).length > 0
+            ? prev.invoices
+            : prefills,
       }));
     }
   }, [showCNPortal, selectedTrip, trips, companies]);
@@ -269,21 +357,45 @@ export default function TR21Page() {
     const cnNumber = cnData.cnNumber?.trim().toUpperCase();
     if (!cnNumber) return alert('CN Number Mandatory');
 
+    // Normalize + persist invoices deterministically (prevents blank preview due to empty/stale rows)
+    const normalizedInvoices = (cnData.invoices || [])
+      .map((row: any) => {
+        const invNo = (row?.invNo ?? '').toString().trim().toUpperCase();
+        const ewaybillNo = (row?.ewaybillNo ?? '').toString().trim();
+        const desc = (row?.desc ?? '').toString().trim().toUpperCase();
+        const pkgRaw = row?.pkg ?? '';
+        const pkg = typeof pkgRaw === 'number' ? pkgRaw : parseFloat(pkgRaw.toString());
+        const uom = (row?.uom ?? 'Bag').toString().trim().toUpperCase();
+
+        return {
+          id: row?.id ?? Math.random().toString(),
+          invNo,
+          ewaybillNo,
+          desc,
+          pkg: Number.isFinite(pkg) ? pkg : (pkgRaw === '' ? '' : 0),
+          uom: uom || 'BAG',
+        };
+      })
+      .filter((r: any) => r.invNo || r.ewaybillNo || r.desc || r.pkg !== '' && r.pkg !== 0);
+
     // Ensure TR21 edits (vehicle no + weight) are persisted so CN preview/print shows correctly.
     const vehicleNo = (vehicleData.vehicleNo || selectedTrip?.vehicleNo || '').toString().toUpperCase().trim();
     const assignWeightNum = parseFloat((assignData.assignWeight || selectedTrip?.assignWeight || 0).toString());
     const freightAmountNum = assignData.fixRate ? selectedTrip?.freightAmount : (assignWeightNum * parseFloat(assignData.rate || 0));
 
     const carrier = companies?.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies?.[0];
-    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
-      ...cnData, 
+
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), {
+      ...cnData,
+      invoices: normalizedInvoices,
       cnNumber,
       carrierName: carrier?.companyName || '',
       ...(vehicleNo ? { vehicleNo } : {}),
       ...(Number.isFinite(assignWeightNum) ? { assignWeight: assignWeightNum } : {}),
       ...(Number.isFinite(freightAmountNum) ? { freightAmount: freightAmountNum } : {}),
-      updatedAt: new Date().toISOString() 
+      updatedAt: new Date().toISOString(),
     });
+
     setShowCNPortal(false);
     alert('Documentation Synchronized');
   };
@@ -787,7 +899,7 @@ export default function TR21Page() {
                  </div>
                  <div className="space-y-1.5">
                     <div className="flex justify-between items-center">
-                       <label className="text-[10px] font-normal text-slate-400 uppercase">Rate (Per MT)</label>
+<label className="text-[10px] font-normal text-slate-400 uppercase">Secondary Rate (Per MT)</label>
                        <div className="flex items-center gap-2">
                           <Checkbox 
                             id="fix-charge" 
@@ -808,8 +920,8 @@ export default function TR21Page() {
                     />
                  </div>
                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-normal text-slate-400 uppercase flex items-center gap-2">
-                       <Calculator className="h-3 w-3 text-blue-400" /> Freight Amount
+<label className="text-[10px] font-normal text-slate-400 uppercase flex items-center gap-2">
+                       <Calculator className="h-3 w-3 text-blue-400" /> secondary Freight Amount
                     </label>
                     <input 
                       type="number" 

@@ -42,6 +42,11 @@ export default function DashboardPage() {
   React.useEffect(() => {
     setIsBootstrapAdmin(localStorage.getItem('sap_bootstrap_session') === 'true');
     setRegistryId(localStorage.getItem('sap_registry_id'));
+
+    // CHANGES: By default aaj ki date set karne wala logic hata diya hai, 
+    // taaki initial load par poora data aggregate hokar show ho.
+    setSelectedDate('');
+
     setMounted(true);
   }, []);
 
@@ -52,8 +57,28 @@ export default function DashboardPage() {
   
   const { data: userProfile } = useDoc(profileRef);
   
-  const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); 
-  const [counts, setCounts] = React.useState<{ open: number | null; loading: number | null; transit: number | null; arrived: number | null; pod: number | null }>({ open: null, loading: null, transit: null, arrived: null, pod: null });
+  const [homePlantFilter, setHomePlantFilter] = React.useState('ALL');
+  const [selectedDate, setSelectedDate] = React.useState<string>('');
+  const [counts, setCounts] = React.useState<{
+    open: number | null;
+    loading: number | null;
+    transit: number | null;
+    arrived: number | null;
+    pod: number | null;
+    schedule: number | null;
+    dispatched: number | null;
+    dispatchedTotal: number | null;
+  }>({
+    open: null,
+    loading: null,
+    transit: null,
+    arrived: null,
+    pod: null,
+    schedule: null,
+    dispatched: null,
+    dispatchedTotal: null,
+  });
+
 
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const { data: allPlants } = useCollectionOptimized(plantsQuery);
@@ -80,6 +105,23 @@ export default function DashboardPage() {
     const tripsRef = collection(db, 'users', SHARED_HUB_ID, 'trip_board');
     const ordersRef = collection(db, 'users', SHARED_HUB_ID, 'sales_orders');
 
+    const selectedDayISO = selectedDate
+      ? new Date(selectedDate + 'T00:00:00.000Z')
+      : null;
+
+    const isSameDay = (value: any) => {
+      // CHANGES: Agar selectedDate khali ('') hai, toh filter bypass hoga aur saara data count hoga
+      if (!selectedDate || !selectedDayISO) return true;
+      if (!value) return false;
+
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return false;
+
+      return d.getUTCFullYear() === selectedDayISO.getUTCFullYear() &&
+        d.getUTCMonth() === selectedDayISO.getUTCMonth() &&
+        d.getUTCDate() === selectedDayISO.getUTCDate();
+    };
+
     // Batch updates to reduce state changes
     let tripsData: any[] = [];
     let ordersData: any[] = [];
@@ -88,12 +130,58 @@ export default function DashboardPage() {
     const updateCounts = () => {
       const authCodes = authorizedPlants.map(p => p.plantCode);
       setCounts({
-        loading: tripsData.filter((t: any) => t.status === 'LOADING' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
-        transit: tripsData.filter((t: any) => t.status === 'IN-TRANSIT' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
-        arrived: tripsData.filter((t: any) => t.status === 'ARRIVED' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
-        pod: tripsData.filter((t: any) => t.status === 'POD' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter)).length,
-        open: ordersData.filter((o: any) => o.status === 'Open' && (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(o.plantCode)) : o.plantCode === homePlantFilter)).length,
+        loading: tripsData.filter((t: any) => t.status === 'LOADING' &&
+          (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
+          (isSameDay(t.createdAt) || isSameDay(t.assignDate) || isSameDay(t.updatedAt) )
+        ).length,
+        transit: tripsData.filter((t: any) => t.status === 'IN-TRANSIT' &&
+          (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
+          (isSameDay(t.createdAt) || isSameDay(t.assignDate) || isSameDay(t.updatedAt) )
+        ).length,
+        arrived: tripsData.filter((t: any) => t.status === 'ARRIVED' &&
+          (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
+          (isSameDay(t.createdAt) || isSameDay(t.updatedAt) )
+        ).length,
+        pod: tripsData.filter((t: any) => t.status === 'POD' &&
+          (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
+          (isSameDay(t.createdAt) || isSameDay(t.updatedAt) )
+        ).length,
+        open: ordersData.filter((o: any) => o.status === 'Open' &&
+          (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(o.plantCode)) : o.plantCode === homePlantFilter) &&
+          (isSameDay(o.createdAt) || isSameDay(o.orderDate) || isSameDay(o.updatedAt))
+        ).length,
+        schedule: (
+          ordersData.filter((o: any) => o.status === 'Open' &&
+            (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(o.plantCode)) : o.plantCode === homePlantFilter) &&
+            (isSameDay(o.createdAt) || isSameDay(o.orderDate) || isSameDay(o.updatedAt))
+          ).length +
+          tripsData.filter((t: any) => t.status === 'LOADING' &&
+            (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
+            (isSameDay(t.createdAt) || isSameDay(t.assignDate) || isSameDay(t.updatedAt) )
+          ).length
+        ),
+        // CHANGES: DISPATCHED DELIVERIES should equal Arrived + POD Verify + In-Transit totals (by date)
+        dispatched: tripsData.filter((t: any) =>
+          (t.status === 'IN-TRANSIT' || t.status === 'ARRIVED' || t.status === 'POD') &&
+          (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
+          (isSameDay(t.createdAt) || isSameDay(t.assignDate) || isSameDay(t.updatedAt))
+        ).length,
+        dispatchedTotal: (
+          tripsData.filter((t: any) => t.status === 'IN-TRANSIT' &&
+            (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
+            (isSameDay(t.createdAt) || isSameDay(t.assignDate) || isSameDay(t.updatedAt))
+          ).length +
+          tripsData.filter((t: any) => t.status === 'ARRIVED' &&
+            (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
+            (isSameDay(t.createdAt) || isSameDay(t.updatedAt))
+          ).length +
+          tripsData.filter((t: any) => t.status === 'POD' &&
+            (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
+            (isSameDay(t.createdAt) || isSameDay(t.updatedAt))
+          ).length
+        ),
       });
+
     };
 
     const unsubscribeTrips = onSnapshot(tripsRef, (snapshot) => {
@@ -113,7 +201,7 @@ export default function DashboardPage() {
       unsubscribeOrders();
       clearTimeout(updateTimer);
     };
-  }, [db, homePlantFilter, authorizedPlants, isBootstrapAdmin]);
+  }, [db, homePlantFilter, authorizedPlants, isBootstrapAdmin, selectedDate]);
 
   if (!mounted) return null;
 
@@ -143,15 +231,42 @@ export default function DashboardPage() {
                {!isBootstrapAdmin && authorizedPlants.length === 0 && <option value="">NO ACCESS</option>}
              </select>
            </div>
+
+           <div className="flex flex-col gap-1">
+             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Selected Date</label>
+             <input
+               type="date"
+               className="h-8 border border-slate-300 bg-white px-2 text-[10px] font-black outline-none focus:ring-1 focus:bg-yellow-50 min-w-[150px]"
+               value={selectedDate}
+               onChange={(e) => setSelectedDate(e.target.value)}
+             />
+             <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+               {selectedDate
+                 ? (() => {
+                     try {
+                       const [y, m, d] = selectedDate.split('-').map(Number);
+                       const date = new Date(y, m - 1, d);
+                       const dd = String(date.getDate()).padStart(2, '0');
+                       const MMM = date.toLocaleString('en-GB', { month: 'short' }).toUpperCase();
+                       return `${dd}-${MMM}-${y}`;
+                     } catch {
+                       return selectedDate;
+                     }
+                   })()
+                 : 'ALL TIME DATA'} 
+             </div>
+           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-12">
         <StatCard label="OPEN ORDER" count={counts.open} className="text-blue-600" />
         <StatCard label="LOADING" count={counts.loading} className="text-orange-600" />
         <StatCard label="IN-TRANSIT" count={counts.transit} className="text-emerald-600" />
         <StatCard label="ARRIVED" count={counts.arrived} className="text-indigo-600" />
         <StatCard label="POD VERIFY" count={counts.pod} className="text-purple-600" />
+        <StatCard label="SCHEDULE DELIVERIES" count={counts.schedule} className="text-slate-800" />
+        <StatCard label="DISPATCHED DELIVERIES" count={counts.dispatched} className="text-slate-800" />
       </div>
     </div>
   );

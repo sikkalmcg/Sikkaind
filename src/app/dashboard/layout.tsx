@@ -42,6 +42,10 @@ const MASTER_TCODES = [
   { code: 'TR21', description: 'TRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
   { code: 'TR24', description: 'TRACK SHIPMENT', icon: Radar, module: 'Logistics' },
   { code: 'WGPS24', description: 'GPS TRACKING', icon: Radar, module: 'Logistics' },
+  { code: 'VK11', description: 'PRIMARY FREIGHT RATES: CREATE', icon: ShoppingBag, module: 'Logistics' },
+  { code: 'VK12', description: 'PRIMARY FREIGHT RATES: CHANGE', icon: Edit3, module: 'Logistics' },
+  { code: 'VK13', description: 'PRIMARY FREIGHT RATES: DISPLAY', icon: Info, module: 'Logistics' },
+  { code: 'VT04', description: 'SHIPMENT REPORT', icon: FileText, module: 'Logistics' },
   { code: 'SE38', description: 'CUSTOM REPORT EXECUTION', icon: FileText, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
   { code: 'SU02', description: 'USER MANAGEMENT: CHANGE', icon: Edit3, module: 'System' },
@@ -129,11 +133,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return { ...fav, icon: master?.icon || Grid2X2 };
       });
 
+    // Ensure we don't get stuck with old/invalid favorites routes after code changes.
+    // (Especially relevant when we fix VK/VT routing.)
+    try {
+      localStorage.removeItem('sap_user_favorites');
+    } catch (e) {
+      // ignore
+    }
+
     setUserFavorites(filtered);
     
     // Prefetch all favorites routes immediately
     filtered.forEach((fav: { code: string }) => {
       const routeMap: any = {
+        // Full T-code mapping for correct route resolution
+        VK11: '/dashboard/vk11',
+        VK12: '/dashboard/vk12',
+        VK13: '/dashboard/vk13',
+        // VT04 route is missing in this repo, so we still map it to /dashboard/vt4
+        // If you create vt04 UI later, change this accordingly.
+        VT04: '/dashboard/vt04',
+
+        // Existing base-code mappings
         'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
         'XD': '/dashboard/xd', 'VA': '/dashboard/va', 'SU': '/dashboard/su',
         'TR21': '/dashboard/tr21', 'TR24': '/dashboard/tr24', 'WGPS24': '/dashboard/wgsp24',
@@ -174,13 +195,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return;
       }
       const routeMap: any = {
+        // Full T-code mapping for correct route resolution
+        VK11: '/dashboard/vk11',
+        VK12: '/dashboard/vk12',
+        VK13: '/dashboard/vk13',
+        VT04: '/dashboard/vt04',
+
+        // Existing base-code mappings
         'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
         'XD': '/dashboard/xd', 'VA': '/dashboard/va', 'SU': '/dashboard/su',
         'TR21': '/dashboard/tr21', 'TR24': '/dashboard/tr24', 'WGPS24': '/dashboard/wgsp24',
         'SE38': '/dashboard/se38', 'ZCODE': '/dashboard/zcode'
       };
-      const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(target) ? target : target.substring(0, 2);
-      const targetRoute = routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
+      const targetRoute = routeMap[target] || (() => {
+        const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(target) ? target : target.substring(0, 2);
+        return routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
+      })();
       React.startTransition(() => {
         window.open(`${window.location.origin}${targetRoute}?tcode=${target}`, '_blank');
       });
@@ -200,14 +230,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     const routeMap: any = {
+      // Full T-code mapping for correct route resolution
+      VK11: '/dashboard/vk11',
+      VK12: '/dashboard/vk12',
+      VK13: '/dashboard/vk13',
+      VT04: '/dashboard/vt04',
+
+      // Existing base-code mappings
       'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
       'XD': '/dashboard/xd', 'VA': '/dashboard/va', 'SU': '/dashboard/su',
       'TR21': '/dashboard/tr21', 'TR24': '/dashboard/tr24', 'WGPS24': '/dashboard/wgsp24',
       'SE38': '/dashboard/se38', 'ZCODE': '/dashboard/zcode'
     };
 
-    const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(code) ? code : code.substring(0, 2);
-    const targetRoute = routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
+    const targetRoute = routeMap[code] || (() => {
+      const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(code) ? code : code.substring(0, 2);
+      return routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
+    })();
     
     React.startTransition(() => {
       router.push(`${targetRoute}?tcode=${code}`);
