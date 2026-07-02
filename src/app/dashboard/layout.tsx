@@ -156,6 +156,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         VK12: '/dashboard/vk12',
         VK13: '/dashboard/vk13',
         VT04: '/dashboard/vt04',
+        VT11: '/dashboard/vt11',
 
         // MK - Forwarding Agent
         MK01: '/dashboard/mk01',
@@ -208,6 +209,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         VK12: '/dashboard/vk12',
         VK13: '/dashboard/vk13',
         VT04: '/dashboard/vt04',
+        VT11: '/dashboard/vt11',
 
         // MK - Forwarding Agent
         MK01: '/dashboard/mk01',
@@ -248,6 +250,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       VK12: '/dashboard/vk12',
       VK13: '/dashboard/vk13',
       VT04: '/dashboard/vt04',
+      VT11: '/dashboard/vt11',
 
       // Existing base-code mappings
       'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
@@ -427,3 +430,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+
