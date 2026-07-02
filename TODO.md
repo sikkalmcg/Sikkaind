@@ -1,6 +1,11 @@
-# TODO - 404 for VK11/VK12/VK13/VT04
+# TODO
+- [ ] Add MK01/MK02/MK03 entries to `src/app/dashboard/layout.tsx` `MASTER_TCODES` so they appear in T-code list / Quick Access / Favorites.
+- [x] Add routing mappings for MK01/MK02/MK03 in `src/app/dashboard/layout.tsx` (both `prefetch routeMap` and `executeTCode` routeMap).
 
-- [ ] Fix route mapping in `src/app/dashboard/layout.tsx` so VK11/VK12/VK13 do not fallback to `/dashboard/vk`.
-- [ ] Handle VT04: either map VT04 to an existing route or create missing `src/app/dashboard/vt04/page.tsx` (verify desired folder name).
-- [ ] Re-test navigation URLs (`/dashboard/vk11?tcode=VK11`, `/dashboard/vt04?tcode=VT04`, etc.) and confirm no 404.
+- [ ] Run/build (or start dev) and verify MK01/MK02/MK03 open via:
+
+  - [x] Direct routes: /dashboard/mk01, /dashboard/mk02, /dashboard/mk03
+  - [ ] T-code command bar input
+  - [ ] Quick Access/Favorites
+
 

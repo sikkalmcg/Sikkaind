@@ -46,11 +46,16 @@ const MASTER_TCODES = [
   { code: 'VK12', description: 'PRIMARY FREIGHT RATES: CHANGE', icon: Edit3, module: 'Logistics' },
   { code: 'VK13', description: 'PRIMARY FREIGHT RATES: DISPLAY', icon: Info, module: 'Logistics' },
   { code: 'VT04', description: 'SHIPMENT REPORT', icon: FileText, module: 'Logistics' },
+  { code: 'VT11', description: 'FREIGHT COST REPORT', icon: FileText, module: 'Logistics' },
   { code: 'SE38', description: 'CUSTOM REPORT EXECUTION', icon: FileText, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
   { code: 'SU02', description: 'USER MANAGEMENT: CHANGE', icon: Edit3, module: 'System' },
   { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY', icon: Info, module: 'System' },
   { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES', icon: Grid2X2, module: 'System' },
+  // MK - Forwarding Agent (VA module)
+  { code: 'MK01', description: 'FORWARDING AGENT: CREATE', icon: Grid2X2, module: 'Logistics' },
+  { code: 'MK02', description: 'FORWARDING AGENT: CHANGE', icon: Edit3, module: 'Logistics' },
+  { code: 'MK03', description: 'FORWARDING AGENT: DISPLAY / HISTORY', icon: Info, module: 'Logistics' },
 ];
 
 const ALL_TCODES = MASTER_TCODES.map(t => t.code);
@@ -150,9 +155,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         VK11: '/dashboard/vk11',
         VK12: '/dashboard/vk12',
         VK13: '/dashboard/vk13',
-        // VT04 route is missing in this repo, so we still map it to /dashboard/vt4
-        // If you create vt04 UI later, change this accordingly.
         VT04: '/dashboard/vt04',
+
+        // MK - Forwarding Agent
+        MK01: '/dashboard/mk01',
+        MK02: '/dashboard/mk02',
+        MK03: '/dashboard/mk03',
 
         // Existing base-code mappings
         'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
@@ -200,6 +208,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         VK12: '/dashboard/vk12',
         VK13: '/dashboard/vk13',
         VT04: '/dashboard/vt04',
+
+        // MK - Forwarding Agent
+        MK01: '/dashboard/mk01',
+        MK02: '/dashboard/mk02',
+        MK03: '/dashboard/mk03',
 
         // Existing base-code mappings
         'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
