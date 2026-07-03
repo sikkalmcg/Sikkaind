@@ -194,6 +194,12 @@ export default function VT04Page() {
           : safeUpper(t.plantCode) === safeUpper(selectedPlant);
 
         if (!plantOk) return false;
+
+        // VA04 short-close should be excluded from dashboard counting.
+        // Backend closes trips with: status === 'CLOSED'
+        const statusOk = safeUpper(t.status) !== 'CLOSED';
+        if (!statusOk) return false;
+
         return withinDateRange(t.createdAt || t.assignDate || t.updatedAt, fromDate, toDate);
       });
 

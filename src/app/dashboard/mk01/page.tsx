@@ -41,11 +41,21 @@ export default function VA_MK01_CreateForwardingAgent() {
   );
   const { data: forwardingAgents } = useCollectionOptimized(forwardingAgentsQuery);
 
-  // derive createdBy
+  // createdBy should show the logged-in user's name, not a random uid.
+  // In this repo `MongoUser` has only: { uid, displayName, email }.
+  // If displayName is null/empty, fallback to email/uid.
+  // (If you store employeeName elsewhere in your auth flow, wire it into `displayName`.)
   const createdBy = React.useMemo(() => {
-    // MongoUser in this repo exposes uid/displayName/email (not employeeName)
-    return (user?.displayName || user?.email || user?.uid || 'Sikkaind_System').toString();
+    const fallback = 'Sikkaind_System';
+    return (
+      user?.displayName ||
+      user?.email ||
+      user?.uid ||
+      fallback
+    ).toString();
   }, [user]);
+
+
 
   const normalize = (s: string) => (s || '').trim();
 
@@ -176,4 +186,3 @@ export default function VA_MK01_CreateForwardingAgent() {
     </div>
   );
 }
-

@@ -130,6 +130,46 @@ export default function TR21Page() {
     }
   }, [mounted, authorizedPlantCodes, plantFilter]);
 
+  const tabCounts = React.useMemo(() => {
+    const counts: { [key: string]: number } = {
+      'Open Orders': 0, 'Loading': 0, 'In-Transit': 0, 'Arrived': 0, 
+      'Reject': 0, 'POD Verify': 0, 'Closed': 0
+    };
+
+    if (!orders || !trips || !mounted || authorizedPlantCodes === undefined) {
+      return counts;
+    }
+
+    let baseOrders = authorizedPlantCodes ? orders.filter(d => authorizedPlantCodes.includes(d.plantCode)) : orders;
+    let baseTrips = authorizedPlantCodes ? trips.filter(d => authorizedPlantCodes.includes(d.plantCode)) : trips;
+
+    if (plantFilter !== 'ALL') {
+      baseOrders = baseOrders.filter(d => d.plantCode === plantFilter);
+      baseTrips = baseTrips.filter(d => d.plantCode === plantFilter);
+    }
+
+    // Open Orders count
+    counts['Open Orders'] = baseOrders.filter(o => o.status === 'Open').map(o => {
+      const dispatched = baseTrips.filter(t => t.orderNo === o.orderNo && t.status !== 'REJECTION')
+                              .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
+      const weight = parseFloat(o.quantity) || 0;
+      return { ...o, dispatched, balance: weight - dispatched };
+    }).filter(o => o.balance > 0.001).length;
+
+    // Trip-based counts
+    const statusMap: { [key: string]: string } = { 
+      'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 
+      'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' 
+    };
+
+    Object.keys(statusMap).forEach(tabName => {
+      counts[tabName] = baseTrips.filter(t => t.status === statusMap[tabName]).length;
+    });
+
+    return counts;
+
+  }, [orders, trips, mounted, plantFilter, authorizedPlantCodes]);
+
   React.useEffect(() => {
     if (!assignData.fixRate) {
       const weight = parseFloat(assignData.assignWeight) || 0;
@@ -506,8 +546,9 @@ export default function TR21Page() {
       <div className="flex-1 flex flex-col p-8 overflow-hidden">
         <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 mb-4 overflow-x-auto no-scrollbar">
           {['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'].map(l => (
-            <button key={l} onClick={() => { setActiveTab(l); setCurrentPage(1); }} className={cn("px-6 py-2.5 text-[10px] font-normal uppercase tracking-widest border-r border-slate-300 shrink-0", activeTab === l ? "bg-white text-[#0056d2] border-t-2 border-t-[#0056d2]" : "text-slate-500 hover:bg-white/50")}>
-              {l}
+            <button key={l} onClick={() => { setActiveTab(l); setCurrentPage(1); }} className={cn("px-6 py-2.5 text-[10px] font-normal uppercase tracking-widest border-r border-slate-300 shrink-0 flex items-center gap-2", activeTab === l ? "bg-white text-[#0056d2] border-t-2 border-t-[#0056d2]" : "text-slate-500 hover:bg-white/50")}>
+              <span>{l}</span>
+              <span className={cn("px-2 py-0.5 rounded-full text-[9px]", activeTab === l ? "bg-[#0056d2] text-white" : "bg-slate-200 text-slate-500")}>{tabCounts[l]}</span>
             </button>
           ))}
         </div>

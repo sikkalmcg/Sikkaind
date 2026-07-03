@@ -335,6 +335,11 @@ export default function VT11FreightCostReportPage() {
       const filtered = (tripBoard || []).filter((t: any) => {
         const plantOk = selectedPlant === 'ALL' ? true : safeUpper(t.plantCode) === safeUpper(selectedPlant);
 
+        // VA04 short-close should be excluded from dashboard counting.
+        // Backend closes trips with: status === 'CLOSED'
+        const statusOk = safeUpper(t.status) !== 'CLOSED';
+        if (!plantOk || !statusOk) return false;
+
         // Using "any date" since user said create anything.
         const dateOk = withinDateRange(t.lrDate || t.createdAt || t.outDate || t.assignDate || t.updatedAt || t.inDateTime, fromDate, toDate);
 
