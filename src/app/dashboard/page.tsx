@@ -129,14 +129,31 @@ export default function DashboardPage() {
 
     const updateCounts = () => {
       const authCodes = authorizedPlants.map(p => p.plantCode);
+
+      const filteredOrders = ordersData.filter((o: any) => 
+        (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(o.plantCode)) : o.plantCode === homePlantFilter) &&
+        (isSameDay(o.createdAt) || isSameDay(o.orderDate) || isSameDay(o.updatedAt))
+      );
+
+      const filteredTrips = tripsData.filter((t: any) => 
+        (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
+        (isSameDay(t.createdAt) || isSameDay(t.assignDate) || isSameDay(t.updatedAt))
+      );
+
       setCounts({
+        open: filteredOrders.filter((o: any) => o.status === 'Open').map((o: any) => {
+          const dispatched = filteredTrips.filter((t: any) => t.orderNo === o.orderNo && t.status !== 'REJECTION')
+                                  .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
+          const weight = parseFloat(o.quantity) || 0;
+          return { ...o, balance: weight - dispatched };
+        }).filter((o: any) => o.balance > 0.001).length,
         loading: tripsData.filter((t: any) => t.status === 'LOADING' &&
           (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
           (isSameDay(t.createdAt) || isSameDay(t.assignDate) || isSameDay(t.updatedAt) )
         ).length,
         transit: tripsData.filter((t: any) => t.status === 'IN-TRANSIT' &&
           (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
-          (isSameDay(t.createdAt) || isSameDay(t.assignDate) || isSameDay(t.updatedAt) )
+          (isSameDay(t.createdAt) || isSameDay(t.assignDate) || isSameDay(t.updatedAt))
         ).length,
         arrived: tripsData.filter((t: any) => t.status === 'ARRIVED' &&
           (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
@@ -146,20 +163,7 @@ export default function DashboardPage() {
           (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
           (isSameDay(t.createdAt) || isSameDay(t.updatedAt) )
         ).length,
-        open: ordersData.filter((o: any) => o.status === 'Open' &&
-          (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(o.plantCode)) : o.plantCode === homePlantFilter) &&
-          (isSameDay(o.createdAt) || isSameDay(o.orderDate) || isSameDay(o.updatedAt))
-        ).length,
-        schedule: (
-          ordersData.filter((o: any) => o.status === 'Open' &&
-            (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(o.plantCode)) : o.plantCode === homePlantFilter) &&
-            (isSameDay(o.createdAt) || isSameDay(o.orderDate) || isSameDay(o.updatedAt))
-          ).length +
-          tripsData.filter((t: any) => t.status === 'LOADING' &&
-            (homePlantFilter === 'ALL' ? (isBootstrapAdmin || authCodes.includes(t.plantCode)) : t.plantCode === homePlantFilter) &&
-            (isSameDay(t.createdAt) || isSameDay(t.assignDate) || isSameDay(t.updatedAt) )
-          ).length
-        ),
+        schedule: null, // This will be calculated after other counts
         // CHANGES: DISPATCHED DELIVERIES should equal Arrived + POD Verify + In-Transit totals (by date)
         dispatched: tripsData.filter((t: any) =>
           (t.status === 'IN-TRANSIT' || t.status === 'ARRIVED' || t.status === 'POD') &&
@@ -182,6 +186,12 @@ export default function DashboardPage() {
         ),
       });
 
+      // Post-calculation for dependent counts
+      setCounts(prev => {
+        const openCount = prev.open ?? 0;
+        const loadingCount = prev.loading ?? 0;
+        return { ...prev, schedule: openCount + loadingCount };
+      });
     };
 
     const unsubscribeTrips = onSnapshot(tripsRef, (snapshot) => {
