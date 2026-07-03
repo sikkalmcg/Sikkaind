@@ -690,7 +690,13 @@ export default function TR21Page() {
                           <td className="p-3 text-center flex flex-row gap-2 items-center justify-center min-w-[200px]">
                             {activeTab === 'Loading' && (
                               <>
-                                <Button onClick={() => openStatusPortal(item, 'IN-TRANSIT', 'outDate', 'GATE OUT PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
+                                <Button onClick={() => {
+                                  if (!item.cnNumber) {
+                                    alert('SATELLITE PROTOCOL ERROR: Consignment Note (CN) must be generated before Gate Out.');
+                                    return;
+                                  }
+                                  openStatusPortal(item, 'IN-TRANSIT', 'outDate', 'GATE OUT PROTOCOL');
+                                }} className="h-6 w-20 text-[8px] font-normal bg-[#1e3a8a] text-white rounded-none">OUT</Button>
                                 <Button onClick={() => handleUnassign(item)} className="h-6 w-20 text-[8px] font-normal bg-orange-600 text-white rounded-none">UNASSIGN</Button>
                                 <Button onClick={() => { 
                                   setSelectedTrip(item);
