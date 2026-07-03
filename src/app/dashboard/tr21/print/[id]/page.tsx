@@ -182,7 +182,13 @@ export default function CNPrintPage() {
                   <div className="text-[10px] uppercase font-normal space-y-1 text-black">
                      <p className="text-[10px] font-normal leading-tight">{trip.consignorName}</p>
                      <p className="leading-tight text-black whitespace-pre-wrap">{consignor?.address}</p>
-                     <p className="text-[10px] pt-1 text-black font-normal">GSTIN: {consignor?.gstNo || consignor?.gstin}</p>
+                     <p className="text-[10px] pt-1">
+  GSTIN: {consignor?.gstNo || consignor?.gstin || '-'}
+</p>
+
+<p className="text-[10px]">
+  MOBILE: {consignor?.mobile || '-'}
+</p>
                   </div>
                </div>
                <div className="border-r border-black p-3 space-y-3 min-h-[140px]">
@@ -190,7 +196,13 @@ export default function CNPrintPage() {
                   <div className="text-[10px] uppercase font-normal space-y-1 text-black">
                      <p className="text-[10px] font-normal leading-tight">{trip.consigneeName}</p>
                      <p className="leading-tight text-black whitespace-pre-wrap">{consignee?.address}</p>
-                     <p className="text-[10px] pt-1 text-black font-normal">GSTIN: {consignee?.gstNo || consignee?.gstin}</p>
+                     <p className="text-[10px] pt-1">
+  GSTIN: {consignee?.gstNo || consignee?.gstin || '-'}
+</p>
+
+<p className="text-[10px]">
+  MOBILE: {consignee?.mobile || '-'}
+</p>
                   </div>
                </div>
                <div className="p-3 space-y-3 min-h-[140px] bg-white text-black">
@@ -198,7 +210,13 @@ export default function CNPrintPage() {
                   <div className="text-[10px] uppercase font-normal space-y-1 text-black">
                      <p className="text-[10px] font-normal leading-tight">{trip.shipToParty}</p>
                      <p className="leading-tight text-black whitespace-pre-wrap">{shipToParty?.address}</p>
-                     <p className="text-[10px] pt-1 text-black font-normal">GSTIN: {shipToParty?.gstNo || shipToParty?.gstin}</p>
+                     <p className="text-[10px] pt-1">
+  GSTIN: {shipToParty?.gstNo || shipToParty?.gstin || '-'}
+</p>
+
+<p className="text-[10px]">
+  MOBILE: {shipToParty?.mobile || '-'}
+</p>
                   </div>
                </div>
             </div>
@@ -268,5 +286,3 @@ export default function CNPrintPage() {
     </div>
   );
 }
-
-
