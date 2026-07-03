@@ -15,10 +15,14 @@ const PAGE_SIZE = 15;
 const ALL_TCODES = [
   { code: 'OX01', desc: 'Plant Create' }, { code: 'OX02', desc: 'Plant Change' }, { code: 'OX03', desc: 'Plant Display' },
   { code: 'FM01', desc: 'Company Create' }, { code: 'FM02', desc: 'Company Change' }, { code: 'FM03', desc: 'Company Display' },
+  { code: 'MK01', desc: 'Vendor Create' }, { code: 'MK02', desc: 'Vendor Change' }, { code: 'MK03', desc: 'Vendor Display' },
   { code: 'XK01', desc: 'Vendor Create' }, { code: 'XK02', desc: 'Vendor Change' }, { code: 'XK03', desc: 'Vendor Display' },
   { code: 'XD01', desc: 'Customer Create' }, { code: 'XD02', desc: 'Customer Change' }, { code: 'XD03', desc: 'Customer Display' },
   { code: 'VA01', desc: 'Sales Order Create' }, { code: 'VA02', desc: 'Sales Order Change' }, { code: 'VA03', desc: 'Sales Order Display' }, { code: 'VA04', desc: 'Short Close' },
-  { code: 'TR21', desc: 'Trip Board' }, { code: 'TR24', desc: 'Track Shipment' }, { code: 'WGPS24', desc: 'GPS Tracking' },
+  { code: 'VT04', desc: 'Short Close Report' },
+  { code: 'VT11', desc: 'Freight Cost Report' },
+  { code: 'TR21', desc: 'Trip Board' }, { code: 'TR24', desc: 'Track Shipment' },
+  { code: 'WGPS24', desc: 'GPS Tracking' },
   { code: 'SE38', desc: 'Reports' }, { code: 'SU01', desc: 'User Create' }, { code: 'SU02', desc: 'User Change' }, { code: 'SU03', desc: 'User Display' },
   { code: 'ZCODE', desc: 'T-Code Map' }
 ];
@@ -238,4 +242,3 @@ export default function SUPage() {
     </div>
   );
 }
-
