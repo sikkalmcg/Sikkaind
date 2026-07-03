@@ -7,6 +7,7 @@ import { collection, doc } from '@/lib/mongo-store';
 import { cn } from '@/lib/utils';
 import { useUser, useDoc } from '@/mongodb';
 import { useMemo } from 'react';
+import * as XLSX from 'xlsx';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
@@ -78,6 +79,30 @@ export default function VK13DisplayPrimaryFreightRates() {
     return data;
   }, [rates, mounted, authorizedPlantCodes, plantFilter, search]);
 
+  const handleExport = () => {
+    if (!filtered || filtered.length === 0) {
+      alert('No data to export.');
+      return;
+    }
+
+    const header = ['Plant', 'Origin', 'Destination', 'Min Grantee Weight (MT)', 'Rate (PMT)', 'Condition Record', 'Valid From', 'Valid To'];
+    const dataToExport = filtered.map((r: any) => [
+      r.plantCode,
+      r.origin,
+      r.destination,
+      r.minimumGranteeWeightMt,
+      r.ratePMT,
+      r.conditionRecord,
+      r.validityFromDate,
+      r.validityToDate,
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...dataToExport]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'FreightHistory');
+    XLSX.writeFile(wb, 'VK13_Freight_History.xlsx');
+  };
+
   if (!mounted) return null;
 
   return (
@@ -91,6 +116,9 @@ export default function VK13DisplayPrimaryFreightRates() {
             placeholder="Search..."
             className="h-8 w-64 border border-slate-300 px-3 text-xs font-normal outline-none bg-white"
           />
+          <Button variant="outline" className="h-8 rounded-sm px-4 text-xs" onClick={handleExport}>
+            Export to Excel
+          </Button>
         </div>
       </div>
 
@@ -157,4 +185,3 @@ export default function VK13DisplayPrimaryFreightRates() {
     </div>
   );
 }
-

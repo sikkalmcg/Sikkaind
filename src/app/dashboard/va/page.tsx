@@ -171,18 +171,67 @@ export default function VAPage() {
     return allCustomers.filter(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(formData.plantCode));
   }, [allCustomers, formData.plantCode]);
 
+  // --- NEW ENHANCED SHORT CLOSE LOGIC ---
   const handleShortClose = React.useCallback(() => {
     if (!formData.id) return;
-    if (!window.confirm(`Are you sure you want to short close order ${formData.orderNo}?`)) return;
+
+    const totalQty = Number(formData.quantity) || 0;
+    const assignedQty = Number(formData.assignedQuantity) || 0;
+    const unassignedQty = totalQty - assignedQty;
+
+    if (totalQty > 0 && unassignedQty <= 0) {
+      alert('Cannot Short Close: The entire order quantity has already been assigned to vehicles.');
+      return;
+    }
+
+    const confirmMsg = assignedQty > 0 
+      ? `Are you sure you want to short close order ${formData.orderNo}?\n\nNOTE: Only the unassigned quantity (${unassignedQty} MT) will be short closed. The assigned quantity (${assignedQty} MT) will remain active.`
+      : `Are you sure you want to short close order ${formData.orderNo}?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    const auditEntry = {
+      action: 'Short Closed',
+      timestamp: new Date().toISOString(),
+      shortClosedQuantity: unassignedQty,
+      user: 'Sikkaind_System'
+    };
 
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', formData.id), { 
       status: 'Short Closed',
+      shortClosedQuantity: unassignedQty,
+      auditLog: [...(formData.auditLog || []), auditEntry],
       updatedAt: serverTimestamp(),
       updatedBy: 'Sikkaind_System'
     }, { merge: true });
     
     setFormData({});
     alert(`Order ${formData.orderNo} has been Short Closed.`);
+  }, [db, formData]);
+
+  // --- NEW RE-OPEN LOGIC ---
+  const handleReOpen = React.useCallback(() => {
+    if (!formData.id) return;
+    
+    if (!window.confirm(`Are you sure you want to re-open order ${formData.orderNo}? The short closed quantity will be restored.`)) return;
+
+    const auditEntry = {
+      action: 'Re-Opened',
+      timestamp: new Date().toISOString(),
+      restoredQuantity: formData.shortClosedQuantity || 0,
+      user: 'Sikkaind_System'
+    };
+
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', formData.id), { 
+      status: 'Open',
+      shortClosedQuantity: 0, // Reset the short closed tracker
+      auditLog: [...(formData.auditLog || []), auditEntry],
+      updatedAt: serverTimestamp(),
+      updatedBy: 'Sikkaind_System'
+    }, { merge: true });
+    
+    setFormData({});
+    alert(`Order ${formData.orderNo} has been successfully Re-Opened.`);
   }, [db, formData]);
 
   const handleSave = React.useCallback(() => {
@@ -266,7 +315,6 @@ export default function VAPage() {
     reader.onload = async (event) => {
       const text = event.target?.result as string;
       
-      // Lines split करें और पूरी तरह खाली लाइनों को इग्नोर करें
       const lines = text
         .split(/\r\n|\n|\r/)
         .map(l => l.trim())
@@ -279,17 +327,15 @@ export default function VAPage() {
         return; 
       }
 
-      // कोट्स, BOM कैरेक्टर और स्पेस हटाने के लिए हेल्पर फ़ंक्शन
       const cleanCell = (str: string) => {
         if (!str) return '';
         return str
-          .replace(/^\uFEFF/, '') // Remove BOM
+          .replace(/^\uFEFF/, '') 
           .trim()
-          .replace(/^["']|["']$/g, '') // Remove wrapping quotes
+          .replace(/^["']|["']$/g, '')
           .trim();
       };
 
-      // हेडर रो को सही से साफ़ करके अपरकेस में कनवर्ट करें
       const headers = lines[0].split(',').map(h => cleanCell(h).toUpperCase());
       const rows = lines.slice(1);
       const tempLog: typeof uploadLog = [];
@@ -306,7 +352,6 @@ export default function VAPage() {
         headerIndices[col] = headers.indexOf(col);
       });
 
-
       const missingCols = mandatoryCols.filter(col => headerIndices[col] === -1);
       if (missingCols.length > 0) {
         alert(`Invalid CSV. Missing required columns: ${missingCols.join(', ')}`);
@@ -316,7 +361,6 @@ export default function VAPage() {
       }
   
       for (let i = 0; i < rows.length; i++) {
-        // कोट्स के अंदर के कॉमा को सेफ़ रखकर रो स्प्लिट करने के लिए RegEx
         const columns = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => cleanCell(c));
         
         const plant = columns[headerIndices['PLANT']];
@@ -434,10 +478,18 @@ export default function VAPage() {
                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 border-[#0056d2] text-[#0056d2] rounded-none"><Upload className="h-3 w-3 mr-2" /> Bulk Upload</Button>
              </>
            )}
-           {activeTCode === 'VA04' && formData.id && formData.status !== 'Short Closed' && (
-             <Button onClick={handleShortClose} className="h-8 bg-red-600 hover:bg-red-700 text-white rounded-none text-[10px] font-black uppercase px-8 shadow-md">
-               Short Close Order
-             </Button>
+           {activeTCode === 'VA04' && formData.id && (
+             <>
+                {formData.status !== 'Short Closed' ? (
+                  <Button onClick={handleShortClose} className="h-8 bg-red-600 hover:bg-red-700 text-white rounded-none text-[10px] font-black uppercase px-8 shadow-md">
+                    Short Close Order
+                  </Button>
+                ) : (
+                  <Button onClick={handleReOpen} className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-none text-[10px] font-black uppercase px-8 shadow-md">
+                    Re-Open Order
+                  </Button>
+                )}
+             </>
            )}
            {isUploading && <Loader2 className="h-5 w-5 animate-spin text-blue-600" />}
         </div>

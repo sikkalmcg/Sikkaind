@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
+import { useMemo } from 'react';
 import { collection, doc } from '@/lib/mongo-store';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -58,6 +59,15 @@ export default function VK12UpdatePrimaryFreightRates() {
     if (isBootstrapAdmin) return null;
     return userProfile?.plantAccess || [];
   }, [isBootstrapAdmin, userProfile, isProfileLoading]);
+
+  const filteredRates = useMemo(() => {
+    if (!primaryRates || !mounted) return [];
+    let data = primaryRates as any[];
+    if (authorizedPlantCodes) {
+      data = data.filter((r) => authorizedPlantCodes.includes(r.plantCode));
+    }
+    return data;
+  }, [primaryRates, mounted, authorizedPlantCodes]);
 
   React.useEffect(() => {
     setIsBootstrapAdmin(localStorage.getItem('sap_bootstrap_session') === 'true');
@@ -142,6 +152,19 @@ export default function VK12UpdatePrimaryFreightRates() {
       return;
     }
 
+    if (formData.conditionRecord === 'One time Approval (OTA)') {
+      const from = new Date(formData.validityFromDate);
+      const to = new Date(formData.validityToDate);
+      if (from && to && to > from) {
+        const diffTime = to.getTime() - from.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 7) {
+          alert('For OTA records, the validity period cannot exceed 7 days.');
+          return;
+        }
+      }
+    }
+
     const payload = {
       plantCode: formData.plantCode.toUpperCase().trim(),
       origin: formData.origin.toUpperCase().trim(),
@@ -163,6 +186,57 @@ export default function VK12UpdatePrimaryFreightRates() {
     alert('Primary freight rate updated');
   };
 
+  const handleExtendPeriod = () => {
+    if (!selectedId) {
+      alert('Select a record to extend');
+      return;
+    }
+    if (!validate()) {
+      alert('Mandatory fields missing');
+      return;
+    }
+    if (checkDuplicateRestricted()) {
+      alert('Duplicate record restricted. Another record with same Plant+Origin+Destination+Minimum Grantee Weight+Condition exists.');
+      return;
+    }
+
+    if (formData.conditionRecord === 'One time Approval (OTA)') {
+      const from = new Date(formData.validityFromDate);
+      const to = new Date(formData.validityToDate);
+      if (from && to && to > from) {
+        const diffTime = to.getTime() - from.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 7) {
+          alert('For OTA records, the validity period cannot exceed 7 days.');
+          return;
+        }
+      }
+    }
+
+    const newId = crypto.randomUUID();
+    const payload = {
+      id: newId,
+      plantCode: formData.plantCode.toUpperCase().trim(),
+      origin: formData.origin.toUpperCase().trim(),
+      destination: formData.destination.toUpperCase().trim(),
+      minimumGranteeWeightMt: toNum(formData.minimumGranteeWeightMt),
+      ratePMT: toNum(formData.ratePMT),
+      validityFromDate: formData.validityFromDate,
+      validityToDate: formData.validityToDate,
+      conditionRecord: formData.conditionRecord,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setDocumentNonBlocking(
+      doc(db, 'users', SHARED_HUB_ID, 'vk_primary_freight_rates', newId),
+      payload,
+      { merge: true }
+    );
+
+    alert('Primary freight rate period extended by creating a new record.');
+  };
+
   if (!mounted) return null;
 
   return (
@@ -172,20 +246,38 @@ export default function VK12UpdatePrimaryFreightRates() {
       </div>
 
       <div className="bg-white border border-slate-300 shadow-inner p-8">
-        <div className="mb-8 space-y-1.5">
-          <label className="text-[10px] font-normal text-slate-500 uppercase">Select Record</label>
-          <select
-            value={selectedId}
-            onChange={(e) => setSelectedId(e.target.value)}
-            className="h-9 w-full border px-3 text-xs font-normal outline-none"
-          >
-            <option value="">Select...</option>
-            {(primaryRates || []).map((r: any) => (
-              <option key={r.id} value={r.id}>
-                {r.plantCode} | {r.origin} → {r.destination} | Min {r.minimumGranteeWeightMt} | {r.conditionRecord}
-              </option>
-            ))}
-          </select>
+        <div className="mb-8 border border-slate-300 shadow-inner overflow-x-auto max-h-96">
+          <table className="w-full text-left text-[11px] min-w-[1000px]">
+            <thead className="bg-[#f8fafc] sticky top-0 z-10 border-b border-slate-300 font-normal uppercase text-slate-500">
+              <tr>
+                <th className="p-3 border-r">Plant</th>
+                <th className="p-3 border-r">Origin</th>
+                <th className="p-3 border-r">Destination</th>
+                <th className="p-3 border-r text-right">Min Grantee Weight (MT)</th>
+                <th className="p-3 border-r">Condition Record</th>
+                <th className="p-3">Validity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(filteredRates || []).map((r: any) => (
+                <tr
+                  key={r.id}
+                  onClick={() => setSelectedId(r.id)}
+                  className={cn(
+                    'border-b border-slate-100 hover:bg-blue-50/20 cursor-pointer',
+                    selectedId === r.id && 'bg-blue-100'
+                  )}
+                >
+                  <td className="p-3 border-r">{r.plantCode}</td>
+                  <td className="p-3 border-r">{r.origin}</td>
+                  <td className="p-3 border-r">{r.destination}</td>
+                  <td className="p-3 border-r text-right">{r.minimumGranteeWeightMt}</td>
+                  <td className="p-3 border-r">{r.conditionRecord}</td>
+                  <td className="p-3">{r.validityFromDate} - {r.validityToDate}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         <div className="grid grid-cols-2 gap-x-14 gap-y-6">
@@ -312,9 +404,11 @@ export default function VK12UpdatePrimaryFreightRates() {
           <Button className="h-10 bg-[#0056d2] text-white rounded-none px-14" onClick={handleSave}>
             Save Changes
           </Button>
+          <Button className="h-10 bg-green-600 hover:bg-green-700 text-white rounded-none px-14" onClick={handleExtendPeriod}>
+            Extend Period
+          </Button>
         </div>
       </div>
     </div>
   );
 }
-

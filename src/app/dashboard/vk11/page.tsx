@@ -1,11 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
 import { collection, doc } from '@/lib/mongo-store';
 import { cn } from '@/lib/utils';
+import * as XLSX from 'xlsx';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
@@ -31,7 +32,6 @@ function toNum(val: any) {
 }
 
 export default function VK11CreatePrimaryFreightRates() {
-  const searchParams = useSearchParams();
   const db = useMongoStore();
   const { user } = useUser();
 
@@ -41,6 +41,9 @@ export default function VK11CreatePrimaryFreightRates() {
 
   const [formData, setFormData] = React.useState<any>(DEFAULT_FORM);
   const [errors, setErrors] = React.useState<string[]>([]);
+  const [bulkErrors, setBulkErrors] = React.useState<string[]>([]);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const primaryRatesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vk_primary_freight_rates'), [db]);
@@ -127,6 +130,19 @@ export default function VK11CreatePrimaryFreightRates() {
       return;
     }
 
+    if (formData.conditionRecord === 'One time Approval (OTA)') {
+      const from = new Date(formData.validityFromDate);
+      const to = new Date(formData.validityToDate);
+      if (from && to && to > from) {
+        const diffTime = to.getTime() - from.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 7) {
+          alert('For OTA records, the validity period cannot exceed 7 days.');
+          return;
+        }
+      }
+    }
+
     const id = crypto.randomUUID();
     const payload = {
       id,
@@ -152,6 +168,123 @@ export default function VK11CreatePrimaryFreightRates() {
     alert('Primary freight rate created & synchronized');
   };
 
+  const handleDownloadTemplate = () => {
+    const templateHeader = [
+      'plantCode',
+      'origin',
+      'destination',
+      'ratePMT',
+      'validityFromDate',
+      'validityToDate',
+      'conditionRecord',
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([templateHeader]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'PrimaryFreightRates');
+    XLSX.writeFile(wb, 'VK11_Primary_Freight_Template.xlsx');
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleBulkUpload(file);
+    }
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleBulkUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet, {
+          raw: false, // Get formatted strings
+          dateNF: 'dd/mm/yyyy',
+        });
+
+        const newErrors: string[] = [];
+        const payloads: any[] = [];
+
+        const dateRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[012])\/\d{4}$/;
+
+        json.forEach((row, index) => {
+          const rowNum = index + 2;
+          const mandatoryFields = ['plantCode', 'origin', 'destination', 'ratePMT', 'validityFromDate', 'validityToDate', 'conditionRecord'];
+          for (const field of mandatoryFields) {
+            if (!row[field]) {
+              newErrors.push(`Row ${rowNum}: Mandatory field "${field}" is missing.`);
+            }
+          }
+
+          if (row.validityFromDate && !dateRegex.test(row.validityFromDate)) {
+            newErrors.push(`Row ${rowNum}: "validityFromDate" has invalid format. Use DD/MM/YYYY.`);
+          }
+          if (row.validityToDate && !dateRegex.test(row.validityToDate)) {
+            newErrors.push(`Row ${rowNum}: "validityToDate" has invalid format. Use DD/MM/YYYY.`);
+          }
+
+          if (authorizedPlantCodes && !authorizedPlantCodes.includes(row.plantCode)) {
+            newErrors.push(`Row ${rowNum}: Plant code "${row.plantCode}" is not authorized for your profile.`);
+          }
+
+          const plantCode = (row.plantCode || '').toUpperCase().trim();
+          const origin = (row.origin || '').toUpperCase().trim();
+          const destination = (row.destination || '').toUpperCase().trim();
+          const conditionRecord = row.conditionRecord || 'Regular';
+
+          const isDuplicate = (primaryRates || []).some((r: any) =>
+            (r.plantCode || '').toUpperCase().trim() === plantCode &&
+            (r.origin || '').toUpperCase().trim() === origin &&
+            (r.destination || '').toUpperCase().trim() === destination &&
+            (r.conditionRecord || 'Regular') === conditionRecord
+          );
+
+          if (isDuplicate) {
+            newErrors.push(`Row ${rowNum}: Duplicate record restricted for Plant+Origin+Destination+Condition record.`);
+          }
+
+          if (newErrors.length === 0) {
+            const id = crypto.randomUUID();
+            payloads.push({
+              id,
+              plantCode: plantCode,
+              origin: origin,
+              destination: destination,
+              minimumGranteeWeightMt: 0, // As per requirement to remove
+              ratePMT: toNum(row.ratePMT),
+              validityFromDate: row.validityFromDate,
+              validityToDate: row.validityToDate,
+              conditionRecord: conditionRecord,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        });
+
+        setBulkErrors(newErrors);
+
+        if (newErrors.length > 0) {
+          alert('Upload failed. Please check the errors and try again.');
+        } else {
+          payloads.forEach(payload => {
+            setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'vk_primary_freight_rates', payload.id), payload, { merge: true });
+          });
+          alert(`${payloads.length} records uploaded and synchronized successfully.`);
+        }
+      } catch (error) {
+        console.error("Error processing file:", error);
+        setBulkErrors(['An unexpected error occurred while processing the file.']);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   if (!mounted) return null;
 
   return (
@@ -160,7 +293,29 @@ export default function VK11CreatePrimaryFreightRates() {
         <h2 className="text-[16px] font-bold uppercase italic">VK11 – Create Primary Freight Rates</h2>
       </div>
 
-      <div className="bg-white border border-slate-300 shadow-inner p-8">
+      <div className="bg-white border border-slate-300 shadow-inner p-8 mb-8">
+        <div className="flex justify-between items-center mb-6">
+            <h3 className="text-[14px] font-bold uppercase">Bulk Upload</h3>
+            <div className="flex items-center gap-3">
+                <Button variant="outline" className="h-10 rounded-none px-6" onClick={handleDownloadTemplate}>
+                    Download Template
+                </Button>
+                <Button className="h-10 bg-green-600 hover:bg-green-700 text-white rounded-none px-8" onClick={() => fileInputRef.current?.click()}>
+                    Bulk Upload (Excel)
+                </Button>
+                <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".xlsx, .xls" />
+            </div>
+        </div>
+        {bulkErrors.length > 0 && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTitle>Upload Errors</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc pl-5 text-xs max-h-40 overflow-y-auto">
+                {bulkErrors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="grid grid-cols-2 gap-x-14 gap-y-6">
           <div className="space-y-1.5">
             <label className="text-[10px] font-normal text-slate-500 uppercase">Plant *</label>
@@ -250,6 +405,7 @@ export default function VK11CreatePrimaryFreightRates() {
             <label className="text-[10px] font-normal text-slate-500 uppercase">Validity Period From Date *</label>
             <input
               type="date"
+              max="9999-12-31"
               value={formData.validityFromDate}
               onChange={(e) => setFormData({ ...formData, validityFromDate: e.target.value })}
               className={cn('h-9 w-full border px-3 text-xs font-normal outline-none')}
@@ -260,6 +416,7 @@ export default function VK11CreatePrimaryFreightRates() {
             <label className="text-[10px] font-normal text-slate-500 uppercase">To Date *</label>
             <input
               type="date"
+              max="9999-12-31"
               value={formData.validityToDate}
               onChange={(e) => setFormData({ ...formData, validityToDate: e.target.value })}
               className={cn('h-9 w-full border px-3 text-xs font-normal outline-none')}
@@ -279,7 +436,7 @@ export default function VK11CreatePrimaryFreightRates() {
         <div className="mt-8 bg-slate-50 border border-slate-200 p-4 text-[10px] text-slate-700">
           <div className="font-black uppercase italic text-slate-600">Duplicate record restricted rule</div>
           <div className="mt-2">
-            Duplicate is allowed only when any of the following differs.
+            Duplicate record is restricted.
             <br />
             Duplicate match key: Plant + Origin + Destination + Minimum Grantee Weight (MT) + Condition record.
           </div>
@@ -288,4 +445,3 @@ export default function VK11CreatePrimaryFreightRates() {
     </div>
   );
 }
-

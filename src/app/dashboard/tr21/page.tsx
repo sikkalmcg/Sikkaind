@@ -60,7 +60,8 @@ export default function TR21Page() {
     paymentTerms: 'PAID',
     assignWeight: '0',
     rate: '0',
-    freightAmount: '0'
+    freightAmount: '0',
+    arrangeBy: '' // Added explicitly
   });
 
   const [cnData, setCNData] = React.useState<any>({
@@ -110,12 +111,15 @@ export default function TR21Page() {
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const companiesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
   const vendorsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
+  // Fetching forwarding agents (MK03) data
+  const forwardingAgentsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'forwarding_agents'), [db]);
 
   const { data: orders } = useCollectionOptimized(ordersQuery);
   const { data: trips } = useCollectionOptimized(tripsQuery);
   const { data: plants } = useCollectionOptimized(plantsQuery);
   const { data: companies } = useCollectionOptimized(companiesQuery);
   const { data: vendors } = useCollectionOptimized(vendorsQuery);
+  const { data: forwardingAgents } = useCollectionOptimized(forwardingAgentsQuery);
 
   const authorizedPlantCodes = React.useMemo(() => {
     if (isProfileLoading) return undefined;
@@ -232,17 +236,11 @@ export default function TR21Page() {
 
       const hasInvoices = (selectedTrip.invoices || []).length > 0;
 
-      // If trip has no invoices (fresh assignment), prefill using the selected order's VA01 fields.
-      // Requirement:
-      // - if >2 material rows exist, show unique material “name” (desc)
-      // - invoiceNo and eWaybillNo should be shown as 2-2 pairs per sale order no.
       const prefills = (() => {
         if (!selectedOrder) {
           return [{ id: '1', invNo: '', ewaybillNo: '', desc: '', pkg: '', uom: 'Bag' }];
         }
 
-        // Data model ambiguity resolved: we assume order stores repeated material rows as arrays.
-        // Common field names handled: materialName[] / invoiceNo[] / eWaybillNo[].
         const materialNames: string[] = Array.isArray(selectedOrder.materialName)
           ? selectedOrder.materialName
           : (selectedOrder.materialName ? [selectedOrder.materialName] : []);
@@ -255,7 +253,6 @@ export default function TR21Page() {
           ? selectedOrder.eWaybillNo
           : (selectedOrder.eWaybillNo ? [selectedOrder.eWaybillNo] : []);
 
-        // If the backend still provides single values (not arrays), fall back to old behavior.
         if (materialNames.length <= 1 && invoiceNos.length <= 1 && ewaybillNos.length <= 1) {
           return [
             {
@@ -269,12 +266,9 @@ export default function TR21Page() {
           ];
         }
 
-        // Unique “name” for desc when >2 material rows.
         const uniqueDesc = Array.from(new Set(materialNames.map((m) => (m ?? '').toString().trim().toUpperCase()).filter(Boolean)));
         const descToUse = uniqueDesc.length > 0 ? uniqueDesc.join(' / ') : (selectedOrder?.materialName || '').toString().trim().toUpperCase();
 
-        // Pairing rule: build rows by chunking index in steps of 2.
-        // invNo/ewaybillNo will come in same order as arrays.
         const maxLen = Math.max(invoiceNos.length, ewaybillNos.length, materialNames.length);
         const rows: any[] = [];
 
@@ -302,7 +296,6 @@ export default function TR21Page() {
             uom: 'Bag',
           };
 
-          // Push only meaningful rows.
           const shouldPush1 = row1.invNo || row1.ewaybillNo || row1.desc || row1.pkg;
           const shouldPush2 = row2.invNo || row2.ewaybillNo || row2.desc || row2.pkg;
 
@@ -397,7 +390,6 @@ export default function TR21Page() {
     const cnNumber = cnData.cnNumber?.trim().toUpperCase();
     if (!cnNumber) return alert('CN Number Mandatory');
 
-    // Normalize + persist invoices deterministically (prevents blank preview due to empty/stale rows)
     const normalizedInvoices = (cnData.invoices || [])
       .map((row: any) => {
         const invNo = (row?.invNo ?? '').toString().trim().toUpperCase();
@@ -418,7 +410,6 @@ export default function TR21Page() {
       })
       .filter((r: any) => r.invNo || r.ewaybillNo || r.desc || r.pkg !== '' && r.pkg !== 0);
 
-    // Ensure TR21 edits (vehicle no + weight) are persisted so CN preview/print shows correctly.
     const vehicleNo = (vehicleData.vehicleNo || selectedTrip?.vehicleNo || '').toString().toUpperCase().trim();
     const assignWeightNum = parseFloat((assignData.assignWeight || selectedTrip?.assignWeight || 0).toString());
     const freightAmountNum = assignData.fixRate ? selectedTrip?.freightAmount : (assignWeightNum * parseFloat(assignData.rate || 0));
@@ -890,6 +881,22 @@ export default function TR21Page() {
                   <option value="Market Vehicle">Market Vehicle</option>
                 </select>
              </div>
+
+             {/* --- NEW ARRANGE BY PARTY DROPDOWN --- */}
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-normal text-slate-400 uppercase">Arrange By Party</label>
+                <select 
+                  value={assignData.arrangeBy || ''} 
+                  onChange={e => setAssignData({ ...assignData, arrangeBy: e.target.value })} 
+                  className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
+                >
+                  <option value="">SELECT PARTY...</option>
+                  {forwardingAgents?.filter((a: any) => a.status !== 'Inactive').map((agent: any) => (
+                    <option key={agent.id} value={agent.arrangeByName}>{agent.arrangeByName}</option>
+                  ))}
+                </select>
+             </div>
+
              <div className="space-y-1.5">
                 <label className="text-[10px] font-normal text-slate-400 uppercase">Transport Mode</label>
                 <select value={assignData.mode} onChange={e => setAssignData({...assignData, mode: e.target.value, via: e.target.value === 'Road' ? '' : assignData.via})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none">
@@ -939,14 +946,14 @@ export default function TR21Page() {
                       className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
                     >
                       <option value="">Select Vendor...</option>
-                      {vendors?.map(v => (
+                      {vendors?.map((v: any) => (
                         <option key={v.id} value={v.vendorName}>{v.vendorName} ({v.vendorCode})</option>
                       ))}
                     </select>
                  </div>
                  <div className="space-y-1.5">
                     <div className="flex justify-between items-center">
-<label className="text-[10px] font-normal text-slate-400 uppercase">Secondary Rate (Per MT)</label>
+                       <label className="text-[10px] font-normal text-slate-400 uppercase">Secondary Rate (Per MT)</label>
                        <div className="flex items-center gap-2">
                           <Checkbox 
                             id="fix-charge" 
@@ -967,7 +974,7 @@ export default function TR21Page() {
                     />
                  </div>
                  <div className="space-y-1.5">
-<label className="text-[10px] font-normal text-slate-400 uppercase flex items-center gap-2">
+                    <label className="text-[10px] font-normal text-slate-400 uppercase flex items-center gap-2">
                        <Calculator className="h-3 w-3 text-blue-400" /> secondary Freight Amount
                     </label>
                     <input 
