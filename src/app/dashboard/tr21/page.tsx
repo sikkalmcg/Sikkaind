@@ -376,7 +376,8 @@ export default function TR21Page() {
       eWaybillNo: (selectedOrder?.eWaybillNo || '').toString().trim(),
       vehicleNoFromOrder: (selectedOrder?.vehicleNo || '').toString().trim().toUpperCase(),
       paymentTerms: assignData.paymentTerms || 'PAID', vendorName: assignData.vendorName || '',
-      vendorMobile: assignData.vendorMobile || '', arrangeBy: assignData.arrangeBy || '',
+      vendorMobile: assignData.vendorMobile || '',
+      arrangeBy: assignData.fleetType === 'Market Vehicle' ? (assignData.arrangeBy || '') : '',
       rate: parseFloat(assignData.rate) || 0, freightAmount: parseFloat(assignData.freightAmount) || 0,
       fixRate: assignData.fixRate || false,
       invoices: []
@@ -874,7 +875,12 @@ export default function TR21Page() {
                 <label className="text-[10px] font-normal text-slate-400 uppercase">Fleet Type</label>
                 <select 
                   value={assignData.fleetType} 
-                  onChange={e => setAssignData({...assignData, fleetType: e.target.value})} 
+                  onChange={e => setAssignData({
+                    ...assignData,
+                    fleetType: e.target.value,
+                    // Clear Arrange By whenever switching away from Market Vehicle
+                    arrangeBy: e.target.value === 'Market Vehicle' ? assignData.arrangeBy : ''
+                  })} 
                   className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
                 >
                   <option value="Own Vehicle">Own Vehicle</option>
@@ -882,20 +888,22 @@ export default function TR21Page() {
                 </select>
              </div>
 
-             {/* --- NEW ARRANGE BY PARTY DROPDOWN --- */}
-             <div className="space-y-1.5">
-                <label className="text-[10px] font-normal text-slate-400 uppercase">Arrange By Party</label>
-                <select 
-                  value={assignData.arrangeBy || ''} 
-                  onChange={e => setAssignData({ ...assignData, arrangeBy: e.target.value })} 
-                  className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
-                >
-                  <option value="">SELECT PARTY...</option>
-                  {forwardingAgents?.filter((a: any) => a.status !== 'Inactive').map((agent: any) => (
-                    <option key={agent.id} value={agent.arrangeByName}>{agent.arrangeByName}</option>
-                  ))}
-                </select>
-             </div>
+             {/* --- ARRANGE BY PARTY DROPDOWN: only visible for Market Vehicle --- */}
+             {assignData.fleetType === 'Market Vehicle' && (
+               <div className="space-y-1.5">
+                  <label className="text-[10px] font-normal text-slate-400 uppercase">Arrange By Party</label>
+                  <select 
+                    value={assignData.arrangeBy || ''} 
+                    onChange={e => setAssignData({ ...assignData, arrangeBy: e.target.value })} 
+                    className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
+                  >
+                    <option value="">SELECT PARTY...</option>
+                    {forwardingAgents?.filter((a: any) => a.status !== 'Inactive').map((agent: any) => (
+                      <option key={agent.id} value={agent.arrangeByName}>{agent.arrangeByName}</option>
+                    ))}
+                  </select>
+               </div>
+             )}
 
              <div className="space-y-1.5">
                 <label className="text-[10px] font-normal text-slate-400 uppercase">Transport Mode</label>
