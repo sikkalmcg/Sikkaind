@@ -579,10 +579,12 @@ export default function TR21Page() {
                       <th className="p-3 border-r w-[180px]">Ship to Party</th>
                       <th className="p-3 border-r w-[180px]">Route</th>
                       <th className="p-3 border-r w-[100px] text-right">Assign Qty</th>
+                      <th className="p-3 border-r w-[180px]">Invoice / E-Way Bill</th>
                       <th className="p-3 border-r w-[150px]">Vehicle/Mobile</th>
-                      <th className="p-3 border-r w-[180px]">Arrange By</th>
+                      <th className="p-3 border-r w-[180px]">Carrier</th>
+                      <th className="p-3 border-r w-[180px]">Vendor Firm / Arrange By</th>
                       <th className="p-3 border-r w-[100px]">Fleet Type</th>
-                      <th className="p-3 border-r w-[150px]">CN No/Date</th>
+                      <th className="p-3 border-r w-[150px]">CN No / Date</th>
                       {(activeTab === 'Reject' || activeTab === 'POD Verify' || activeTab === 'Closed') && (
                         <>
                           <th className="p-3 border-r w-[120px]">Out Date/Time</th>
@@ -641,26 +643,25 @@ export default function TR21Page() {
                       ) : (
                         <>
                           <td className="p-3 border-r text-right font-normal text-slate-800 italic bg-blue-50/30">{parseFloat(item.assignWeight || 0).toFixed(3)}</td>
+                          <td className="p-3 border-r text-left max-w-[180px] truncate">
+                            <div className="flex flex-col leading-tight">
+                              <span className="font-normal text-slate-800 truncate" title={(item.invoices || []).map((i: any) => i.invNo).filter(Boolean).join(', ')}>{(item.invoices || []).map((i: any) => i.invNo).filter(Boolean).join(', ') || '-'}</span>
+                              <span className="text-[9px] text-slate-400 font-normal truncate" title={(item.invoices || []).map((i: any) => i.ewaybillNo).filter(Boolean).join(', ')}>{(item.invoices || []).map((i: any) => i.ewaybillNo).filter(Boolean).join(', ') || '-'}</span>
+                            </div>
+                          </td>
                           <td className="p-3 border-r text-left">
                             <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline">
                               <span className="font-normal text-blue-800">{item.vehicleNo || 'ADD'}</span>
                               <span className="text-[9px] text-slate-400 font-normal">{item.driverMobile || '-'}</span>
                             </button>
                           </td>
+                          <td className="p-3 border-r text-left text-[#0056d2] font-normal text-[10px] truncate" title={item.carrierName}>{item.carrierName || 'PENDING'}</td>
                           <td className="p-3 border-r text-left">
-                            {(() => {
-                                const carrier = (companies || []).find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(item.plantCode));
-                                return (
                                   <div className="flex flex-col leading-tight overflow-hidden">
-                                    <span className="text-[#0056d2] font-normal text-[10px] truncate" title={carrier?.companyName || item.carrierName}>
-                                      {carrier?.companyName || item.carrierName || 'PENDING'}
-                                    </span>
                                     <span className="text-slate-500 font-normal text-[9px] truncate" title={item.vendorName}>
                                       {item.vendorName || '-'}
                                     </span>
                                   </div>
-                                );
-                            })()}
                           </td>
                           <td className="p-3 border-r text-[9px] font-normal text-slate-400">{item.fleetType}</td>
                           <td className="p-3 border-r text-left">

@@ -23,7 +23,6 @@ const DEFAULT_FORM = {
   plantCode: '',
   origin: '',
   destination: '',
-  minimumGranteeWeightMt: '',
   ratePMT: '',
   validityFromDate: '',
   validityToDate: '',
@@ -84,7 +83,6 @@ export default function VK12UpdatePrimaryFreightRates() {
       plantCode: row.plantCode || '',
       origin: row.origin || '',
       destination: row.destination || '',
-      minimumGranteeWeightMt: (row.minimumGranteeWeightMt ?? '').toString(),
       ratePMT: (row.ratePMT ?? '').toString(),
       validityFromDate: row.validityFromDate || '',
       validityToDate: row.validityToDate || '',
@@ -97,7 +95,6 @@ export default function VK12UpdatePrimaryFreightRates() {
       'plantCode',
       'origin',
       'destination',
-      'minimumGranteeWeightMt',
       'ratePMT',
       'validityFromDate',
       'validityToDate',
@@ -123,7 +120,6 @@ export default function VK12UpdatePrimaryFreightRates() {
     const plantCode = (formData.plantCode || '').toUpperCase().trim();
     const origin = (formData.origin || '').toUpperCase().trim();
     const destination = (formData.destination || '').toUpperCase().trim();
-    const minWt = toNum(formData.minimumGranteeWeightMt);
     const conditionRecord = formData.conditionRecord;
 
     return (primaryRates || []).some((r: any) => {
@@ -132,7 +128,6 @@ export default function VK12UpdatePrimaryFreightRates() {
         (r.plantCode || '').toUpperCase().trim() === plantCode &&
         (r.origin || '').toUpperCase().trim() === origin &&
         (r.destination || '').toUpperCase().trim() === destination &&
-        toNum(r.minimumGranteeWeightMt) === minWt &&
         (r.conditionRecord || 'Regular') === conditionRecord
       );
     });
@@ -148,7 +143,7 @@ export default function VK12UpdatePrimaryFreightRates() {
       return;
     }
     if (checkDuplicateRestricted()) {
-      alert('Duplicate record restricted. Another record with same Plant+Origin+Destination+Minimum Grantee Weight+Condition exists.');
+      alert('Duplicate record restricted. Another record with same Plant+Origin+Destination+Condition exists.');
       return;
     }
 
@@ -169,7 +164,7 @@ export default function VK12UpdatePrimaryFreightRates() {
       plantCode: formData.plantCode.toUpperCase().trim(),
       origin: formData.origin.toUpperCase().trim(),
       destination: formData.destination.toUpperCase().trim(),
-      minimumGranteeWeightMt: toNum(formData.minimumGranteeWeightMt),
+      minimumGranteeWeightMt: 0,
       ratePMT: toNum(formData.ratePMT),
       validityFromDate: formData.validityFromDate,
       validityToDate: formData.validityToDate,
@@ -196,7 +191,7 @@ export default function VK12UpdatePrimaryFreightRates() {
       return;
     }
     if (checkDuplicateRestricted()) {
-      alert('Duplicate record restricted. Another record with same Plant+Origin+Destination+Minimum Grantee Weight+Condition exists.');
+      alert('Duplicate record restricted. Another record with same Plant+Origin+Destination+Condition exists.');
       return;
     }
 
@@ -219,7 +214,7 @@ export default function VK12UpdatePrimaryFreightRates() {
       plantCode: formData.plantCode.toUpperCase().trim(),
       origin: formData.origin.toUpperCase().trim(),
       destination: formData.destination.toUpperCase().trim(),
-      minimumGranteeWeightMt: toNum(formData.minimumGranteeWeightMt),
+      minimumGranteeWeightMt: 0,
       ratePMT: toNum(formData.ratePMT),
       validityFromDate: formData.validityFromDate,
       validityToDate: formData.validityToDate,
@@ -253,7 +248,6 @@ export default function VK12UpdatePrimaryFreightRates() {
                 <th className="p-3 border-r">Plant</th>
                 <th className="p-3 border-r">Origin</th>
                 <th className="p-3 border-r">Destination</th>
-                <th className="p-3 border-r text-right">Min Grantee Weight (MT)</th>
                 <th className="p-3 border-r">Condition Record</th>
                 <th className="p-3">Validity</th>
               </tr>
@@ -271,7 +265,6 @@ export default function VK12UpdatePrimaryFreightRates() {
                   <td className="p-3 border-r">{r.plantCode}</td>
                   <td className="p-3 border-r">{r.origin}</td>
                   <td className="p-3 border-r">{r.destination}</td>
-                  <td className="p-3 border-r text-right">{r.minimumGranteeWeightMt}</td>
                   <td className="p-3 border-r">{r.conditionRecord}</td>
                   <td className="p-3">{r.validityFromDate} - {r.validityToDate}</td>
                 </tr>
@@ -337,20 +330,6 @@ export default function VK12UpdatePrimaryFreightRates() {
               className={cn(
                 'h-9 w-full border px-3 text-xs font-normal outline-none',
                 errors.includes('destination') && 'border-red-50'
-              )}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Minimum Grantee Weight (MT) *</label>
-            <input
-              type="number"
-              step="0.001"
-              value={formData.minimumGranteeWeightMt}
-              onChange={(e) => setFormData({ ...formData, minimumGranteeWeightMt: e.target.value })}
-              className={cn(
-                'h-9 w-full border px-3 text-xs font-normal outline-none',
-                errors.includes('minimumGranteeWeightMt') && 'border-red-500 bg-red-50'
               )}
             />
           </div>

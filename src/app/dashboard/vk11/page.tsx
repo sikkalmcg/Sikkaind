@@ -19,7 +19,6 @@ const DEFAULT_FORM = {
   plantCode: '',
   origin: '',
   destination: '',
-  minimumGranteeWeightMt: '',
   ratePMT: '',
   validityFromDate: '',
   validityToDate: '',
@@ -79,7 +78,6 @@ export default function VK11CreatePrimaryFreightRates() {
       'plantCode',
       'origin',
       'destination',
-      'minimumGranteeWeightMt',
       'ratePMT',
       'validityFromDate',
       'validityToDate',
@@ -105,16 +103,13 @@ export default function VK11CreatePrimaryFreightRates() {
     const plantCode = (formData.plantCode || '').toUpperCase().trim();
     const origin = (formData.origin || '').toUpperCase().trim();
     const destination = (formData.destination || '').toUpperCase().trim();
-    const minWt = toNum(formData.minimumGranteeWeightMt);
-    const conditionRecord = formData.conditionRecord;
+    const ratePMT = toNum(formData.ratePMT);
 
     return (primaryRates || []).some((r: any) => {
       return (
         (r.plantCode || '').toUpperCase().trim() === plantCode &&
-        (r.origin || '').toUpperCase().trim() === origin &&
         (r.destination || '').toUpperCase().trim() === destination &&
-        toNum(r.minimumGranteeWeightMt) === minWt &&
-        (r.conditionRecord || 'Regular') === conditionRecord
+        toNum(r.ratePMT) === ratePMT
       );
     });
   };
@@ -126,7 +121,7 @@ export default function VK11CreatePrimaryFreightRates() {
     }
 
     if (isDuplicateRecord()) {
-      alert('Duplicate record restricted. Matching Plant+Origin+Destination+Minimum Grantee Weight+Condition record already exists.');
+      alert('Duplicate record restricted. Matching Plant+Destination+Rate (PMT) already exists.');
       return;
     }
 
@@ -149,7 +144,7 @@ export default function VK11CreatePrimaryFreightRates() {
       plantCode: formData.plantCode.toUpperCase().trim(),
       origin: formData.origin.toUpperCase().trim(),
       destination: formData.destination.toUpperCase().trim(),
-      minimumGranteeWeightMt: toNum(formData.minimumGranteeWeightMt),
+      minimumGranteeWeightMt: 0,
       ratePMT: toNum(formData.ratePMT),
       validityFromDate: formData.validityFromDate,
       validityToDate: formData.validityToDate,
@@ -173,7 +168,6 @@ export default function VK11CreatePrimaryFreightRates() {
       'plantCode',
       'origin',
       'destination',
-      'ratePMT',
       'validityFromDate',
       'validityToDate',
       'conditionRecord',
@@ -205,17 +199,17 @@ export default function VK11CreatePrimaryFreightRates() {
         const worksheet = workbook.Sheets[sheetName];
         const json: any[] = XLSX.utils.sheet_to_json(worksheet, {
           raw: false, // Get formatted strings
-          dateNF: 'dd/mm/yyyy',
+          dateNF: 'mm/dd/yyyy',
         });
 
         const newErrors: string[] = [];
         const payloads: any[] = [];
 
-        const dateRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[012])\/\d{4}$/;
+        const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
 
         json.forEach((row, index) => {
           const rowNum = index + 2;
-          const mandatoryFields = ['plantCode', 'origin', 'destination', 'ratePMT', 'validityFromDate', 'validityToDate', 'conditionRecord'];
+          const mandatoryFields = ['plantCode', 'origin', 'destination', 'validityFromDate', 'validityToDate', 'conditionRecord'];
           for (const field of mandatoryFields) {
             if (!row[field]) {
               newErrors.push(`Row ${rowNum}: Mandatory field "${field}" is missing.`);
@@ -223,10 +217,10 @@ export default function VK11CreatePrimaryFreightRates() {
           }
 
           if (row.validityFromDate && !dateRegex.test(row.validityFromDate)) {
-            newErrors.push(`Row ${rowNum}: "validityFromDate" has invalid format. Use DD/MM/YYYY.`);
+            newErrors.push(`Row ${rowNum}: "validityFromDate" has invalid format. Use MM/DD/YYYY.`);
           }
           if (row.validityToDate && !dateRegex.test(row.validityToDate)) {
-            newErrors.push(`Row ${rowNum}: "validityToDate" has invalid format. Use DD/MM/YYYY.`);
+            newErrors.push(`Row ${rowNum}: "validityToDate" has invalid format. Use MM/DD/YYYY.`);
           }
 
           if (authorizedPlantCodes && !authorizedPlantCodes.includes(row.plantCode)) {
@@ -236,17 +230,16 @@ export default function VK11CreatePrimaryFreightRates() {
           const plantCode = (row.plantCode || '').toUpperCase().trim();
           const origin = (row.origin || '').toUpperCase().trim();
           const destination = (row.destination || '').toUpperCase().trim();
-          const conditionRecord = row.conditionRecord || 'Regular';
+          const ratePMT = toNum(row.ratePMT);
 
           const isDuplicate = (primaryRates || []).some((r: any) =>
             (r.plantCode || '').toUpperCase().trim() === plantCode &&
-            (r.origin || '').toUpperCase().trim() === origin &&
             (r.destination || '').toUpperCase().trim() === destination &&
-            (r.conditionRecord || 'Regular') === conditionRecord
+            toNum(r.ratePMT) === ratePMT
           );
 
           if (isDuplicate) {
-            newErrors.push(`Row ${rowNum}: Duplicate record restricted for Plant+Origin+Destination+Condition record.`);
+            newErrors.push(`Row ${rowNum}: Duplicate record restricted for Plant+Destination+Rate (PMT).`);
           }
 
           if (newErrors.length === 0) {
@@ -257,10 +250,10 @@ export default function VK11CreatePrimaryFreightRates() {
               origin: origin,
               destination: destination,
               minimumGranteeWeightMt: 0, // As per requirement to remove
-              ratePMT: toNum(row.ratePMT),
+              ratePMT: ratePMT,
               validityFromDate: row.validityFromDate,
               validityToDate: row.validityToDate,
-              conditionRecord: conditionRecord,
+              conditionRecord: row.conditionRecord || 'Regular',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             });
@@ -376,19 +369,6 @@ export default function VK11CreatePrimaryFreightRates() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Minimum Grantee Weight (MT) *</label>
-            <input
-              type="number"
-              step="0.001"
-              value={formData.minimumGranteeWeightMt}
-              onChange={(e) => setFormData({ ...formData, minimumGranteeWeightMt: e.target.value })}
-              className={cn('h-9 w-full border px-3 text-xs font-normal outline-none',
-                errors.includes('minimumGranteeWeightMt') && 'border-red-500 bg-red-50'
-              )}
-            />
-          </div>
-
-          <div className="space-y-1.5">
             <label className="text-[10px] font-normal text-slate-500 uppercase">Rate (PMT) *</label>
             <input
               type="number"
@@ -438,7 +418,7 @@ export default function VK11CreatePrimaryFreightRates() {
           <div className="mt-2">
             Duplicate record is restricted.
             <br />
-            Duplicate match key: Plant + Origin + Destination + Minimum Grantee Weight (MT) + Condition record.
+            Duplicate match key: Plant + Destination + Rate (PMT).
           </div>
         </div>
       </div>

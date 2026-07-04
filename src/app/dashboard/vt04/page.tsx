@@ -82,8 +82,8 @@ function withinDateRange(value: any, fromDate: string, toDate: string) {
 function formatMaybeDateTime(value: any) {
   if (!value) return '-';
   const dt = new Date(value);
-  if (Number.isNaN(dt.getTime())) return '-';
-  return format(dt, 'dd-MM HH:mm');
+  if (!isValidDate(dt)) return '-';
+  return format(dt, 'dd-MMM-yyyy HH:mm');
 }
 
 export default function VT04Page() {
@@ -155,18 +155,27 @@ export default function VT04Page() {
     const plantCode = safeUpper(trip.plantCode);
     const origin = safeUpper(trip.origin || trip.from || '');
     const destination = safeUpper(trip.destination || trip.to || '');
-    const minWt = safeNum(trip.minimumGranteeWeightMt);
-    const conditionRecord = trip.conditionRecord || 'Regular';
+    const conditionRecord = (trip.conditionRecord || 'Regular').toString();
+    const cnDate = trip.cnDate ? parseISO(trip.cnDate) : null;
+
+    if (!cnDate || !isValidDate(cnDate)) {
+      return 0;
+    }
 
     const match = (vkRates || []).find((r: any) => {
       const rPlant = safeUpper(r.plantCode);
       const rOrigin = safeUpper(r.origin);
       const rDest = safeUpper(r.destination);
-      const rMinWt = safeNum(r.minimumGranteeWeightMt);
       const rCond = (r.conditionRecord || 'Regular').toString();
-      return rPlant === plantCode && rOrigin === origin && rDest === destination && rMinWt === minWt && rCond === conditionRecord;
-    });
 
+      const validFrom = r.validFrom ? parseISO(r.validFrom) : null;
+      const validTo = r.validTo ? parseISO(r.validTo) : null;
+
+      const isDateInRange = validFrom && validTo && isValidDate(validFrom) && isValidDate(validTo) && cnDate >= validFrom && cnDate <= validTo;
+
+      return rPlant === plantCode && rOrigin === origin && rDest === destination && rCond === conditionRecord && isDateInRange;
+    });
+    
     return match ? safeNum(match.ratePMT) : 0;
   };
 
