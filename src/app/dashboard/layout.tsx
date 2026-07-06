@@ -45,7 +45,6 @@ const MASTER_TCODES = [
   { code: 'VK11', description: 'PRIMARY FREIGHT RATES: CREATE', icon: ShoppingBag, module: 'Logistics' },
   { code: 'VK12', description: 'PRIMARY FREIGHT RATES: CHANGE', icon: Edit3, module: 'Logistics' },
   { code: 'VK13', description: 'PRIMARY FREIGHT RATES: DISPLAY', icon: Info, module: 'Logistics' },
-  { code: 'VT04', description: 'SHIPMENT REPORT', icon: FileText, module: 'Logistics' },
   { code: 'VT11', description: 'FREIGHT COST REPORT', icon: FileText, module: 'Logistics' },
   { code: 'SE38', description: 'CUSTOM REPORT EXECUTION', icon: FileText, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
@@ -155,7 +154,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         VK11: '/dashboard/vk11',
         VK12: '/dashboard/vk12',
         VK13: '/dashboard/vk13',
-        VT04: '/dashboard/vt04',
         VT11: '/dashboard/vt11',
 
         // MK - Forwarding Agent
@@ -208,7 +206,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         VK11: '/dashboard/vk11',
         VK12: '/dashboard/vk12',
         VK13: '/dashboard/vk13',
-        VT04: '/dashboard/vt04',
         VT11: '/dashboard/vt11',
 
         // MK - Forwarding Agent
@@ -249,7 +246,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       VK11: '/dashboard/vk11',
       VK12: '/dashboard/vk12',
       VK13: '/dashboard/vk13',
-      VT04: '/dashboard/vt04',
       VT11: '/dashboard/vt11',
 
       // Existing base-code mappings
@@ -311,16 +307,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (pathname?.includes('/print/')) return <div className="h-auto w-full bg-white print:overflow-visible">{children}</div>;
 
   return (
-    <div className="flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden flex print:h-auto print:overflow-visible">
-      <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden">
-        <div className="flex items-center gap-6">
-          {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => (
-            <button key={i} className="hover:text-blue-800 transition-colors uppercase">{i}</button>
-          ))}
-        </div>
-        <div className="flex-1" />
-        <button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white transition-all"><X className="h-3.5 w-3.5" /></button>
-      </div>
+    <div className="flex-col h-screen w-full bg-background text-foreground font-mono overflow-hidden flex print:h-auto print:overflow-visible">
+
 
       <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden">
         <div className="flex items-center px-2 py-1 gap-4 h-10">
@@ -348,7 +336,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-full">
             <button onClick={triggerGlobalSave} className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Save (F8 / Ctrl+S)"><Save className="h-4 w-4" /></button>
-            <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Back (F3)" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></button>
+            <button
+              className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700 disabled:opacity-30 disabled:pointer-events-none"
+              title="Back (F3)"
+              onClick={() => {
+                try {
+                  const stackRaw = localStorage.getItem('sap_nav_stack');
+                  const stack: string[] = stackRaw ? JSON.parse(stackRaw) : [];
+                  const current = pathname;
+                  const atHome = current === '/dashboard';
+                  if (atHome || stack.length <= 1) return;
+                  // pop current
+                  stack.pop();
+                  localStorage.setItem('sap_nav_stack', JSON.stringify(stack));
+                  const prev = stack[stack.length - 1];
+                  if (prev && prev !== current) router.push(prev);
+                } catch {
+                  router.back();
+                }
+              }}
+              disabled={pathname === '/dashboard'}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+
             <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Exit (Shift+F3)" onClick={() => router.push('/dashboard')}><ExitIcon className="h-4 w-4" /></button>
             <button className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Cancel (F12)" onClick={() => setTCode('')}><XCircle className="h-4 w-4" /></button>
             <div className="w-[1px] h-4 bg-slate-300 mx-2" />
@@ -363,9 +374,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       <div className="flex-1 flex overflow-hidden print:block print:overflow-visible">
-        <aside className="w-80 bg-white border-r border-slate-300 lg:flex flex-col overflow-hidden shadow-sm shrink-0 flex hidden print:hidden">
-          <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50 flex items-center justify-between">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2">
+        <aside className="w-80 bg-card border-r border-border lg:flex flex-col overflow-hidden shadow-sm shrink-0 flex hidden print:hidden">
+          <div className="p-4 border-b border-border bg-secondary/30 flex items-center justify-between">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground flex items-center gap-2">
               <Grid2X2 className="h-3.5 w-3.5" /> Quick Access
             </h2>
             <div className="flex items-center gap-1">
@@ -403,14 +414,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
 
-      <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] shrink-0 z-50 print:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.2)]">
-        <div className="flex items-center gap-8 overflow-hidden flex-1">
-          <span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span>
-          <span className="shrink-0">{searchParams.get('tcode') || 'HOME'}</span>
-          <span className="truncate">USER: {!mounted || isProfileLoading ? 'IDENTIFYING...' : (isBootstrapAdmin ? 'SUPER ADMIN' : isAdmin ? 'ADMIN' : (userProfile?.employeeName || 'IDENTIFYING...') )}</span>
-        </div>
-        <div className="shrink-0 ml-4 hidden sm:block text-blue-400 font-bold italic tracking-wider">SIKKA INDUSTRIES & LOGISTICS</div>
-      </div>
+
 
       <Dialog open={showAddFav} onOpenChange={setShowAddFav}>
         <DialogContent className="max-w-md rounded-none border-[3px] border-[#0056d2] font-mono">
@@ -430,4 +434,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
-

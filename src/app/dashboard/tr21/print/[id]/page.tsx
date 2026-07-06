@@ -182,13 +182,8 @@ export default function CNPrintPage() {
                   <div className="text-[10px] uppercase font-normal space-y-1 text-black">
                      <p className="text-[10px] font-normal leading-tight">{trip.consignorName}</p>
                      <p className="leading-tight text-black whitespace-pre-wrap">{consignor?.address}</p>
-                     <p className="text-[10px] pt-1">
-  GSTIN: {consignor?.gstNo || consignor?.gstin || '-'}
-</p>
-
-<p className="text-[10px]">
-  MOBILE: {consignor?.mobile || '-'}
-</p>
+                     <p className="text-[10px] pt-1">GSTIN: {consignor?.gstNo || consignor?.gstin || '-'}</p>
+                     <p className="text-[10px]">MOBILE: {consignor?.mobile || '-'}</p>
                   </div>
                </div>
                <div className="border-r border-black p-3 space-y-3 min-h-[140px]">
@@ -196,13 +191,8 @@ export default function CNPrintPage() {
                   <div className="text-[10px] uppercase font-normal space-y-1 text-black">
                      <p className="text-[10px] font-normal leading-tight">{trip.consigneeName}</p>
                      <p className="leading-tight text-black whitespace-pre-wrap">{consignee?.address}</p>
-                     <p className="text-[10px] pt-1">
-  GSTIN: {consignee?.gstNo || consignee?.gstin || '-'}
-</p>
-
-<p className="text-[10px]">
-  MOBILE: {consignee?.mobile || '-'}
-</p>
+                     <p className="text-[10px] pt-1">GSTIN: {consignee?.gstNo || consignee?.gstin || '-'}</p>
+                     <p className="text-[10px]">MOBILE: {consignee?.mobile || '-'}</p>
                   </div>
                </div>
                <div className="p-3 space-y-3 min-h-[140px] bg-white text-black">
@@ -210,13 +200,8 @@ export default function CNPrintPage() {
                   <div className="text-[10px] uppercase font-normal space-y-1 text-black">
                      <p className="text-[10px] font-normal leading-tight">{trip.shipToParty}</p>
                      <p className="leading-tight text-black whitespace-pre-wrap">{shipToParty?.address}</p>
-                     <p className="text-[10px] pt-1">
-  GSTIN: {shipToParty?.gstNo || shipToParty?.gstin || '-'}
-</p>
-
-<p className="text-[10px]">
-  MOBILE: {shipToParty?.mobile || '-'}
-</p>
+                     <p className="text-[10px] pt-1">GSTIN: {shipToParty?.gstNo || shipToParty?.gstin || '-'}</p>
+                     <p className="text-[10px]">MOBILE: {shipToParty?.mobile || '-'}</p>
                   </div>
                </div>
             </div>
@@ -226,23 +211,49 @@ export default function CNPrintPage() {
                <table className="w-full border-collapse border border-black text-[11px]">
                   <thead>
                      <tr className="bg-white uppercase text-[8px] font-normal text-black border-b border-black">
-                        <th className="p-2 border-r border-black w-[130px] text-left font-normal">Invoice No</th>
-                        <th className="p-2 border-r border-black w-[160px] text-left font-normal">E-Waybill No</th>
+                        <th className="p-2 border-r border-black w-[140px] text-left font-normal">Invoice No</th>
+                        <th className="p-2 border-r border-black w-[170px] text-left font-normal">E-Waybill No</th>
                         <th className="p-2 border-r border-black text-left font-normal">Description</th>
                         <th className="p-2 border-r border-black w-[110px] text-center font-normal">Package</th>
                         <th className="p-2 w-[110px] text-right font-normal">Weight (MT)</th>
                      </tr>
                   </thead>
                   <tbody>
-                     {(trip.invoices || []).filter((inv: any) => inv.invNo).map((inv: any, i: number) => (
-                        <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black text-[11px]">
-                           <td className="p-2 border-r border-black">{inv.invNo}</td>
-                           <td className="p-2 border-r border-black">{inv.ewaybillNo}</td>
-                           <td className="p-2 border-r border-black leading-snug text-[11px]">{inv.desc}</td>
-                           <td className="p-2 border-r border-black text-center">{inv.pkg} {inv.uom}</td>
-                           <td className="p-2 text-right">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
-                        </tr>
-                     ))}
+                     {(trip.invoices || []).filter((inv: any) => inv.invNo).map((inv: any, i: number) => {
+                        // Comma se values ko split karke individual arrays bana rhe hain
+                        const invList = inv.invNo ? inv.invNo.split(',').map((x: string) => x.trim()).filter(Boolean) : [];
+                        const ewayList = inv.ewaybillNo ? inv.ewaybillNo.split(',').map((x: string) => x.trim()).filter(Boolean) : [];
+
+                        return (
+                           <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black text-[11px]">
+                              {/* Invoice No Layout Fix */}
+                              <td className="p-2 border-r border-black align-top">
+                                 <div className="flex flex-wrap gap-1 max-w-[130px]">
+                                    {invList.map((num: string, idx: number) => (
+                                       <span key={idx} className="text-[9px] bg-slate-50 border border-slate-200 px-1 py-0.5 rounded-sm font-mono tracking-tight break-all">
+                                          {num}
+                                       </span>
+                                    ))}
+                                 </div>
+                              </td>
+
+                              {/* E-Waybill No Layout Fix */}
+                              <td className="p-2 border-r border-black align-top">
+                                 <div className="flex flex-wrap gap-1 max-w-[160px]">
+                                    {ewayList.map((num: string, idx: number) => (
+                                       <span key={idx} className="text-[9px] bg-slate-50 border border-slate-200 px-1 py-0.5 rounded-sm font-mono tracking-tight break-all">
+                                          {num}
+                                       </span>
+                                    ))}
+                                 </div>
+                              </td>
+
+                              <td className="p-2 border-r border-black leading-snug text-[11px] align-top">{inv.desc}</td>
+                              <td className="p-2 border-r border-black text-center align-top">{inv.pkg} {inv.uom}</td>
+                              <td className="p-2 text-right align-top">{i === 0 ? parseFloat(trip.assignWeight || 0).toFixed(3) : '-'}</td>
+                           </tr>
+                        );
+                     })}
                   </tbody>
                   <tfoot>
                      <tr className="bg-white font-normal text-[15px] uppercase border-t border-black text-black">

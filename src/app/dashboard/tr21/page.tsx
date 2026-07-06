@@ -61,7 +61,7 @@ export default function TR21Page() {
     assignWeight: '0',
     rate: '0',
     freightAmount: '0',
-    arrangeBy: '' // Added explicitly
+    arrangeBy: ''
   });
 
   const [cnData, setCNData] = React.useState<any>({
@@ -76,6 +76,9 @@ export default function TR21Page() {
     vehicleNo: '',
     assignWeight: ''
   });
+
+  const [showRestoreDialog, setShowRestoreDialog] = React.useState(false);
+  const [restoreDialogTrip, setRestoreDialogTrip] = React.useState<any>(null);
 
   const [statusUpdateData, setStatusUpdateData] = React.useState({
     tripId: '',
@@ -111,7 +114,6 @@ export default function TR21Page() {
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const companiesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
   const vendorsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
-  // Fetching forwarding agents (MK03) data
   const forwardingAgentsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'forwarding_agents'), [db]);
 
   const { data: orders } = useCollectionOptimized(ordersQuery);
@@ -127,7 +129,6 @@ export default function TR21Page() {
     return userProfile?.plantAccess || [];
   }, [isBootstrapAdmin, userProfile, isProfileLoading]);
 
-  // Sync plant filter with authorized access on mount
   React.useEffect(() => {
     if (mounted && authorizedPlantCodes && authorizedPlantCodes.length > 0 && plantFilter === 'ALL') {
       setPlantFilter(authorizedPlantCodes[0]);
@@ -152,15 +153,13 @@ export default function TR21Page() {
       baseTrips = baseTrips.filter(d => d.plantCode === plantFilter);
     }
 
-    // Open Orders count
     counts['Open Orders'] = baseOrders.filter(o => o.status === 'Open').map(o => {
       const dispatched = baseTrips.filter(t => t.orderNo === o.orderNo && t.status !== 'REJECTION')
-                              .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
+                               .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
       const weight = parseFloat(o.quantity) || 0;
       return { ...o, dispatched, balance: weight - dispatched };
     }).filter(o => o.balance > 0.001).length;
 
-    // Trip-based counts
     const statusMap: { [key: string]: string } = { 
       'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 
       'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' 
@@ -502,6 +501,45 @@ export default function TR21Page() {
     }
   };
 
+  const isAdminUser = React.useMemo(() => {
+    try {
+      return (userProfile?.registryId || registryId) === SHARED_HUB_ID || localStorage.getItem('sap_registry_id') === registryId && localStorage.getItem('sap_registry_id') === 'Sikkaind';
+    } catch {
+      return false;
+    }
+  }, [userProfile, registryId]);
+
+  const openRestoreDialog = (trip: any) => {
+    if (!trip) return;
+    setRestoreDialogTrip(trip);
+    setShowRestoreDialog(true);
+  };
+
+  const handleRestoreCommit = (trip: any) => {
+    if (!trip) return;
+    const current = trip.status;
+    const restoredStatusByCurrent: Record<string, string> = {
+      'IN-TRANSIT': 'LOADING',
+      'ARRIVED': 'IN-TRANSIT',
+      'REJECTION': 'ARRIVED',
+      'POD': 'ARRIVED',
+      'CLOSED': 'POD',
+    };
+
+    const nextStatus = restoredStatusByCurrent[current];
+    if (!nextStatus) {
+      alert('Restore not supported for the current trip status.');
+      return;
+    }
+
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', trip.id), {
+      status: nextStatus,
+      updatedAt: new Date().toISOString(),
+    });
+
+    alert(`Trip restored to previous stage (${nextStatus}).`);
+  };
+
   const handleOpenPrint = (tripId: string) => {
     window.open(`/dashboard/tr21/print/${tripId}`, '_blank');
   };
@@ -544,6 +582,40 @@ export default function TR21Page() {
             </button>
           ))}
         </div>
+
+        <Dialog open={!!(showRestoreDialog && restoreDialogTrip)} onOpenChange={(open) => {
+          if (!open) {
+            setShowRestoreDialog(false);
+            setRestoreDialogTrip(null);
+          }
+        }}>
+          <DialogContent className="max-w-md rounded-none border-[3px] border-slate-200 font-mono p-0 overflow-hidden text-left text-black">
+            <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
+              <DialogTitle className="text-[12px] font-normal uppercase text-slate-700 italic">Restore Trip</DialogTitle>
+            </DialogHeader>
+            <div className="p-8">
+              <p className="text-[10px] font-normal text-slate-600 uppercase italic leading-relaxed">
+                Are you sure you want to restore this Trip? The trip will be moved back to the previous workflow stage.
+              </p>
+            </div>
+            <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
+              <Button onClick={() => {
+                setShowRestoreDialog(false);
+                setRestoreDialogTrip(null);
+              }} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-normal px-10">
+                No
+              </Button>
+              <Button onClick={() => {
+                if (!restoreDialogTrip) return;
+                handleRestoreCommit(restoreDialogTrip);
+                setShowRestoreDialog(false);
+                setRestoreDialogTrip(null);
+              }} className="bg-emerald-600 text-white rounded-none h-10 uppercase text-[10px] font-normal px-16">
+                Yes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner custom-scrollbar relative flex flex-col">
           <div className="flex-1 overflow-auto">
@@ -726,6 +798,9 @@ export default function TR21Page() {
                             {activeTab === 'In-Transit' && (
                               <>
                                 <Button onClick={() => openStatusPortal(item, 'ARRIVED', 'arrivedDate', 'ARRIVAL HANDSHAKE')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">ARRIVED</Button>
+                                {isAdminUser && (
+                                  <Button onClick={() => openRestoreDialog(item)} className="h-6 w-20 text-[8px] font-normal bg-slate-500 text-white rounded-none">RESTORE</Button>
+                                )}
                                 <Button onClick={() => { 
                                   setSelectedTrip(item); 
                                   setVehicleData({ vehicleNo: item.vehicleNo || '', driverMobile: item.driverMobile || '' });
@@ -743,6 +818,9 @@ export default function TR21Page() {
                             {activeTab === 'Arrived' && (
                               <>
                                 <Button onClick={() => openStatusPortal(item, 'POD', 'unloadDate', 'UNLOADING PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">UNLOAD</Button>
+                                {isAdminUser && (
+                                  <Button onClick={() => openRestoreDialog(item)} className="h-6 w-20 text-[8px] font-normal bg-slate-500 text-white rounded-none">RESTORE</Button>
+                                )}
                                 <Button onClick={() => openStatusPortal(item, 'REJECTION', 'rejectionDate', 'REJECTION PROTOCOL')} className="h-6 w-20 text-[8px] font-normal bg-red-600 text-white rounded-none">REJECT</Button>
                                 <Button onClick={() => { 
                                   setSelectedTrip(item); 
@@ -762,12 +840,30 @@ export default function TR21Page() {
                               <>
                                 <Button className="h-6 w-20 text-[8px] font-normal bg-blue-600 text-white rounded-none">RESENT</Button>
                                 <Button className="h-6 w-20 text-[8px] font-normal bg-slate-800 text-white rounded-none">SRN</Button>
+                                {isAdminUser && (
+                                  <Button onClick={() => openRestoreDialog(item)} className="h-6 w-20 text-[8px] font-normal bg-slate-500 text-white rounded-none">RESTORE</Button>
+                                )}
                               </>
                             )}
-                            {(activeTab === 'POD Verify' || activeTab === 'Closed') && (
-                              <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className={cn("h-6 w-24 text-[8px] font-normal rounded-none", item.podUrl ? "bg-emerald-600" : "bg-orange-600")}>
-                                {item.podUrl ? 'VIEW POD' : 'UPLOAD POD'}
-                              </Button>
+                            {activeTab === 'POD Verify' && (
+                              <>
+                                <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className={cn("h-6 w-24 text-[8px] font-normal rounded-none", item.podUrl ? "bg-emerald-600" : "bg-orange-600")}>
+                                  {item.podUrl ? 'VIEW POD' : 'UPLOAD POD'}
+                                </Button>
+                                {isAdminUser && (
+                                  <Button onClick={() => openRestoreDialog(item)} className="h-6 w-20 text-[8px] font-normal bg-slate-500 text-white rounded-none">RESTORE</Button>
+                                )}
+                              </>
+                            )}
+                            {activeTab === 'Closed' && (
+                              <>
+                                <Button onClick={() => { setSelectedTrip(item); setShowPODPortal(true); }} className={cn("h-6 w-24 text-[8px] font-normal rounded-none", item.podUrl ? "bg-emerald-600" : "bg-orange-600")}>
+                                  {item.podUrl ? 'VIEW POD' : 'UPLOAD POD'}
+                                </Button>
+                                {isAdminUser && (
+                                  <Button onClick={() => openRestoreDialog(item)} className="h-6 w-20 text-[8px] font-normal bg-slate-500 text-white rounded-none">RESTORE</Button>
+                                )}
+                              </>
                             )}
                           </td>
                         </>
@@ -865,10 +961,10 @@ export default function TR21Page() {
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
              <DialogTitle className="text-[14px] font-normal uppercase text-[#1e3a8a] italic mb-4">VEHICLE ASSIGNMENT PROTOCOL</DialogTitle>
              <div className="grid grid-cols-4 gap-6 bg-white border border-slate-200 p-4 shadow-inner text-[10px] font-normal uppercase">
-                <div><span className="text-slate-400 text-[8px]">Consignee</span><p className="truncate">{selectedOrder?.consigneeName}</p></div>
-                <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedOrder?.shipToParty}</p></div>
-                <div><span className="text-slate-400 text-[8px]">Route</span><p className="truncate text-emerald-600 italic">{selectedOrder?.from} → {selectedOrder?.destination}</p></div>
-                <div><span className="text-slate-400 text-[8px]">Registry Qty</span><p className="text-blue-700">{selectedOrder?.quantity} MT</p></div>
+               <div><span className="text-slate-400 text-[8px]">Consignee</span><p className="truncate">{selectedOrder?.consigneeName}</p></div>
+               <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedOrder?.shipToParty}</p></div>
+               <div><span className="text-slate-400 text-[8px]">Route</span><p className="truncate text-emerald-600 italic">{selectedOrder?.from} → {selectedOrder?.destination}</p></div>
+               <div><span className="text-slate-400 text-[8px]">Registry Qty</span><p className="text-blue-700">{selectedOrder?.quantity} MT</p></div>
              </div>
           </DialogHeader>
           <div className="p-8 grid grid-cols-2 gap-x-10 gap-y-6 overflow-y-auto max-h-[50vh] green-scrollbar">
@@ -879,7 +975,6 @@ export default function TR21Page() {
                   onChange={e => setAssignData({
                     ...assignData,
                     fleetType: e.target.value,
-                    // Clear Arrange By whenever switching away from Market Vehicle
                     arrangeBy: e.target.value === 'Market Vehicle' ? assignData.arrangeBy : ''
                   })} 
                   className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
@@ -889,7 +984,6 @@ export default function TR21Page() {
                 </select>
              </div>
 
-             {/* --- ARRANGE BY PARTY DROPDOWN: only visible for Market Vehicle --- */}
              {assignData.fleetType === 'Market Vehicle' && (
                <div className="space-y-1.5">
                   <label className="text-[10px] font-normal text-slate-400 uppercase">Arrange By Party</label>
@@ -1019,11 +1113,11 @@ export default function TR21Page() {
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
              <DialogTitle className="text-[14px] font-normal uppercase text-emerald-700 italic mb-4">Documentation Execution: Consignment Note</DialogTitle>
              <div className="grid grid-cols-5 gap-6 bg-white border border-slate-200 p-4 text-[10px] font-normal uppercase">
-                <div><span className="text-slate-400 text-[8px]">Plant</span><p>{selectedTrip?.plantCode}</p></div>
-                <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedTrip?.shipToParty}</p></div>
-                <div><span className="text-slate-400 text-[8px]">Route</span><p className="italic">{selectedTrip?.from} → {selectedTrip?.destination}</p></div>
-                <div><span className="text-slate-400 text-[8px]">Vehicle</span><p className="text-blue-700">{selectedTrip?.vehicleNo}</p></div>
-                <div><span className="text-slate-400 text-[8px]">Carrier</span><p className="text-[#0056d2] truncate">{companies?.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip?.plantCode))?.companyName || 'N/A'}</p></div>
+               <div><span className="text-slate-400 text-[8px]">Plant</span><p>{selectedTrip?.plantCode}</p></div>
+               <div><span className="text-slate-400 text-[8px]">Ship To Party</span><p className="truncate">{selectedTrip?.shipToParty}</p></div>
+               <div><span className="text-slate-400 text-[8px]">Route</span><p className="italic">{selectedTrip?.from} → {selectedTrip?.destination}</p></div>
+               <div><span className="text-slate-400 text-[8px]">Vehicle</span><p className="text-blue-700">{selectedTrip?.vehicleNo}</p></div>
+               <div><span className="text-slate-400 text-[8px]">Carrier</span><p className="text-[#0056d2] truncate">{companies?.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip?.plantCode))?.companyName || 'N/A'}</p></div>
              </div>
           </DialogHeader>
           <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto green-scrollbar">

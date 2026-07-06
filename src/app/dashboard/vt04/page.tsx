@@ -1,6 +1,10 @@
 'use client';
 
+// VT04 removed per request.
+// This page is intentionally left blank so VT11 becomes the active screen.
+
 import * as React from 'react';
+
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { collection, doc } from '@/lib/mongo-store';

@@ -31,26 +31,19 @@ type ForwardingAgentRow = {
   mobileNumber?: string;
 };
 
-type MasterOption = {
-  id: string;
-  code?: string;
-  name?: string;
-  description?: string;
-  label?: string;
-};
-
 type ReportRow = {
   tripId: string;
-  lrNo: string;
+  cnNo: string;
   lrDate: string;
   saleOrder: string;
+  consignor: string;
   billToParty: string;
   shipToParty: string;
   origin: string;
   destination: string;
   invoiceNo: string;
-  totalPackages: number;
-  weightWithUom: string;
+  totalUnit: number;
+  weight: string;
   fleetType: string;
   vehicleNumber: string;
   driverMobileNumber: string;
@@ -130,32 +123,23 @@ export default function VT11FreightCostReportPage() {
   const [rows, setRows] = React.useState<ReportRow[]>([]);
   const [reportGenerated, setReportGenerated] = React.useState(false);
 
-  // Masters / reference
+  // Masters Queries
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const salesOrdersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripBoardQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
-
-  const forwardingAgentsQuery = useMemoMongo(
-    () => collection(db, 'users', SHARED_HUB_ID, 'forwarding_agents'),
-    [db]
-  );
-
-  // These may differ in your data model; adjust if needed.
-  const vendorQuery = useMemoMongo(
-    () => collection(db, 'users', SHARED_HUB_ID, 'vendors'),
-    [db]
-  );
-  const destinationQuery = useMemoMongo(
-    () => collection(db, 'users', SHARED_HUB_ID, 'destination_master'),
-    [db]
-  );
+  const forwardingAgentsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'forwarding_agents'), [db]);
+  const vendorQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
+  const destinationQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'destination_master'), [db]);
+  const ratesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vk_primary_freight_rates'), [db]);
 
   const { data: plants } = useCollectionOptimized(plantsQuery);
   const { data: tripBoard } = useCollectionOptimized(tripBoardQuery);
+  const { data: salesOrders } = useCollectionOptimized(salesOrdersQuery);
   const { data: forwardingAgents } = useCollectionOptimized(forwardingAgentsQuery);
   const { data: vendors } = useCollectionOptimized(vendorQuery);
   const { data: destinations } = useCollectionOptimized(destinationQuery);
+  const { data: vkRates } = useCollectionOptimized(ratesQuery);
 
-  // Authorized plant filtering (same pattern as VT04)
   const [registryId, setRegistryId] = React.useState<string | null>(null);
   const profileRef = useMemoMongo(() => {
     if (!registryId || isBootstrapAdmin) return null;
@@ -191,10 +175,9 @@ export default function VT11FreightCostReportPage() {
   const forwardingArrangeByOptions = React.useMemo(() => {
     const list: ForwardingAgentRow[] = (forwardingAgents || []).map((a: any) => ({
       id: a?.id || a?._id || crypto.randomUUID(),
-      arrangeByName: a?.arrangeByName,
+      arrangeByName: a?.arrangeByName || a?.name,
       mobileNumber: a?.mobileNumber,
     }));
-
     return list
       .filter((a) => safeStr(a.arrangeByName).length > 0)
       .sort((x, y) => (safeUpper(x.arrangeByName) < safeUpper(y.arrangeByName) ? -1 : 1));
@@ -202,21 +185,21 @@ export default function VT11FreightCostReportPage() {
 
   const vendorOptions = React.useMemo(() => {
     return (vendors || []).map((v: any) => ({
-      id: v?.id || v?._id || crypto.randomUUID(),
+      id: v?.id || v?._id || v?.vendorCode || v?.code || crypto.randomUUID(),
       code: safeStr(v?.vendorCode || v?.code),
       name: safeStr(v?.vendorName || v?.name),
       description: safeStr(v?.description),
     }));
   }, [vendors]);
 
-  const destinationOptions = React.useMemo(() => {
-    return (destinations || []).map((d: any) => ({
-      id: d?.id || d?._id || crypto.randomUUID(),
-      code: safeStr(d?.destinationCode || d?.code),
-      name: safeStr(d?.destinationName || d?.name),
-      description: safeStr(d?.description),
-    }));
-  }, [destinations]);
+const destinationOptions = React.useMemo(() => {
+  return (destinations || []).map((d: any) => ({
+    id: d?.id || d?._id || d?.destinationCode || d?.code || crypto.randomUUID(),
+    code: safeStr(d?.destinationCode || d?.code),
+    name: safeStr(d?.destinationName || d?.name || d?.code), //  इसे d?.name कर दें
+    description: safeStr(d?.description),
+  }));
+}, [destinations]);
 
   const validate = () => {
     const next: string[] = [];
@@ -228,61 +211,19 @@ export default function VT11FreightCostReportPage() {
 
   const exportExcel = () => {
     const header = [
-      'Trip ID',
-      'LR No.',
-      'LR Date',
-      'Sale Order',
-      'Bill To Party',
-      'Ship To Party',
-      'Origin',
-      'Destination',
-      'Invoice No.',
-      'Total Packages',
-      'Weight (with UOM)',
-      'Fleet Type',
-      'Vehicle Number',
-      'Driver Mobile Number',
-      'Vendor Name',
-      'Secondary Rate',
-      'Secondary Freight',
-      'Arrange By',
-      'Primary Rate',
-      'Primary Freight Amount',
-      'Out Date & Time',
-      'Arrived Date & Time',
-      'Unload Date & Time',
-      'Reject Date & Time',
-      'POD Status',
-      'Current Status',
+      'Trip ID', 'CN No.', 'LR Date', 'Sale Order', 'Consignor', 'Bill To Party', 'Ship To Party',
+      'Origin', 'Destination', 'Invoice No./E-WAYBILL NO.', 'Total Unit', 'Weight',
+      'Fleet Type', 'Vehicle Number', 'Driver Mobile Number', 'Vendor Name', 'Secondary Rate', 
+      'Secondary Freight', 'Arrange By', 'Primary Rate', 'Primary Freight Amount', 'Out Date & Time', 
+      'Arrived Date & Time', 'POD Status'
     ];
 
     const csvRows = rows.map((r) => [
-      r.tripId,
-      r.lrNo,
-      r.lrDate,
-      r.saleOrder,
-      r.billToParty,
-      r.shipToParty,
-      r.origin,
-      r.destination,
-      r.invoiceNo,
-      r.totalPackages,
-      r.weightWithUom,
-      r.fleetType,
-      r.vehicleNumber,
-      r.driverMobileNumber,
-      r.vendorName,
-      r.secondaryRate,
-      r.secondaryFreight,
-      r.arrangeBy,
-      r.primaryRate,
-      r.primaryFreightAmount,
-      r.outDateTime,
-      r.arrivedDateTime,
-      r.unloadDateTime,
-      r.rejectDateTime,
-      r.podStatus,
-      r.currentStatus,
+      r.tripId, r.cnNo, r.lrDate, r.saleOrder, r.consignor, r.billToParty, r.shipToParty,
+      r.origin, r.destination, r.invoiceNo, r.totalUnit, r.weight,
+      r.fleetType, r.vehicleNumber, r.driverMobileNumber, r.vendorName, r.secondaryRate,
+      r.secondaryFreight, r.arrangeBy, r.primaryRate, r.primaryFreightAmount, r.outDateTime,
+      r.arrivedDateTime, r.podStatus, r.currentStatus
     ]);
 
     const escape = (v: any) => {
@@ -292,7 +233,6 @@ export default function VT11FreightCostReportPage() {
     };
 
     const csv = [header.map(escape).join(','), ...csvRows.map((rr) => rr.map(escape).join(','))].join('\n');
-
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -314,127 +254,135 @@ export default function VT11FreightCostReportPage() {
       const toDate = form.toDate;
       const selectedPlant = form.plantCode;
 
-      const vendorNameById = new Map(
-        vendorOptions.map((v) => [
-          v.id,
-          v.name || v.code || '-',
-        ])
-      );
-
-      const destinationNameById = new Map(
-        destinationOptions.map((d) => [
-          d.id,
-          d.name || d.code || '-',
-        ])
-      );
-
-      const arrangeByNameById = new Map(
-        forwardingArrangeByOptions.map((a) => [a.id, a.arrangeByName || '-'])
-      );
-
-      const filtered = (tripBoard || []).filter((t: any) => {
+      const filteredTrips = (tripBoard || []).filter((t: any) => {
         const plantOk = selectedPlant === 'ALL' ? true : safeUpper(t.plantCode) === safeUpper(selectedPlant);
+        if (!plantOk) return false;
 
-        // VA04 short-close should be excluded from dashboard counting.
-        // Backend closes trips with: status === 'CLOSED'
-        const statusOk = safeUpper(t.status) !== 'CLOSED';
-        if (!plantOk || !statusOk) return false;
+        const dateTarget = t.assignDate || t.lrDate || t.createdAt || t.outDate || t.inDateTime;
+        const dateOk = withinDateRange(dateTarget, fromDate, toDate);
+        if (!dateOk) return false;
 
-        // Using "any date" since user said create anything.
-        const dateOk = withinDateRange(t.lrDate || t.createdAt || t.outDate || t.assignDate || t.updatedAt || t.inDateTime, fromDate, toDate);
+        const tripVendor = t.vendorId || t.vendorCode || t.vendor?.id || t.vendor;
+        const vendorOk = form.vendorId === 'ALL' ? true : safeUpper(tripVendor) === safeUpper(form.vendorId);
 
-        const vendorOk = form.vendorId === 'ALL' ? true : safeUpper(t.vendorId || t.vendorCode || t.vendor?.id || t.vendor) === safeUpper(form.vendorId);
-        const destinationOk = form.destinationId === 'ALL' ? true : safeUpper(t.destinationId || t.destinationCode || t.destination?.id || t.destination) === safeUpper(form.destinationId);
+        const tripDest = t.destinationId || t.destinationCode || t.destination?.id || t.destination;
+        const destinationOk = form.destinationId === 'ALL' ? true : safeUpper(tripDest) === safeUpper(form.destinationId);
 
-        const arrangeByOk = form.arrangeBy === 'ALL'
-          ? true
-          : safeUpper(t.arrangeById || t.arrangeByName || t.forwardingAgentId || t.forwarding_agent_id) === safeUpper(form.arrangeBy);
+        const tripArrange = t.arrangeById || t.arrangeByName || t.forwardingAgentId || t.forwarding_agent_id || t.arrangeBy;
+        const arrangeByOk = form.arrangeBy === 'ALL' ? true : safeUpper(tripArrange) === safeUpper(form.arrangeBy);
 
-        return plantOk && dateOk && vendorOk && destinationOk && arrangeByOk;
+        return vendorOk && destinationOk && arrangeByOk;
       });
 
-      const nextRows: ReportRow[] = filtered.map((t: any) => {
-        const tripId = safeStr(t.tripNo || t.tripId || t.tripNoText || t.id);
-        const lrNo = safeStr(t.lrNo || t.lrNoNumber || t.lrNumber);
-        const lrDate = formatMaybeDateOnly(t.lrDate || t.lr_dt || t.createdAt);
+      const nextRows: ReportRow[] = filteredTrips.map((t: any) => {
+        const currentOrderNo = t.orderNo || t.saleOrder || t.soNo || t.saleOrderNo;
+        const saleOrderDoc = (salesOrders || []).find((so: any) => 
+          safeStr(so.orderNo) === safeStr(currentOrderNo) || safeStr(so.id) === safeStr(currentOrderNo)
+        );
 
-        const saleOrder = safeStr(t.saleOrder || t.saleOrderNo || t.soNo);
-        const billToParty = safeStr(t.billToParty || t.billTo || t.bill_to);
-        const shipToParty = safeStr(t.shipToParty || t.shipTo || t.ship_to);
+        const extractedCnNo = safeStr(t.cnNumber || t.lrNo || t.lrNumber || t.lr_no || t.lrNoText || t.lrNoNumber || '-');
 
-        const origin = safeUpper(t.origin || t.from || '');
-        const destination = safeUpper(t.destination || t.to || '');
+        const extractedBillTo = safeStr(
+          t.billToParty || 
+          t.billTo || 
+          t.consigneeName ||
+          t.billToName ||
+          t.billToPartyName ||
+          saleOrderDoc?.billToParty || 
+          saleOrderDoc?.billTo || 
+          saleOrderDoc?.consigneeName ||
+          saleOrderDoc?.customerName ||
+          t.customerName ||
+          t.consigneeCode ||
+          saleOrderDoc?.consigneeCode ||
+          '-'
+        );
 
-        const invoiceNo = safeStr(t.invoiceNo || t.invoice || t.invNo);
+        const invoicesFromTrip = Array.isArray(t.invoices) ? t.invoices.map((i: any) => safeStr(i.invNo)).filter(Boolean) : [];
+        const ewaybillsFromTrip = Array.isArray(t.invoices) ? t.invoices.map((i: any) => safeStr(i.ewaybillNo)).filter(Boolean) : [];
 
-        const totalPackages = safeNum(t.totalPackages || t.packageTotal || (t.packages ? t.packages : 0));
+        const singleInvoice = safeStr(t.invoiceNo || t.invoice || t.invNo);
+        const singleEwaybill = safeStr(t.ewayBillNo || t.eWaybillNo);
 
-        const weightVal = safeNum(t.weight || t.totalWeight || t.totalWeightMt || t.totalWeightMtKg);
-        const uom = safeStr(t.uom || t.weightUom || t.weight_uom);
-        const weightWithUom = `${weightVal}${uom ? ` ${uom}` : ''}`.trim() || '-';
+        const allInvoices = [...invoicesFromTrip, ...(singleInvoice ? [singleInvoice] : [])];
+        const allEwaybills = [...ewaybillsFromTrip, ...(singleEwaybill ? [singleEwaybill] : [])];
 
-        const fleetType = safeStr(t.fleetType || t.fleet_type);
-        const vehicleNumber = safeStr(t.vehicleNo || t.vehicleNumber || t.vehicle_no);
-        const driverMobileNumber = safeStr(t.driverMobile || t.driverMobileNumber || t.driver_mobile);
+        const uniqueInvoices = [...new Set(allInvoices)].join(', ');
+        const uniqueEwaybills = [...new Set(allEwaybills)].join(', ');
 
-        const vendorName = (() => {
-          const id = safeStr(t.vendorId || t.vendorCode || t.vendor?.id || t.vendor);
-          // If the filter matches by id/code, still show name when possible.
-          return vendorOptions.find((v) => safeUpper(v.id) === safeUpper(id))?.name ||
-            vendorNameById.get(id) ||
-            safeStr(t.vendorName || t.vendor?.name) ||
-            id ||
-            '-';
-        })();
+        const extractedInvoiceEwaybill = [uniqueInvoices, uniqueEwaybills]
+          .filter(Boolean)
+          .join(' / ');
 
-        const secondaryRate = safeNum(t.secondaryRate || t.secRate || t.rate2);
-        const secondaryFreight = safeNum(t.secondaryFreight || t.secondaryFreightAmount || t.secFreightAmount || t.freightAmount2);
+        const totalUnitFromInvoices = Array.isArray(t.invoices)
+          ? t.invoices.reduce((sum: number, i: any) => sum + safeNum(i.pkg), 0)
+          : 0;
 
-        const arrangeBy = safeStr(t.arrangeByName || t.arrangeBy || arrangeByNameById.get(safeStr(t.arrangeById || t.forwardingAgentId)));
+        const tripWeight = safeNum(t.weight || t.totalWeight || t.assignWeight);
 
-        const primaryRate = safeNum(t.primaryRate || t.priRate || t.rate1);
-        const primaryFreightAmount = safeNum(t.primaryFreightAmount || t.primaryFreight || t.freightAmount1 || t.priFreightAmount);
+        // --- VK13 Integration logic ---
+        const tripPlant = safeUpper(t.plantCode || '');
+        const tripOrigin = safeUpper(t.origin || t.from || t.plantCode || '');
+        const tripDestination = safeUpper(t.destination || t.to || t.destinationName || '');
 
-        const outDateTime = formatMaybeDateTime(t.outDate || t.outDateTime || t.out_dt);
-        const arrivedDateTime = formatMaybeDateTime(t.arrivedDate || t.arrivedDateTime || t.arrived_dt);
-        const unloadDateTime = formatMaybeDateTime(t.unloadDate || t.unloadDateTime || t.unload_dt);
-        const rejectDateTime = formatMaybeDateTime(t.rejectDate || t.rejectDateTime || t.rejectionDate || t.reject_dt);
+        const matchedRates = (vkRates || []).filter((r: any) => 
+          safeUpper(r.plantCode) === tripPlant &&
+          safeUpper(r.origin) === tripOrigin &&
+          safeUpper(r.destination) === tripDestination
+        );
 
-        const podStatus = safeStr(t.podStatus || t.PODStatus || t.pod_status);
-        const currentStatus = safeStr(t.status || t.currentStatus || t.tripStatus);
+        if (matchedRates.length > 0) {
+          matchedRates.sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
+        }
+
+        const fetchedPrimaryRate = matchedRates.length > 0 ? safeNum(matchedRates[0].ratePMT) : 0;
+        const calculatedPrimaryFreightAmount = fetchedPrimaryRate * tripWeight;
+
+        // --- Sync POD Status Logic from TR21 ---
+        let finalPodStatus = 'PENDING';
+        if (t.podUrl || safeUpper(t.podStatus) === 'RECEIVED' || safeUpper(t.status) === 'CLOSED') {
+          finalPodStatus = 'RECEIVED';
+        } else if (safeUpper(t.podStatus)) {
+          finalPodStatus = safeUpper(t.podStatus);
+        }
 
         return {
-          tripId,
-          lrNo,
-          lrDate,
-          saleOrder,
-          billToParty,
-          shipToParty,
-          origin,
-          destination,
-          invoiceNo,
-          totalPackages,
-          weightWithUom,
-          fleetType,
-          vehicleNumber,
-          driverMobileNumber,
-          vendorName,
-          secondaryRate,
-          secondaryFreight,
-          arrangeBy,
-          primaryRate,
-          primaryFreightAmount,
-          outDateTime,
-          arrivedDateTime,
-          unloadDateTime,
-          rejectDateTime,
-          podStatus,
-          currentStatus,
+          tripId: safeStr(t.tripNo || t.tripId || t.id),
+          cnNo: extractedCnNo,
+          lrDate: formatMaybeDateOnly(t.lrDate || t.createdAt),
+          saleOrder: safeStr(currentOrderNo || '-'),
+          consignor: safeStr(t.consignorName || saleOrderDoc?.consignorName || t.consignorCode || t.consignor || '-'),
+          billToParty: extractedBillTo,
+          shipToParty: safeStr(t.shipToParty || saleOrderDoc?.shipToParty || t.shipTo || t.shipToName || '-'),
+          origin: tripOrigin,
+          destination: tripDestination,
+          invoiceNo: extractedInvoiceEwaybill || '-',
+          totalUnit: totalUnitFromInvoices || safeNum(t.totalPackages || t.packages || t.totalQty),
+          weight: `${tripWeight} MT`,
+          fleetType: safeStr(t.fleetType || t.fleet_type || '-'),
+          vehicleNumber: safeUpper(t.vehicleNo || t.vehicleNumber || ''),
+          driverMobileNumber: safeStr(t.driverMobile || t.driverMobileNumber || ''),
+          vendorName: safeStr(t.vendorName || t.vendor?.name || t.vendorId || '-'),
+          secondaryRate: safeNum(t.secondaryRate || t.secRate || t.rate),
+          secondaryFreight: safeNum(t.secondaryFreight || t.secondaryFreightAmount || t.freightAmount),
+          arrangeBy: safeStr(t.arrangeByName || t.arrangeBy || '-'),
+          primaryRate: fetchedPrimaryRate,
+          primaryFreightAmount: calculatedPrimaryFreightAmount,
+          outDateTime: formatMaybeDateTime(t.outDate || t.outDateTime),
+          arrivedDateTime: formatMaybeDateTime(t.arrivedDate || t.arrivedDateTime),
+          unloadDateTime: formatMaybeDateTime(t.unloadDate || t.unloadDateTime),
+          rejectDateTime: formatMaybeDateTime(t.rejectDate || t.rejectDateTime),
+          
+          podStatus: finalPodStatus, // Set mapped pod status
+          
+          currentStatus: safeStr(t.status || t.currentStatus || 'In-Transit'),
         };
       });
 
       setRows(nextRows);
       setReportGenerated(true);
+    } catch (e) {
+      console.error(e);
     } finally {
       setExecuting(false);
     }
@@ -450,130 +398,131 @@ export default function VT11FreightCostReportPage() {
   if (!mounted) return null;
 
   return (
-    <div className="h-screen w-full flex flex-col p-6 bg-[#f2f2f2] font-mono text-black overflow-hidden">
+    <div className="h-screen w-full flex flex-col p-6 bg-slate-100 font-mono text-black overflow-hidden">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 shadow-sm flex items-end justify-between gap-4 flex-shrink-0">
         <h2 className="text-[16px] font-bold uppercase italic">VT11 – Freight Cost Report</h2>
         <div className="flex items-center gap-3 text-[10px] text-slate-500 uppercase font-black tracking-widest">
           <span className="inline-flex items-center gap-2">
-            <span className="h-2 w-2 bg-blue-600 rounded-full" />
+            <span className="h-2 w-2 bg-green-600 rounded-full" />
             {reportGenerated ? `${rows.length} records` : 'Execute to generate'}
           </span>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white border border-slate-300 shadow-inner p-6 mb-4 flex-shrink-0">
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-6">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Plant</label>
-            <select
-              value={form.plantCode}
-              disabled={!isBootstrapAdmin && authorizedPlantCodes?.length === 1}
-              onChange={(e) => setForm((p) => ({ ...p, plantCode: e.target.value }))}
-              className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
-            >
-              {isBootstrapAdmin && <option value="ALL">All Plants</option>}
-              {plantOptions.map((p: any) => (
-                <option key={p.id} value={p.plantCode}>
-                  {p.plantCode}
-                </option>
+      {/* Filters Form */}
+      {!reportGenerated && (
+        <div className="bg-white border border-slate-300 shadow-inner p-6 mb-4 flex-shrink-0">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-6">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-normal text-slate-500 uppercase">Plant</label>
+              <select
+                value={form.plantCode}
+                disabled={!isBootstrapAdmin && authorizedPlantCodes?.length === 1}
+                onChange={(e) => setForm((p) => ({ ...p, plantCode: e.target.value }))}
+                className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
+              >
+                {isBootstrapAdmin && <option value="ALL">All Plants</option>}
+                {plantOptions.map((p: any) => (
+                  <option key={p.id || p._id} value={p.plantCode}>
+                    {p.plantCode}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-normal text-slate-500 uppercase">From Date</label>
+              <input
+                type="date"
+                value={form.fromDate}
+                onChange={(e) => setForm((p) => ({ ...p, fromDate: e.target.value }))}
+                className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal outline-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-normal text-slate-500 uppercase">To Date</label>
+              <input
+                type="date"
+                value={form.toDate}
+                onChange={(e) => setForm((p) => ({ ...p, toDate: e.target.value }))}
+                className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal outline-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-normal text-slate-500 uppercase">Vendor</label>
+              <select
+                value={form.vendorId}
+                onChange={(e) => setForm((p) => ({ ...p, vendorId: e.target.value }))}
+                className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
+              >
+                <option value="ALL">All</option>
+                {vendorOptions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name || v.code}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-normal text-slate-500 uppercase">Arrange By</label>
+              <select
+                value={form.arrangeBy}
+                onChange={(e) => setForm((p) => ({ ...p, arrangeBy: e.target.value }))}
+                className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
+              >
+                <option value="ALL">All</option>
+                {forwardingArrangeByOptions.map((a) => (
+                  <option key={a.id} value={a.arrangeByName}>
+                    {a.arrangeByName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="text-[10px] font-normal text-slate-500 uppercase">Destination</label>
+              <select
+                value={form.destinationId}
+                onChange={(e) => setForm((p) => ({ ...p, destinationId: e.target.value }))}
+                className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
+              >
+                <option value="ALL">All</option>
+                {destinationOptions.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name || d.code}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {errors.length > 0 && (
+            <div className="mt-3 bg-red-50 border border-red-200 p-2 text-[10px] text-red-700">
+              {errors.map((e, i) => (
+                <div key={i}>• {e}</div>
               ))}
-            </select>
-          </div>
+            </div>
+          )}
 
-          {/* From/To in same row concept */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">From Date</label>
-            <input
-              type="date"
-              value={form.fromDate}
-              onChange={(e) => setForm((p) => ({ ...p, fromDate: e.target.value }))}
-              className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal outline-none"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">To Date</label>
-            <input
-              type="date"
-              value={form.toDate}
-              onChange={(e) => setForm((p) => ({ ...p, toDate: e.target.value }))}
-              className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal outline-none"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Vendor</label>
-            <select
-              value={form.vendorId}
-              onChange={(e) => setForm((p) => ({ ...p, vendorId: e.target.value }))}
-              className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
+          <div className="mt-4 flex items-center justify-end gap-3">
+            <Button variant="outline" className="h-9 rounded-none px-8 text-xs" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button
+              className="h-9 bg-green-600 hover:bg-green-700 text-white rounded-none px-12 text-xs"
+              onClick={handleExecute}
+              disabled={executing}
             >
-              <option value="ALL">All</option>
-              {vendorOptions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name || v.code}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Arrange By</label>
-            <select
-              value={form.arrangeBy}
-              onChange={(e) => setForm((p) => ({ ...p, arrangeBy: e.target.value }))}
-              className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
-            >
-              <option value="ALL">All</option>
-              {forwardingArrangeByOptions.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.arrangeByName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5 sm:col-span-2">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Destination</label>
-            <select
-              value={form.destinationId}
-              onChange={(e) => setForm((p) => ({ ...p, destinationId: e.target.value }))}
-              className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
-            >
-              <option value="ALL">All</option>
-              {destinationOptions.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name || d.code}
-                </option>
-              ))}
-            </select>
+              {executing ? 'Executing...' : 'Execute'}
+            </Button>
           </div>
         </div>
+      )}
 
-        {errors.length > 0 && (
-          <div className="mt-3 bg-red-50 border border-red-200 p-2 text-[10px] text-red-700">
-            {errors.map((e, i) => (
-              <div key={i}>• {e}</div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-4 flex items-center justify-end gap-3">
-          <Button variant="outline" className="h-9 rounded-none px-8 text-xs" onClick={handleCancel}>
-            Cancel
-          </Button>
-          <Button
-            className="h-9 bg-[#0056d2] text-white rounded-none px-12 text-xs"
-            onClick={handleExecute}
-            disabled={executing}
-          >
-            {executing ? 'Executing...' : 'Execute'}
-          </Button>
-        </div>
-      </div>
-
-      {/* Output */}
+      {/* Output Grid */}
       <div className="bg-white border border-slate-300 shadow-inner flex-1 min-h-0 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between gap-3 p-3 border-b border-slate-200 bg-slate-50 flex-shrink-0">
           <div className="text-[10px] font-black uppercase italic text-slate-600">Freight Cost Data Grid</div>
@@ -586,40 +535,24 @@ export default function VT11FreightCostReportPage() {
             >
               <FileSpreadsheet className="h-3.5 w-3.5 mr-2" /> Export excel
             </Button>
+            {reportGenerated && (
+              <Button variant="outline" className="h-8 rounded-none px-8 text-xs" onClick={handleCancel}>
+                Cancel
+              </Button>
+            )}
           </div>
         </div>
 
         <div className="flex-1 overflow-auto">
-          <table className="w-full text-left text-[11px] min-w-[2600px] border-collapse">
-            <thead className="bg-[#f8fafc] sticky top-0 z-10 border-b border-slate-300 font-normal uppercase text-slate-500 bg-white">
+          <table className="w-full text-left text-[11px] min-w-[2800px] border-collapse">
+            <thead className="sticky top-0 z-10 border-b border-slate-300 font-normal uppercase text-slate-500 bg-[#f8fafc]">
               <tr>
                 {[
-                  'Trip ID',
-                  'LR No.',
-                  'LR Date',
-                  'Sale Order',
-                  'Bill To Party',
-                  'Ship To Party',
-                  'Origin',
-                  'Destination',
-                  'Invoice No.',
-                  'Total Packages',
-                  'Weight (with UOM)',
-                  'Fleet Type',
-                  'Vehicle Number',
-                  'Driver Mobile Number',
-                  'Vendor Name',
-                  'Secondary Rate',
-                  'Secondary Freight',
-                  'Arrange By',
-                  'Primary Rate',
-                  'Primary Freight Amount',
-                  'Out Date & Time',
-                  'Arrived Date & Time',
-                  'Unload Date & Time',
-                  'Reject Date & Time',
-                  'POD Status',
-                  'Current Status',
+                  'Trip ID', 'CN No.', 'LR Date', 'Sale Order', 'Consignor', 'Bill To Party', 'Ship To Party',
+                  'Origin', 'Destination', 'Invoice No./E-WAYBILL NO.', 'Total Unit', 'Weight',
+                  'Fleet Type', 'Vehicle Number', 'Driver Mobile Number', 'Vendor Name', 'Secondary Rate',
+                  'Secondary Freight', 'Arrange By', 'Primary Rate', 'Primary Freight Amount', 'Out Date & Time',
+                  'Arrived Date & Time', 'Unload Date & Time', 'Reject Date & Time', 'POD Status', 'Current Status',
                 ].map((h) => (
                   <th key={h} className="p-3 border-r bg-[#f8fafc] last:border-r-0">
                     {h}
@@ -630,18 +563,19 @@ export default function VT11FreightCostReportPage() {
 
             <tbody>
               {rows.map((r, idx) => (
-                <tr key={`${r.tripId}-${idx}`} className="border-b border-slate-100 hover:bg-blue-50/20">
+                <tr key={`${r.tripId}-${idx}`} className="border-b border-slate-100 hover:bg-green-50/20">
                   <td className="p-3 border-r">{r.tripId}</td>
-                  <td className="p-3 border-r">{r.lrNo}</td>
+                  <td className="p-3 border-r">{r.cnNo}</td>
                   <td className="p-3 border-r whitespace-nowrap">{r.lrDate}</td>
                   <td className="p-3 border-r max-w-xs truncate">{r.saleOrder}</td>
+                  <td className="p-3 border-r max-w-xs truncate">{r.consignor}</td>
                   <td className="p-3 border-r max-w-xs truncate">{r.billToParty}</td>
                   <td className="p-3 border-r max-w-xs truncate">{r.shipToParty}</td>
                   <td className="p-3 border-r">{r.origin}</td>
                   <td className="p-3 border-r">{r.destination}</td>
                   <td className="p-3 border-r">{r.invoiceNo}</td>
-                  <td className="p-3 border-r text-right font-bold">{r.totalPackages}</td>
-                  <td className="p-3 border-r">{r.weightWithUom}</td>
+                  <td className="p-3 border-r text-right font-bold">{r.totalUnit}</td>
+                  <td className="p-3 border-r text-right">{r.weight}</td>
                   <td className="p-3 border-r">{r.fleetType}</td>
                   <td className="p-3 border-r whitespace-nowrap">{r.vehicleNumber}</td>
                   <td className="p-3 border-r whitespace-nowrap">{r.driverMobileNumber}</td>
@@ -655,7 +589,17 @@ export default function VT11FreightCostReportPage() {
                   <td className="p-3 border-r whitespace-nowrap">{r.arrivedDateTime}</td>
                   <td className="p-3 border-r whitespace-nowrap">{r.unloadDateTime}</td>
                   <td className="p-3 border-r whitespace-nowrap">{r.rejectDateTime}</td>
-                  <td className="p-3 border-r">{r.podStatus}</td>
+                  
+                  {/* Style for POD Status */}
+                  <td className="p-3 border-r text-center font-bold">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[10px]",
+                      r.podStatus === 'RECEIVED' ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                    )}>
+                      {r.podStatus}
+                    </span>
+                  </td>
+
                   <td className="p-3 border-r">
                     <span
                       className={cn(
@@ -677,7 +621,7 @@ export default function VT11FreightCostReportPage() {
 
               {!executing && reportGenerated && rows.length === 0 && (
                 <tr>
-                  <td colSpan={26} className="p-20 text-center text-slate-400 italic uppercase font-black text-[10px] tracking-widest">
+                  <td colSpan={27} className="p-20 text-center text-slate-400 italic uppercase font-black text-[10px] tracking-widest">
                     No records found
                   </td>
                 </tr>
@@ -685,9 +629,9 @@ export default function VT11FreightCostReportPage() {
 
               {executing && (
                 <tr>
-                  <td colSpan={26} className="p-20 text-center">
+                  <td colSpan={27} className="p-20 text-center">
                     <div className="flex items-center justify-center gap-3 text-slate-400 font-bold text-xs">
-                      <Loader2 className="h-5 w-5 animate-spin text-[#0056d2]" /> GENERATING REPORT DATA GRID...
+                      <Loader2 className="h-5 w-5 animate-spin text-green-600" /> GENERATING REPORT DATA GRID...
                     </div>
                   </td>
                 </tr>
@@ -699,4 +643,3 @@ export default function VT11FreightCostReportPage() {
     </div>
   );
 }
-

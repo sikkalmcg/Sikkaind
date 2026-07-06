@@ -21,13 +21,41 @@ export default function SE38Page() {
   const { data: plants } = useCollectionOptimized(plantsQuery);
   const { data: trips } = useCollectionOptimized(tripsQuery);
 
+  const isAnyRelevantDateInRange = (trip: any) => {
+    const start = startOfDay(new Date(search.from));
+    const end = endOfDay(new Date(search.to));
+
+    const candidates = [
+      trip.createdAt,
+      trip.assignDate,
+      trip.outDate,
+      trip.arrivedDate,
+      trip.unloadDate,
+      trip.rejectionDate,
+      trip.updatedAt,
+      // compatibility / fallbacks
+      trip.assignTime,
+      trip.arrivedAt,
+      trip.unloadAt,
+      trip.rejectAt,
+    ];
+
+    return candidates.some((v) => {
+      if (!v) return false;
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return false;
+      return isWithinInterval(d, { start, end });
+    });
+  };
+
   const handleExecute = () => {
     if (!search.plant || !search.from || !search.to) { alert('Criteria Mandatory'); return; }
     const filtered = (trips || []).filter(t => {
       const matchPlant = t.plantCode === search.plant;
-      const matchDate = isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(search.from)), end: endOfDay(new Date(search.to)) });
+      const matchDate = isAnyRelevantDateInRange(t);
       return matchPlant && matchDate;
     });
+
     setResults(filtered);
     setView('result');
   };
@@ -41,35 +69,123 @@ export default function SE38Page() {
     }
   };
 
+  const formatDurationHHMM = (startVal: any, endVal: any) => {
+    if (!startVal || !endVal) return '-';
+    const start = new Date(startVal);
+    const end = new Date(endVal);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '-';
+
+    const diffMs = end.getTime() - start.getTime();
+    if (!Number.isFinite(diffMs)) return '-';
+
+    const sign = diffMs < 0 ? '-' : '';
+    const absMs = Math.abs(diffMs);
+    const totalMinutes = Math.floor(absMs / (60 * 1000));
+    const hh = Math.floor(totalMinutes / 60);
+    const mm = totalMinutes % 60;
+
+    return `${sign}${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  };
+
   const exportToExcel = () => {
     const headers = [
-      'Plant', 'Trip ID', 'CN No', 'Vehicle', 'Vehicle Type', 'Transporter',
-      'Source', 'Destination', 'Consignor', 'Consignee', 'Ship To Party',
-      'Item Description', 'Status', 'Qty (MT)', 'Indent Time', 'Assign Time',
-      'Dispatch Time', 'POD Status', 'POD Time'
+      'Plant',
+      'Trip ID',
+      'Sale Order',
+      'CN No',
+      'CN Date',
+      'Invoice No',
+      'E-Way Bill No',
+      'Vehicle',
+      'Fleet Type',
+      'Carrier',
+      'Vendor Name/Firm',
+      'Arrange By',
+      'Source',
+      'Destination',
+      'Consignor',
+      'Consignee',
+      'Ship To Party',
+      'Goods Desc',
+      'Status',
+      'Total Unit',
+      'Qty (MT)',
+      'Indent Time',
+      'Assign Time',
+      'Dispatch Time',
+      'Arrived Date & Time',
+      'Unload Date & Time',
+      'Reject Date & Time',
+      'Detain Hours (HH:MM)'
     ];
 
     const csvRows = results.map(r => {
+      const arrivedAt = r.arrivedAt || r.arrivalDateTime || r.arrivedDate || r.arrivedOn || r.arrived || r.createdAt;
+      const unloadAt = r.unloadAt || r.unloadDateTime || r.unloadDate || r.unloadedOn || r.unloadAt || r.unloadDate;
+      const rejectAt = r.rejectAt || r.rejectDateTime || r.rejectDate || r.rejectedOn || r.rejectionAt;
+
+      const trip = r;
+      
+      // Extract array based items from TR21 hierarchy
+      const invoiceNos = (trip.invoices || []).map((i: any) => i.invNo).filter(Boolean).join(' / ') || '-';
+      const ewaybillNos = (trip.invoices || []).map((i: any) => i.ewaybillNo).filter(Boolean).join(' / ') || '-';
+      const goodsDesc = (trip.invoices || []).map((i: any) => i.desc).filter(Boolean).join(' / ') || trip.materialName || '-';
+      
+      const saleOrderNo = trip.orderNo || trip.saleOrderNo || '-';
+      const cnNo = trip.cnNumber || '-';
+      const cnDate = trip.cnDate || trip.createdAt;
+      const vehicle = trip.vehicleNo || '-';
+      const fleetType = trip.fleetType || '-';
+      const carrier = trip.carrierName || 'PENDING';
+      const vendorFirm = trip.vendorName || '-';
+      const arrangeBy = trip.arrangeBy || '-';
+      const consignor = trip.consignorName || '-';
+      const consignee = trip.consigneeName || '-';
+      const shipToParty = trip.shipToParty || '-';
+      const source = trip.from || '-';
+      const destination = trip.destination || '-';
+      const status = trip.status || '-';
+      
+      const totalPackage = (trip.invoices || []).reduce((acc: number, curr: any) => acc + (parseFloat(curr.pkg) || 0), 0) || '-';
+      const qtyMt = trip.assignWeight || '-';
+      const indentTime = trip.createdAt;
+      const assignTime = trip.assignDate;
+      const dispatchTime = trip.outDate;
+      const arrivedTime = arrivedAt;
+      const unloadTime = unloadAt;
+      const rejectTime = rejectAt;
+      const detainHours = formatDurationHHMM(arrivedTime, unloadTime);
+
       return [
-        r.plantCode || '-',
-        r.tripNo || r.tripId || r.id || '-',
-        r.cnNumber || r.cnNo || r.lrNo || r.lrNumber || '-',
-        r.vehicleNo || r.vehicleNumber || r.truckNo || r.truckNumber || '-',
-        r.vehicleType || r.truckType || '-',
-        r.transporterName || r.transporter?.name || r.carrierName || r.carrier?.name || r.vendorName || r.vendor?.name || r.carrier?.companyName || r.transporter || '-',
-        r.source || r.fromCity || r.from || '-',
-        r.destination || r.toCity || r.to || '-',
-        r.consignorName || r.consignor?.name || r.consignor || '-',
-        r.consigneeName || r.consignee?.name || r.consignee || '-',
-        r.shipToPartyName || r.shipToParty?.name || r.shipToParty || '-',
-        r.itemDescription || r.materialDescription || r.materialGroup || r.itemName || r.material || r.description || r.commodity || '-',
-        r.status || '-',
-        r.assignWeight || r.weight || r.quantity || '-',
-        formatTime(r.createdAt || r.indentDate || r.indentTime),
-        formatTime(r.assignedAt || r.vehicleAssignTime || r.assignTime || r.placementTime || r.placementDate || r.assignDate),
-        formatTime(r.dispatchedAt || r.dispatchTime || r.cnDate || r.invoiceDate),
-        r.podStatus || '-',
-        formatTime(r.podAt || r.podDate || r.deliveredAt || r.deliveryDate)
+        trip.plantCode || '-',
+        trip.tripNo || '-',
+        saleOrderNo,
+        cnNo,
+        formatTime(cnDate),
+
+        invoiceNos,
+        ewaybillNos,
+        vehicle,
+        fleetType,
+        carrier,
+        vendorFirm,
+        arrangeBy,
+        source,
+        destination,
+        consignor,
+        consignee,
+        shipToParty,
+        goodsDesc,
+        status,
+        totalPackage,
+        qtyMt,
+        formatTime(indentTime),
+        formatTime(assignTime),
+        formatTime(dispatchTime),
+        formatTime(arrivedTime),
+        formatTime(unloadTime),
+        formatTime(rejectTime),
+        detainHours
       ].map(val => `"${String(val).replace(/"/g, '""')}"`).join(',');
     });
 
@@ -98,54 +214,74 @@ export default function SE38Page() {
           </div>
         </div>
         <div className="flex-1 overflow-auto bg-white m-4 border border-slate-300 green-scrollbar shadow-inner">
-           <table className="w-full text-left border-collapse text-[10px]">
-             <thead className="bg-[#f8fafc] sticky top-0 z-20 border-b border-slate-300 whitespace-nowrap">
+            <table className="w-full text-left border-collapse text-[10px]">
+              <thead className="bg-[#f8fafc] sticky top-0 z-20 border-b border-slate-300 whitespace-nowrap">
                 <tr className="font-black uppercase text-slate-500">
                   <th className="p-3 border-r border-slate-200">Plant</th>
                   <th className="p-3 border-r border-slate-200">Trip ID</th>
                   <th className="p-3 border-r border-slate-200">CN No</th>
+                  <th className="p-3 border-r border-slate-200">CN Date</th>
+                  <th className="p-3 border-r border-slate-200">Invoice No</th>
                   <th className="p-3 border-r border-slate-200">Vehicle</th>
-                  <th className="p-3 border-r border-slate-200">Vehicle Type</th>
-                  <th className="p-3 border-r border-slate-200">Transporter</th>
+                  <th className="p-3 border-r border-slate-200">Fleet Type</th>
+                  <th className="p-3 border-r border-slate-200">Carrier</th>
+                  <th className="p-3 border-r border-slate-200">Vendor Name/Firm</th>
+                  <th className="p-3 border-r border-slate-200">Arrange By</th>
                   <th className="p-3 border-r border-slate-200">Source</th>
                   <th className="p-3 border-r border-slate-200">Destination</th>
                   <th className="p-3 border-r border-slate-200">Consignor</th>
                   <th className="p-3 border-r border-slate-200">Consignee</th>
                   <th className="p-3 border-r border-slate-200">Ship To Party</th>
-                  <th className="p-3 border-r border-slate-200">Item Description</th>
+                  <th className="p-3 border-r border-slate-200">Goods Desc</th>
                   <th className="p-3 border-r border-slate-200">Status</th>
+                  <th className="p-3 border-r border-slate-200">Total Unit</th>
                   <th className="p-3 border-r border-slate-200">Qty (MT)</th>
                   <th className="p-3 border-r border-slate-200">Indent Time</th>
                   <th className="p-3 border-r border-slate-200">Assign Time</th>
                   <th className="p-3 border-r border-slate-200">Dispatch Time</th>
-                  <th className="p-3 border-r border-slate-200">POD Status</th>
-                  <th className="p-3">POD Time</th>
+                  <th className="p-3 border-r border-slate-200">Arrived Date &amp; Time</th>
+                  <th className="p-3 border-r border-slate-200">Unload Date &amp; Time</th>
+                  <th className="p-3 border-r border-slate-200">Reject Date &amp; Time</th>
+                  <th className="p-3">Detain Hours (HH:MM)</th>
                 </tr>
-             </thead>
-             <tbody>{results.map((r, i) => (
-               <tr key={i} className="hover:bg-blue-50/30 border-b border-slate-100 whitespace-nowrap">
-                 <td className="p-3 border-r border-slate-100 uppercase">{r.plantCode || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 font-black text-blue-700 uppercase">{r.tripNo || r.tripId || r.id || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase">{r.cnNumber || r.cnNo || r.lrNo || r.lrNumber || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase">{r.vehicleNo || r.vehicleNumber || r.truckNo || r.truckNumber || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase">{r.vehicleType || r.truckType || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.transporterName || r.transporter?.name || r.carrierName || r.carrier?.name || r.vendorName || r.vendor?.name || r.carrier?.companyName || r.transporter || ''}>{r.transporterName || r.transporter?.name || r.carrierName || r.carrier?.name || r.vendorName || r.vendor?.name || r.carrier?.companyName || r.transporter || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.source || r.fromCity || r.from || ''}>{r.source || r.fromCity || r.from || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.destination || r.toCity || r.to || ''}>{r.destination || r.toCity || r.to || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.consignorName || r.consignor?.name || r.consignor || ''}>{r.consignorName || r.consignor?.name || r.consignor || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.consigneeName || r.consignee?.name || r.consignee || ''}>{r.consigneeName || r.consignee?.name || r.consignee || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.shipToPartyName || r.shipToParty?.name || r.shipToParty || ''}>{r.shipToPartyName || r.shipToParty?.name || r.shipToParty || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.itemDescription || r.materialDescription || r.materialGroup || r.itemName || r.material || r.description || r.commodity || ''}>{r.itemDescription || r.materialDescription || r.materialGroup || r.itemName || r.material || r.description || r.commodity || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase font-black">{r.status || '-'}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase">{r.assignWeight || r.weight || r.quantity || '-'}</td>
-                 <td className="p-3 border-r border-slate-100">{formatTime(r.createdAt || r.indentDate || r.indentTime)}</td>
-                 <td className="p-3 border-r border-slate-100">{formatTime(r.assignedAt || r.vehicleAssignTime || r.assignTime || r.placementTime || r.placementDate || r.assignDate)}</td>
-                 <td className="p-3 border-r border-slate-100">{formatTime(r.dispatchedAt || r.dispatchTime || r.cnDate || r.invoiceDate)}</td>
-                 <td className="p-3 border-r border-slate-100 uppercase font-black">{r.podStatus || '-'}</td>
-                 <td className="p-3">{formatTime(r.podAt || r.podDate || r.deliveredAt || r.deliveryDate)}</td>
-               </tr>
-             ))}</tbody>
-           </table>
+              </thead>
+              <tbody>{results.map((r, i) => (
+                <tr key={i} className="hover:bg-blue-50/30 border-b border-slate-100 whitespace-nowrap">
+                  <td className="p-3 border-r border-slate-100 uppercase">{r.plantCode || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 font-black text-blue-700 uppercase">{r.tripNo || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase">{r.cnNumber || '-'}</td>
+                  <td className="p-3 border-r border-slate-100">{formatTime(r.cnDate || r.createdAt)}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[120px]" title={(r.invoices || []).map((inv: any) => inv.invNo).filter(Boolean).join(', ')}>
+                    {(r.invoices || []).map((inv: any) => inv.invNo).filter(Boolean).join(', ') || '-'}
+                  </td>
+                  <td className="p-3 border-r border-slate-100 uppercase">{r.vehicleNo || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase">{r.fleetType || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase text-[#0056d2]">{r.carrierName || 'PENDING'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.vendorName || ''}>{r.vendorName || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.arrangeBy || ''}>{r.arrangeBy || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase">{r.from || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.destination || ''}>{r.destination || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.consignorName || ''}>{r.consignorName || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.consigneeName || ''}>{r.consigneeName || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={r.shipToParty || ''}>{r.shipToParty || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[150px]" title={(r.invoices || []).map((inv: any) => inv.desc).filter(Boolean).join(', ') || r.materialName || ''}>
+                    {(r.invoices || []).map((inv: any) => inv.desc).filter(Boolean).join(', ') || r.materialName || '-'}
+                  </td>
+                  <td className="p-3 border-r border-slate-100 uppercase font-black">{r.status || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase">
+                    {(r.invoices || []).reduce((acc: number, curr: any) => acc + (parseFloat(curr.pkg) || 0), 0) || '-'}
+                  </td>
+                  <td className="p-3 border-r border-slate-100 uppercase">{parseFloat(r.assignWeight || 0).toFixed(3)}</td>
+                  <td className="p-3 border-r border-slate-100">{formatTime(r.createdAt)}</td>
+                  <td className="p-3 border-r border-slate-100">{formatTime(r.assignDate)}</td>
+                  <td className="p-3 border-r border-slate-100">{formatTime(r.outDate)}</td>
+                  <td className="p-3 border-r border-slate-100">{formatTime(r.arrivedDate)}</td>
+                  <td className="p-3 border-r border-slate-100">{formatTime(r.unloadDate)}</td>
+                  <td className="p-3 border-r border-slate-100">{formatTime(r.rejectionDate)}</td>
+                  <td className="p-3">{formatDurationHHMM(r.arrivedDate || r.createdAt, r.unloadDate)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
         </div>
       </div>
     );
@@ -157,7 +293,7 @@ export default function SE38Page() {
         <div className="flex items-center justify-between border-b border-slate-200 pb-6 mb-10">
           <div className="flex items-center gap-4">
              <FileText className="h-6 w-6 text-[#1e3a8a]" />
-             <h2 className="text-xl font-black uppercase italic text-[#1e3a8a]">SE38: Transactional Analytics</h2>
+             <h2 className="text-xl font-black uppercase italic text-[#1e3a8a]">SE38: Transactional Analytics (TR21 Mode)</h2>
           </div>
           <Button onClick={handleExecute} className="h-9 bg-[#1e3a8a] text-white text-[11px] font-black uppercase px-10 shadow-lg">Execute Analysis (F8)</Button>
         </div>

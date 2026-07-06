@@ -3,42 +3,49 @@
 @tailwind utilities;
 
 @layer base {
-  :root,
-  [data-theme="signature"] {
-    --background: 220 13% 97%;
-    --foreground: 240 10% 3.9%;
+  :root {
+    /* Light theme (default) */
+    --background: 210 40% 98%;
+    --foreground: 222.2 47.4% 11.2%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222.2 47.4% 11.2%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 217 91% 60%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+
+    --primary: 199 95% 45%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96.1%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 94%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 84% 4.9%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 217 91% 60%;
-    --chart-1: 224 100% 58%;
+    --ring: 199 95% 45%;
+
+    --chart-1: 199 95% 45%;
     --chart-2: 160.1 50% 45.1%;
     --chart-3: 30.1 80% 55.1%;
     --chart-4: 280.1 65% 60.1%;
     --chart-5: 340.1 75% 55.1%;
-    --radius: 0.5rem;
+    --radius: 0.6rem;
 
-    --sidebar-background: 210 40% 98%;
+    --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 215 25% 27%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary: 199 95% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 91% 60%;
+    --sidebar-accent: 199 95% 45%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 214.3 31.8% 91.4%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-ring: 199 95% 45%;
 
     --font-family: '72', 'Inter', system-ui, sans-serif;
     --font-mono: '72 Monospace', 'Cascadia Code', 'JetBrains Mono', monospace;
@@ -46,13 +53,64 @@
     --font-style: normal;
     --font-size-base: 13px;
   }
-}
 
-@layer base {
+  /* Dark theme (use data-theme="dark" on html/body) */
+  html[data-theme="dark"],
+  [data-theme="dark"] {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 224 71% 4%;
+    --card-foreground: 210 40% 98%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 199 95% 45%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 215 27.9% 17.9%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 215 27.9% 17.9%;
+    --muted-foreground: 217.9 10.6% 64.9%;
+
+    --accent: 215 27.9% 17.9%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.9 8.9% 38.6%;
+    --input: 217.9 8.9% 38.6%;
+    --ring: 199 95% 45%;
+
+    --chart-1: 199 95% 45%;
+    --chart-2: 160.1 50% 45.1%;
+    --chart-3: 30.1 80% 55.1%;
+    --chart-4: 280.1 65% 60.1%;
+    --chart-5: 340.1 75% 55.1%;
+    --radius: 0.6rem;
+
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 199 95% 45%;
+    --sidebar-primary-foreground: 224 71% 4%;
+    --sidebar-accent: 199 95% 45%;
+    --sidebar-accent-foreground: 224 71% 4%;
+    --sidebar-border: 217.9 8.9% 38.6%;
+    --sidebar-ring: 199 95% 45%;
+
+    --font-family: '72', 'Inter', system-ui, sans-serif;
+    --font-mono: '72 Monospace', 'Cascadia Code', 'JetBrains Mono', monospace;
+    --font-weight: 400;
+    --font-style: normal;
+    --font-size-base: 13px;
+  }
+
   * {
     @apply border-border;
     user-select: text !important;
   }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-family);
@@ -61,8 +119,8 @@
     font-size: var(--font-size-base);
   }
 
-  input:focus, 
-  textarea:focus, 
+  input:focus,
+  textarea:focus,
   select:focus {
     background-color: #ffffcc !important;
     outline: none !important;
@@ -70,20 +128,56 @@
 }
 
 @layer utilities {
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 
-  .green-scrollbar::-webkit-scrollbar { width: 6px; }
-  .green-scrollbar::-webkit-scrollbar-thumb { background-color: #22c55e; border-radius: 10px; }
-  
-  .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
-  .custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full; }
+  .green-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .green-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #22c55e;
+    border-radius: 10px;
+  }
 
-  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-  .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
-  
-  @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-  .animate-slide-up { animation: slide-up 0.5s ease-out forwards 0.2s; opacity: 0; }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out forwards;
+  }
+
+  @keyframes slide-up {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out forwards 0.2s;
+    opacity: 0;
+  }
 }
 
 @media print {
@@ -92,7 +186,8 @@
     margin: 0 !important;
   }
 
-  html, body {
+  html,
+  body {
     width: 210mm !important;
     height: auto !important;
     margin: 0 !important;
@@ -107,7 +202,7 @@
     visibility: hidden;
   }
 
-  #printable-area, 
+  #printable-area,
   #printable-area * {
     visibility: visible;
     color: black !important;
@@ -142,7 +237,9 @@
     page-break-after: auto !important;
   }
 
-  .no-print, .print\:hidden {
+  .no-print,
+  .print\:hidden {
     display: none !important;
   }
 }
+

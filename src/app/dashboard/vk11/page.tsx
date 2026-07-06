@@ -7,6 +7,7 @@ import { collection, doc } from '@/lib/mongo-store';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
@@ -14,15 +15,28 @@ type ConditionRecord = 'Regular' | 'One time Approval (OTA)';
 
 const CONDITION_OPTIONS: ConditionRecord[] = ['Regular', 'One time Approval (OTA)'];
 
+const VEHICLE_TYPES = [
+  'LPT / Mini Truck',
+  'Pickup / LCV',
+  'LCV',
+  'Medium Truck (MCV)',
+  'HCV',
+  'Multi Axle Truck (MAT)',
+  'Trailer',
+  'Multi Axle Trailer',
+];
+
 const DEFAULT_FORM = {
   id: '',
   plantCode: '',
-  origin: '',
   destination: '',
-  ratePMT: '',
+  primaryRatePMT: '',
   validityFromDate: '',
   validityToDate: '',
   conditionRecord: 'Regular' as ConditionRecord,
+  fixedCharge: false,
+  vehicleType: '',
+  primaryFreightAmount: '',
 };
 
 function toNum(val: any) {
@@ -76,13 +90,24 @@ export default function VK11CreatePrimaryFreightRates() {
   const validate = () => {
     const mandatory: Array<keyof typeof DEFAULT_FORM> = [
       'plantCode',
-      'origin',
       'destination',
-      'ratePMT',
       'validityFromDate',
       'validityToDate',
       'conditionRecord',
     ];
+
+    const nextErrors: string[] = [];
+
+    if (formData.fixedCharge) {
+      if (!formData.vehicleType) nextErrors.push('vehicleType');
+      if (!formData.primaryFreightAmount) nextErrors.push('primaryFreightAmount');
+    } else {
+      if (!formData.primaryRatePMT) nextErrors.push('primaryRatePMT');
+    }
+
+    if (!formData.fixedCharge && !formData.primaryRatePMT && (formData.fixedCharge && (!formData.vehicleType || !formData.primaryFreightAmount))) {
+        alert('Please configure either a Primary Rate (PMT) or a Fixed Charge with Vehicle Type and Primary Freight Charge.');
+    }
 
     const missing = mandatory.filter((k) => {
       const v: any = (formData as any)[k];
@@ -95,21 +120,20 @@ export default function VK11CreatePrimaryFreightRates() {
       }
     }
 
-    setErrors(missing.map((m) => String(m)));
-    return missing.length === 0;
+    setErrors([...missing.map((m) => String(m)), ...nextErrors]);
+    return missing.length === 0 && nextErrors.length === 0;
   };
 
   const isDuplicateRecord = () => {
     const plantCode = (formData.plantCode || '').toUpperCase().trim();
-    const origin = (formData.origin || '').toUpperCase().trim();
     const destination = (formData.destination || '').toUpperCase().trim();
-    const ratePMT = toNum(formData.ratePMT);
+    const primaryRatePMT = toNum(formData.primaryRatePMT);
 
     return (primaryRates || []).some((r: any) => {
       return (
         (r.plantCode || '').toUpperCase().trim() === plantCode &&
         (r.destination || '').toUpperCase().trim() === destination &&
-        toNum(r.ratePMT) === ratePMT
+        !formData.fixedCharge && toNum(r.ratePMT) === primaryRatePMT
       );
     });
   };
@@ -121,7 +145,7 @@ export default function VK11CreatePrimaryFreightRates() {
     }
 
     if (isDuplicateRecord()) {
-      alert('Duplicate record restricted. Matching Plant+Destination+Rate (PMT) already exists.');
+      alert('Duplicate record restricted. Matching Plant+Destination+Primary Rate (PMT) already exists for a non-fixed charge record.');
       return;
     }
 
@@ -142,13 +166,15 @@ export default function VK11CreatePrimaryFreightRates() {
     const payload = {
       id,
       plantCode: formData.plantCode.toUpperCase().trim(),
-      origin: formData.origin.toUpperCase().trim(),
       destination: formData.destination.toUpperCase().trim(),
       minimumGranteeWeightMt: 0,
-      ratePMT: toNum(formData.ratePMT),
+      ratePMT: formData.fixedCharge ? 0 : toNum(formData.primaryRatePMT),
       validityFromDate: formData.validityFromDate,
       validityToDate: formData.validityToDate,
       conditionRecord: formData.conditionRecord,
+      fixedCharge: formData.fixedCharge,
+      vehicleType: formData.fixedCharge ? formData.vehicleType : '',
+      primaryFreightAmount: formData.fixedCharge ? toNum(formData.primaryFreightAmount) : 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -166,7 +192,6 @@ export default function VK11CreatePrimaryFreightRates() {
   const handleDownloadTemplate = () => {
     const templateHeader = [
       'plantCode',
-      'origin',
       'destination',
       'validityFromDate',
       'validityToDate',
@@ -209,7 +234,7 @@ export default function VK11CreatePrimaryFreightRates() {
 
         json.forEach((row, index) => {
           const rowNum = index + 2;
-          const mandatoryFields = ['plantCode', 'origin', 'destination', 'validityFromDate', 'validityToDate', 'conditionRecord'];
+          const mandatoryFields = ['plantCode', 'destination', 'validityFromDate', 'validityToDate', 'conditionRecord'];
           for (const field of mandatoryFields) {
             if (!row[field]) {
               newErrors.push(`Row ${rowNum}: Mandatory field "${field}" is missing.`);
@@ -228,7 +253,6 @@ export default function VK11CreatePrimaryFreightRates() {
           }
 
           const plantCode = (row.plantCode || '').toUpperCase().trim();
-          const origin = (row.origin || '').toUpperCase().trim();
           const destination = (row.destination || '').toUpperCase().trim();
           const ratePMT = toNum(row.ratePMT);
 
@@ -247,13 +271,15 @@ export default function VK11CreatePrimaryFreightRates() {
             payloads.push({
               id,
               plantCode: plantCode,
-              origin: origin,
               destination: destination,
               minimumGranteeWeightMt: 0, // As per requirement to remove
               ratePMT: ratePMT,
               validityFromDate: row.validityFromDate,
               validityToDate: row.validityToDate,
               conditionRecord: row.conditionRecord || 'Regular',
+              fixedCharge: false, // Bulk upload defaults to non-fixed
+              vehicleType: '',
+              primaryFreightAmount: 0,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             });
@@ -309,7 +335,7 @@ export default function VK11CreatePrimaryFreightRates() {
             </AlertDescription>
           </Alert>
         )}
-        <div className="grid grid-cols-2 gap-x-14 gap-y-6">
+        <div className="grid grid-cols-3 gap-x-14 gap-y-6">
           <div className="space-y-1.5">
             <label className="text-[10px] font-normal text-slate-500 uppercase">Plant *</label>
             <select
@@ -347,17 +373,6 @@ export default function VK11CreatePrimaryFreightRates() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Origin *</label>
-            <input
-              value={formData.origin}
-              onChange={(e) => setFormData({ ...formData, origin: e.target.value.toUpperCase() })}
-              className={cn('h-9 w-full border px-3 text-xs font-normal outline-none',
-                errors.includes('origin') && 'border-red-500 bg-red-50'
-              )}
-            />
-          </div>
-
-          <div className="space-y-1.5">
             <label className="text-[10px] font-normal text-slate-500 uppercase">Destination *</label>
             <input
               value={formData.destination}
@@ -369,14 +384,58 @@ export default function VK11CreatePrimaryFreightRates() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Rate (PMT) *</label>
+            <div className="flex items-center gap-2">
+                <Checkbox
+                    id="fixed-charge"
+                    checked={formData.fixedCharge}
+                    onCheckedChange={(checked) => setFormData({ ...formData, fixedCharge: !!checked })}
+                    className="rounded-none border-slate-400"
+                />
+                <label htmlFor="fixed-charge" className="text-[10px] font-normal text-slate-500 uppercase cursor-pointer">Fixed Charge</label>
+            </div>
+          </div>
+
+          {formData.fixedCharge && (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-normal text-slate-500 uppercase">Vehicle Type *</label>
+                <select
+                  value={formData.vehicleType}
+                  onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+                  className={cn('h-9 w-full border px-3 text-xs font-normal outline-none',
+                    errors.includes('vehicleType') && 'border-red-500 bg-red-50'
+                  )}
+                >
+                  <option value="">Select Vehicle Type...</option>
+                  {VEHICLE_TYPES.map((vt) => <option key={vt} value={vt}>{vt}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-normal text-slate-500 uppercase">Primary Freight Amount *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.primaryFreightAmount}
+                  onChange={(e) => setFormData({ ...formData, primaryFreightAmount: e.target.value })}
+                  className={cn('h-9 w-full border px-3 text-xs font-normal outline-none',
+                    errors.includes('primaryFreightAmount') && 'border-red-500 bg-red-50'
+                  )}
+                />
+              </div>
+            </>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-normal text-slate-500 uppercase">Primary Rate (PMT) *</label>
             <input
               type="number"
               step="0.01"
-              value={formData.ratePMT}
-              onChange={(e) => setFormData({ ...formData, ratePMT: e.target.value })}
+              value={formData.primaryRatePMT}
+              onChange={(e) => setFormData({ ...formData, primaryRatePMT: e.target.value })}
+              disabled={formData.fixedCharge}
               className={cn('h-9 w-full border px-3 text-xs font-normal outline-none',
-                errors.includes('ratePMT') && 'border-red-500 bg-red-50'
+                errors.includes('primaryRatePMT') && 'border-red-500 bg-red-50',
+                formData.fixedCharge && 'bg-slate-100 cursor-not-allowed'
               )}
             />
           </div>
@@ -418,7 +477,7 @@ export default function VK11CreatePrimaryFreightRates() {
           <div className="mt-2">
             Duplicate record is restricted.
             <br />
-            Duplicate match key: Plant + Destination + Rate (PMT).
+            Duplicate match key: Plant + Destination + Primary Rate (PMT).
           </div>
         </div>
       </div>

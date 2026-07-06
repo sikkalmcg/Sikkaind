@@ -116,14 +116,14 @@ export default function VA_MK01_CreateForwardingAgent() {
   if (!mounted) return null;
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono text-black">
+    <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-slate-100 font-mono text-black">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center justify-between">
         <h2 className="text-[16px] font-bold uppercase italic">MK01 - Create Forwarding Agent</h2>
         <div className="flex items-center gap-3">
           <Button variant="outline" className="h-8 rounded-none text-[10px] font-black uppercase" onClick={() => router.back()}>
             Back
           </Button>
-          {isSaving && <Loader2 className="h-5 w-5 animate-spin text-blue-600" />}
+          {isSaving && <Loader2 className="h-5 w-5 animate-spin text-green-600" />}
         </div>
       </div>
 
@@ -161,7 +161,7 @@ export default function VA_MK01_CreateForwardingAgent() {
 
           <div className="flex items-center gap-6">
             <label className="text-[12px] font-bold text-slate-600 w-52 text-right uppercase">Created By</label>
-            <input value={createdBy} readOnly className="h-9 w-80 border border-slate-300 bg-slate-50 px-3 text-[12px] font-black text-[#0056d2]" />
+            <input value={createdBy} readOnly className="h-9 w-80 border border-slate-300 bg-slate-50 px-3 text-[12px] font-black text-green-600" />
           </div>
         </div>
 
@@ -174,7 +174,7 @@ export default function VA_MK01_CreateForwardingAgent() {
           }} className="h-9 rounded-none text-[10px] font-black uppercase border-slate-300">
             Clear
           </Button>
-          <Button onClick={handleSave} disabled={isSaving} className="h-9 rounded-none bg-[#0056d2] text-white text-[10px] font-black uppercase px-10">
+          <Button onClick={handleSave} disabled={isSaving} className="h-9 rounded-none bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase px-10">
             {isSaving ? 'Saving...' : 'Save'}
           </Button>
         </div>
