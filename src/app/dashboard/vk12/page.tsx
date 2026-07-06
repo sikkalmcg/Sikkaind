@@ -1,11 +1,14 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
 import { useMemo } from 'react';
 import { collection, doc } from '@/lib/mongo-store';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { format } from 'date-fns';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
@@ -18,28 +21,20 @@ function toNum(val: any) {
   return Number.isFinite(n) ? n : 0;
 }
 
-const DEFAULT_FORM = {
-  id: '',
-  plantCode: '',
-  origin: '',
-  destination: '',
-  ratePMT: '',
-  validityFromDate: '',
-  validityToDate: '',
-  conditionRecord: 'Regular' as ConditionRecord,
-};
-
 export default function VK12UpdatePrimaryFreightRates() {
   const db = useMongoStore();
   const { user } = useUser();
+  const router = useRouter();
 
   const [mounted, setMounted] = React.useState(false);
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
   const [registryId, setRegistryId] = React.useState<string | null>(null);
 
-  const [formData, setFormData] = React.useState<any>(DEFAULT_FORM);
-  const [errors, setErrors] = React.useState<string[]>([]);
-  const [selectedId, setSelectedId] = React.useState('');
+  const [showExtendDialog, setShowExtendDialog] = React.useState(false);
+  const [extendRecord, setExtendRecord] = React.useState<any>(null);
+  const [newValidityToDate, setNewValidityToDate] = React.useState('');
+  const [extendError, setExtendError] = React.useState<string | null>(null);
+
 
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const primaryRatesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vk_primary_freight_rates'), [db]);
@@ -74,162 +69,52 @@ export default function VK12UpdatePrimaryFreightRates() {
     setMounted(true);
   }, []);
 
-  React.useEffect(() => {
-    if (!selectedId) return;
-    const row = (primaryRates || []).find((r: any) => r.id === selectedId || r._id === selectedId);
-    if (!row) return;
-    setFormData({
-      id: row.id || '',
-      plantCode: row.plantCode || '',
-      origin: row.origin || '',
-      destination: row.destination || '',
-      ratePMT: (row.ratePMT ?? '').toString(),
-      validityFromDate: row.validityFromDate || '',
-      validityToDate: row.validityToDate || '',
-      conditionRecord: row.conditionRecord || 'Regular',
-    });
-  }, [selectedId, primaryRates]);
-
-  const validate = () => {
-    const mandatory: Array<keyof typeof DEFAULT_FORM> = [
-      'plantCode',
-      'origin',
-      'destination',
-      'ratePMT',
-      'validityFromDate',
-      'validityToDate',
-      'conditionRecord',
-    ];
-
-    const missing = mandatory.filter((k) => {
-      const v: any = (formData as any)[k];
-      return typeof v === 'string' ? !v.trim() : v === undefined || v === null;
-    });
-
-    if (authorizedPlantCodes && authorizedPlantCodes.length > 0) {
-      if (!authorizedPlantCodes.includes(formData.plantCode)) {
-        missing.push('plantCode');
-      }
-    }
-
-    setErrors(missing.map((m) => String(m)));
-    return missing.length === 0;
+  const handleUpdate = (recordId: string) => {
+    router.push(`/dashboard/vk11?id=${recordId}`);
   };
 
-  const checkDuplicateRestricted = () => {
-    const plantCode = (formData.plantCode || '').toUpperCase().trim();
-    const origin = (formData.origin || '').toUpperCase().trim();
-    const destination = (formData.destination || '').toUpperCase().trim();
-    const conditionRecord = formData.conditionRecord;
-
-    return (primaryRates || []).some((r: any) => {
-      if ((r.id || '') === (formData.id || '')) return false;
-      return (
-        (r.plantCode || '').toUpperCase().trim() === plantCode &&
-        (r.origin || '').toUpperCase().trim() === origin &&
-        (r.destination || '').toUpperCase().trim() === destination &&
-        (r.conditionRecord || 'Regular') === conditionRecord
-      );
-    });
+  const handleOpenExtend = (record: any) => {
+    setExtendRecord(record);
+    setNewValidityToDate(record.validityToDate || '');
+    setExtendError(null);
+    setShowExtendDialog(true);
   };
 
-  const handleSave = () => {
-    if (!selectedId) {
-      alert('Select a record to update');
-      return;
-    }
-    if (!validate()) {
-      alert('Mandatory fields missing');
-      return;
-    }
-    if (checkDuplicateRestricted()) {
-      alert('Duplicate record restricted. Another record with same Plant+Origin+Destination+Condition exists.');
+  const handleSaveExtension = () => {
+    setExtendError(null);
+    if (!extendRecord || !newValidityToDate) {
+      setExtendError('"Valid To" date is mandatory.');
       return;
     }
 
-    if (formData.conditionRecord === 'One time Approval (OTA)') {
-      const from = new Date(formData.validityFromDate);
-      const to = new Date(formData.validityToDate);
-      if (from && to && to > from) {
-        const diffTime = to.getTime() - from.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays > 7) {
-          alert('For OTA records, the validity period cannot exceed 7 days.');
-          return;
-        }
-      }
+    const newDate = new Date(newValidityToDate + 'T00:00:00');
+    const oldDate = new Date(extendRecord.validityToDate + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (newDate < oldDate || newDate < today) {
+      setExtendError('New "Valid To" date cannot be earlier than the current one.');
+      return;
     }
 
     const payload = {
-      plantCode: formData.plantCode.toUpperCase().trim(),
-      origin: formData.origin.toUpperCase().trim(),
-      destination: formData.destination.toUpperCase().trim(),
-      minimumGranteeWeightMt: 0,
-      ratePMT: toNum(formData.ratePMT),
-      validityFromDate: formData.validityFromDate,
-      validityToDate: formData.validityToDate,
-      conditionRecord: formData.conditionRecord,
+      validityToDate: newValidityToDate,
       updatedAt: new Date().toISOString(),
+      auditLog: [
+        ...(extendRecord.auditLog || []),
+        { action: 'Extended Validity', from: extendRecord.validityToDate, to: newValidityToDate, user: user?.email || 'System', timestamp: new Date().toISOString() }
+      ]
     };
 
     setDocumentNonBlocking(
-      doc(db, 'users', SHARED_HUB_ID, 'vk_primary_freight_rates', formData.id),
+      doc(db, 'users', SHARED_HUB_ID, 'vk_primary_freight_rates', extendRecord.id),
       payload,
       { merge: true }
     );
 
-    alert('Primary freight rate updated');
-  };
-
-  const handleExtendPeriod = () => {
-    if (!selectedId) {
-      alert('Select a record to extend');
-      return;
-    }
-    if (!validate()) {
-      alert('Mandatory fields missing');
-      return;
-    }
-    if (checkDuplicateRestricted()) {
-      alert('Duplicate record restricted. Another record with same Plant+Origin+Destination+Condition exists.');
-      return;
-    }
-
-    if (formData.conditionRecord === 'One time Approval (OTA)') {
-      const from = new Date(formData.validityFromDate);
-      const to = new Date(formData.validityToDate);
-      if (from && to && to > from) {
-        const diffTime = to.getTime() - from.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays > 7) {
-          alert('For OTA records, the validity period cannot exceed 7 days.');
-          return;
-        }
-      }
-    }
-
-    const newId = crypto.randomUUID();
-    const payload = {
-      id: newId,
-      plantCode: formData.plantCode.toUpperCase().trim(),
-      origin: formData.origin.toUpperCase().trim(),
-      destination: formData.destination.toUpperCase().trim(),
-      minimumGranteeWeightMt: 0,
-      ratePMT: toNum(formData.ratePMT),
-      validityFromDate: formData.validityFromDate,
-      validityToDate: formData.validityToDate,
-      conditionRecord: formData.conditionRecord,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    setDocumentNonBlocking(
-      doc(db, 'users', SHARED_HUB_ID, 'vk_primary_freight_rates', newId),
-      payload,
-      { merge: true }
-    );
-
-    alert('Primary freight rate period extended by creating a new record.');
+    alert('Validity period extended successfully.');
+    setShowExtendDialog(false);
+    setExtendRecord(null);
   };
 
   if (!mounted) return null;
@@ -241,153 +126,90 @@ export default function VK12UpdatePrimaryFreightRates() {
       </div>
 
       <div className="bg-white border border-slate-300 shadow-inner p-8">
-        <div className="mb-8 border border-slate-300 shadow-inner overflow-x-auto max-h-96">
-          <table className="w-full text-left text-[11px] min-w-[1000px]">
+        <div className="border border-slate-300 shadow-inner overflow-x-auto">
+          <table className="w-full text-left text-[11px] min-w-[1200px]">
             <thead className="bg-[#f8fafc] sticky top-0 z-10 border-b border-slate-300 font-normal uppercase text-slate-500">
               <tr>
                 <th className="p-3 border-r">Plant</th>
-                <th className="p-3 border-r">Origin</th>
                 <th className="p-3 border-r">Destination</th>
                 <th className="p-3 border-r">Condition Record</th>
+                <th className="p-3 border-r">Charge Type</th>
+                <th className="p-3 border-r">Vehicle Type</th>
+                <th className="p-3 border-r text-right">Primary Rate (PMT)</th>
+                <th className="p-3 border-r text-right">Fix Amount</th>
                 <th className="p-3">Validity</th>
+                <th className="p-3">Record Date</th>
+                <th className="p-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody>
               {(filteredRates || []).map((r: any) => (
                 <tr
                   key={r.id}
-                  onClick={() => setSelectedId(r.id)}
-                  className={cn(
-                    'border-b border-slate-100 hover:bg-blue-50/20 cursor-pointer',
-                    selectedId === r.id && 'bg-blue-100'
-                  )}
+                  className='border-b border-slate-100 hover:bg-blue-50/20'
                 >
                   <td className="p-3 border-r">{r.plantCode}</td>
-                  <td className="p-3 border-r">{r.origin}</td>
                   <td className="p-3 border-r">{r.destination}</td>
                   <td className="p-3 border-r">{r.conditionRecord}</td>
-                  <td className="p-3">{r.validityFromDate} - {r.validityToDate}</td>
+                  <td className="p-3 border-r">{r.fixedCharge ? 'Fix' : 'PMT'}</td>
+                  <td className="p-3 border-r">{r.fixedCharge ? r.vehicleType : 'All Types'}</td>
+                  <td className="p-3 border-r text-right">{!r.fixedCharge ? toNum(r.ratePMT).toFixed(2) : '0.00'}</td>
+                  <td className="p-3 border-r text-right">{r.fixedCharge ? toNum(r.primaryFreightAmount).toFixed(2) : '0.00'}</td>
+                  <td className="p-3 whitespace-nowrap">{r.validityFromDate} - {r.validityToDate}</td>
+                  <td className="p-3 whitespace-nowrap">{r.createdAt ? format(new Date(r.createdAt), 'yyyy-MM-dd') : '-'}</td>
+                  <td className="p-3 text-center flex gap-2 justify-center">
+                    <Button size="sm" variant="outline" className="h-7 text-xs rounded-none" onClick={() => handleUpdate(r.id)}>Update</Button>
+                    <Button size="sm" className="h-7 text-xs rounded-none bg-green-600 hover:bg-green-700" onClick={() => handleOpenExtend(r)}>Extend</Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-
-        <div className="grid grid-cols-2 gap-x-14 gap-y-6">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Plant *</label>
-            <select
-              value={formData.plantCode}
-              onChange={(e) => setFormData({ ...formData, plantCode: e.target.value })}
-              className={cn(
-                'h-9 w-full border px-3 text-xs font-normal outline-none',
-                errors.includes('plantCode') && 'border-red-500 bg-red-50'
-              )}
-            >
-              <option value="">Select Plant...</option>
-              {(plants || [])
-                .filter((p: any) => !authorizedPlantCodes || authorizedPlantCodes === null || authorizedPlantCodes.includes(p.plantCode))
-                .map((p: any) => (
-                  <option key={p.id} value={p.plantCode}>
-                    {p.plantCode}
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Condition record *</label>
-            <select
-              value={formData.conditionRecord}
-              onChange={(e) => setFormData({ ...formData, conditionRecord: e.target.value as ConditionRecord })}
-              className="h-9 w-full border px-3 text-xs font-normal outline-none"
-            >
-              {CONDITION_OPTIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Origin *</label>
-            <input
-              value={formData.origin}
-              onChange={(e) => setFormData({ ...formData, origin: e.target.value.toUpperCase() })}
-              className={cn(
-                'h-9 w-full border px-3 text-xs font-normal outline-none',
-                errors.includes('origin') && 'border-red-500 bg-red-50'
-              )}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Destination *</label>
-            <input
-              value={formData.destination}
-              onChange={(e) => setFormData({ ...formData, destination: e.target.value.toUpperCase() })}
-              className={cn(
-                'h-9 w-full border px-3 text-xs font-normal outline-none',
-                errors.includes('destination') && 'border-red-50'
-              )}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Rate (PMT) *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.ratePMT}
-              onChange={(e) => setFormData({ ...formData, ratePMT: e.target.value })}
-              className={cn(
-                'h-9 w-full border px-3 text-xs font-normal outline-none',
-                errors.includes('ratePMT') && 'border-red-500 bg-red-50'
-              )}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">Validity Period From Date *</label>
-            <input
-              type="date"
-              value={formData.validityFromDate}
-              onChange={(e) => setFormData({ ...formData, validityFromDate: e.target.value })}
-              className="h-9 w-full border px-3 text-xs font-normal outline-none"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-normal text-slate-500 uppercase">To Date *</label>
-            <input
-              type="date"
-              value={formData.validityToDate}
-              onChange={(e) => setFormData({ ...formData, validityToDate: e.target.value })}
-              className="h-9 w-full border px-3 text-xs font-normal outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="mt-10 flex items-center justify-end gap-3">
-          <Button
-            variant="outline"
-            className="h-10 rounded-none px-10"
-            onClick={() => {
-              setFormData(DEFAULT_FORM);
-              setSelectedId('');
-            }}
-          >
-            Cancel
-          </Button>
-          <Button className="h-10 bg-[#0056d2] text-white rounded-none px-14" onClick={handleSave}>
-            Save Changes
-          </Button>
-          <Button className="h-10 bg-green-600 hover:bg-green-700 text-white rounded-none px-14" onClick={handleExtendPeriod}>
-            Extend Period
-          </Button>
-        </div>
       </div>
+
+      <Dialog open={showExtendDialog} onOpenChange={setShowExtendDialog}>
+        <DialogContent className="max-w-lg rounded-none border-[3px] border-green-600 font-mono p-0 overflow-hidden text-left text-black">
+          <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
+            <DialogTitle className="text-[14px] font-normal uppercase text-green-700 italic">Extend Validity Period</DialogTitle>
+          </DialogHeader>
+          
+          {extendRecord && (
+            <div className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-x-8 gap-y-4 bg-white border border-slate-200 p-4 shadow-inner text-[10px] font-normal uppercase">
+                <div><span className="text-slate-400 text-[8px]">Plant</span><p>{extendRecord.plantCode}</p></div>
+                <div><span className="text-slate-400 text-[8px]">Destination</span><p>{extendRecord.destination}</p></div>
+                <div><span className="text-slate-400 text-[8px]">Condition Record</span><p>{extendRecord.conditionRecord}</p></div>
+                <div><span className="text-slate-400 text-[8px]">Charge Type</span><p>{extendRecord.fixedCharge ? 'Fix' : 'PMT'}</p></div>
+                <div><span className="text-slate-400 text-[8px]">Vehicle Type</span><p>{extendRecord.fixedCharge ? extendRecord.vehicleType : 'All Types'}</p></div>
+                <div><span className="text-slate-400 text-[8px]">Primary Rate (PMT)</span><p>{!extendRecord.fixedCharge ? toNum(extendRecord.ratePMT).toFixed(2) : '0.00'}</p></div>
+                <div><span className="text-slate-400 text-[8px]">Fix Amount</span><p>{extendRecord.fixedCharge ? toNum(extendRecord.primaryFreightAmount).toFixed(2) : '0.00'}</p></div>
+                <div><span className="text-slate-400 text-[8px]">Valid From</span><p>{extendRecord.validityFromDate}</p></div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-normal text-slate-500 uppercase">Valid To *</label>
+                <input
+                  type="date"
+                  value={newValidityToDate}
+                  min={new Date(extendRecord.validityToDate) < new Date() ? extendRecord.validityToDate : new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setNewValidityToDate(e.target.value)}
+                  className="h-9 w-full border px-3 text-xs font-normal outline-none focus:bg-yellow-50"
+                />
+              </div>
+
+              {extendError && (
+                <p className="text-xs text-red-600 bg-red-50 p-3 border border-red-200">{extendError}</p>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
+            <Button onClick={() => setShowExtendDialog(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-normal px-10">Cancel</Button>
+            <Button onClick={handleSaveExtension} className="bg-green-600 text-white rounded-none h-10 uppercase text-[10px] font-normal px-16">Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

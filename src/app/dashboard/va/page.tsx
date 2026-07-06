@@ -258,13 +258,6 @@ export default function VAPage() {
       return;
     }
 
-    const isDuplicate = (allOrders || []).some(o => ((o.orderNo || '').trim().toUpperCase() === normalizedOrderNo) && o.id !== formData.id);
-    if (isDuplicate) {
-      setErrors(prev => [...new Set([...prev, 'orderNo'])]);
-      alert('Duplicate Sale Order not allowed. Please use a unique Sale Order number.');
-      return;
-    }
-
     const docId = formData.id || crypto.randomUUID();
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { 
       ...formData,
@@ -389,7 +382,7 @@ export default function VAPage() {
         else if (fileOrderNos.has(orderNo)) {
           errorReason = 'Duplicate Sale Order in File';
         }
-        else if (allOrders?.some(o => ((o.orderNo || '').trim().toUpperCase() === orderNo))) {
+        else if ((allOrders || []).some(o => ((o.orderNo || '').trim().toUpperCase() === orderNo))) {
           errorReason = 'Duplicate Sale Order in Database';
         }
         else {

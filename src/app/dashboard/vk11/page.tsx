@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
 import { collection, doc } from '@/lib/mongo-store';
@@ -47,6 +48,9 @@ function toNum(val: any) {
 export default function VK11CreatePrimaryFreightRates() {
   const db = useMongoStore();
   const { user } = useUser();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const recordId = searchParams.get('id');
 
   const [mounted, setMounted] = React.useState(false);
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
@@ -63,6 +67,14 @@ export default function VK11CreatePrimaryFreightRates() {
 
   const { data: plants } = useCollectionOptimized(plantsQuery);
   const { data: primaryRates } = useCollectionOptimized(primaryRatesQuery);
+
+  const recordToUpdateQuery = useMemoMongo(() => {
+    if (!recordId) return null;
+    return doc(db, 'users', SHARED_HUB_ID, 'vk_primary_freight_rates', recordId);
+  }, [db, recordId]);
+
+  const { data: recordToUpdate } = useDoc(recordToUpdateQuery);
+
 
   const profileRef = useMemoMongo(() => {
     if (!registryId || isBootstrapAdmin) return null;
@@ -86,6 +98,23 @@ export default function VK11CreatePrimaryFreightRates() {
       conditionRecord: 'Regular',
     }));
   }, []);
+
+  React.useEffect(() => {
+    if (recordId && recordToUpdate) {
+      setFormData({
+        id: recordToUpdate.id,
+        plantCode: recordToUpdate.plantCode,
+        destination: recordToUpdate.destination,
+        primaryRatePMT: recordToUpdate.ratePMT,
+        validityFromDate: recordToUpdate.validityFromDate,
+        validityToDate: recordToUpdate.validityToDate,
+        conditionRecord: recordToUpdate.conditionRecord,
+        fixedCharge: recordToUpdate.fixedCharge,
+        vehicleType: recordToUpdate.vehicleType,
+        primaryFreightAmount: recordToUpdate.primaryFreightAmount,
+      });
+    }
+  }, [recordId, recordToUpdate]);
 
   const validate = () => {
     const mandatory: Array<keyof typeof DEFAULT_FORM> = [
@@ -130,6 +159,7 @@ export default function VK11CreatePrimaryFreightRates() {
     const primaryRatePMT = toNum(formData.primaryRatePMT);
 
     return (primaryRates || []).some((r: any) => {
+      if (recordId && r.id === recordId) return false; // Don't compare against itself when updating
       return (
         (r.plantCode || '').toUpperCase().trim() === plantCode &&
         (r.destination || '').toUpperCase().trim() === destination &&
@@ -162,8 +192,8 @@ export default function VK11CreatePrimaryFreightRates() {
       }
     }
 
-    const id = crypto.randomUUID();
-    const payload = {
+    const id = recordId || crypto.randomUUID();
+    const payload: any = {
       id,
       plantCode: formData.plantCode.toUpperCase().trim(),
       destination: formData.destination.toUpperCase().trim(),
@@ -175,18 +205,26 @@ export default function VK11CreatePrimaryFreightRates() {
       fixedCharge: formData.fixedCharge,
       vehicleType: formData.fixedCharge ? formData.vehicleType : '',
       primaryFreightAmount: formData.fixedCharge ? toNum(formData.primaryFreightAmount) : 0,
-      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
+    if (!recordId) {
+      payload.createdAt = new Date().toISOString();
+    }
 
     setDocumentNonBlocking(
       doc(db, 'users', SHARED_HUB_ID, 'vk_primary_freight_rates', id),
       payload,
       { merge: true }
     );
-
-    setFormData(DEFAULT_FORM);
-    alert('Primary freight rate created & synchronized');
+    
+    if (recordId) {
+      alert('Freight rate updated successfully.');
+      router.push('/dashboard/vk12');
+    } else {
+      setFormData(DEFAULT_FORM);
+      alert('Primary freight rate created & synchronized');
+    }
   };
 
   const handleDownloadTemplate = () => {
@@ -309,7 +347,7 @@ export default function VK11CreatePrimaryFreightRates() {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-10 bg-[#f2f2f2] font-mono text-black">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 shadow-sm">
-        <h2 className="text-[16px] font-bold uppercase italic">VK11 – Create Primary Freight Rates</h2>
+        <h2 className="text-[16px] font-bold uppercase italic">{recordId ? 'VK11 – Update Primary Freight Rate' : 'VK11 – Create Primary Freight Rates'}</h2>
       </div>
 
       <div className="bg-white border border-slate-300 shadow-inner p-8 mb-8">
@@ -464,11 +502,11 @@ export default function VK11CreatePrimaryFreightRates() {
         </div>
 
         <div className="mt-10 flex items-center justify-end gap-3">
-          <Button variant="outline" className="h-10 rounded-none px-10" onClick={() => setFormData(DEFAULT_FORM)}>
+          <Button variant="outline" className="h-10 rounded-none px-10" onClick={() => recordId ? router.back() : setFormData(DEFAULT_FORM)}>
             Cancel
           </Button>
           <Button className="h-10 bg-[#0056d2] text-white rounded-none px-14" onClick={handleExecute}>
-            Create Primary Rate
+            {recordId ? 'Update Primary Rate' : 'Create Primary Rate'}
           </Button>
         </div>
 
