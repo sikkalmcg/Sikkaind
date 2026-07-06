@@ -17,7 +17,7 @@ import { FileSpreadsheet, Loader2 } from 'lucide-react';
 const SHARED_HUB_ID = 'Sikkaind';
 
 const DEFAULT_FORM = {
-  plantCode: 'ALL',
+  plantCode: '',
   fromDate: '',
   toDate: '',
   vendorId: 'ALL',
@@ -161,13 +161,17 @@ export default function VT11FreightCostReportPage() {
 
   React.useEffect(() => {
     if (!mounted) return;
-    if (!isBootstrapAdmin && authorizedPlantCodes && authorizedPlantCodes.length === 1) {
+    if (authorizedPlantCodes && authorizedPlantCodes.length === 1) {
       setForm((prev) => ({ ...prev, plantCode: authorizedPlantCodes[0] }));
+    } else {
+      setForm((prev) => ({ ...prev, plantCode: 'ALL' }));
     }
   }, [mounted, authorizedPlantCodes, isBootstrapAdmin]);
 
   const plantOptions = (plants || []).filter((p: any) => {
-    if (isBootstrapAdmin) return true;
+    // Bootstrap admin can see all plants
+    if (isBootstrapAdmin) return true; 
+    // Regular users see only their authorized plants
     if (!authorizedPlantCodes) return false;
     return authorizedPlantCodes.includes(p.plantCode);
   });
@@ -417,11 +421,10 @@ const destinationOptions = React.useMemo(() => {
               <label className="text-[10px] font-normal text-slate-500 uppercase">Plant</label>
               <select
                 value={form.plantCode}
-                disabled={!isBootstrapAdmin && authorizedPlantCodes?.length === 1}
                 onChange={(e) => setForm((p) => ({ ...p, plantCode: e.target.value }))}
                 className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none"
               >
-                {isBootstrapAdmin && <option value="ALL">All Plants</option>}
+                {(isBootstrapAdmin || (authorizedPlantCodes && authorizedPlantCodes.length > 1)) && <option value="ALL">All Plants</option>}
                 {plantOptions.map((p: any) => (
                   <option key={p.id || p._id} value={p.plantCode}>
                     {p.plantCode}

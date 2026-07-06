@@ -219,6 +219,8 @@ export default function SE38Page() {
                 <tr className="font-black uppercase text-slate-500">
                   <th className="p-3 border-r border-slate-200">Plant</th>
                   <th className="p-3 border-r border-slate-200">Trip ID</th>
+                  <th className="p-3 border-r border-slate-200">Sale Order</th>
+                  <th className="p-3 border-r border-slate-200">E-Way Bill No</th>
                   <th className="p-3 border-r border-slate-200">CN No</th>
                   <th className="p-3 border-r border-slate-200">CN Date</th>
                   <th className="p-3 border-r border-slate-200">Invoice No</th>
@@ -249,6 +251,8 @@ export default function SE38Page() {
                 <tr key={i} className="hover:bg-blue-50/30 border-b border-slate-100 whitespace-nowrap">
                   <td className="p-3 border-r border-slate-100 uppercase">{r.plantCode || '-'}</td>
                   <td className="p-3 border-r border-slate-100 font-black text-blue-700 uppercase">{r.tripNo || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase">{r.orderNo || r.saleOrderNo || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 uppercase">{(r.invoices || []).map((inv: any) => inv.ewaybillNo).filter(Boolean).join(', ') || '-'}</td>
                   <td className="p-3 border-r border-slate-100 uppercase">{r.cnNumber || '-'}</td>
                   <td className="p-3 border-r border-slate-100">{formatTime(r.cnDate || r.createdAt)}</td>
                   <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[120px]" title={(r.invoices || []).map((inv: any) => inv.invNo).filter(Boolean).join(', ')}>
