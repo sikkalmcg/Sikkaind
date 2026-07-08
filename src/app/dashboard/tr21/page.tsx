@@ -1027,7 +1027,7 @@ export default function TR21Page() {
 
              {assignData.fleetType === 'Market Vehicle' && (
                <div className="space-y-1.5">
-                  <label className="text-[10px] font-normal text-slate-400 uppercase">Arrange By Party</label>
+                  <label className="text-[10px] font-normal text-slate-400 uppercase">Arrange By</label>
                   <select 
                     value={assignData.arrangeBy || ''} 
                     onChange={e => setAssignData({ ...assignData, arrangeBy: e.target.value })} 

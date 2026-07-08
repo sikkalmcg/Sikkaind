@@ -258,7 +258,14 @@ const destinationOptions = React.useMemo(() => {
       const toDate = form.toDate;
       const selectedPlant = form.plantCode;
 
-      const filteredTrips = (tripBoard || []).filter((t: any) => {
+      const baseTrips = (tripBoard || []).filter((t: any) => {
+        if (isBootstrapAdmin) return true;
+        if (authorizedPlantCodes && authorizedPlantCodes.length > 0) {
+          return authorizedPlantCodes.includes(t.plantCode);
+        }
+        return true; // Default to showing if no specific auth rules apply
+      });
+      const filteredTrips = baseTrips.filter((t: any) => {
         const plantOk = selectedPlant === 'ALL' ? true : safeUpper(t.plantCode) === safeUpper(selectedPlant);
         if (!plantOk) return false;
 
