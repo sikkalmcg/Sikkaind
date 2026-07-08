@@ -216,7 +216,7 @@ export default function QRScanCNPage() {
               <div className="bg-slate-50 border border-slate-200 p-3">
                 <div className="text-[9px] font-black uppercase text-slate-500">Trip</div>
                 <div className="mt-1"><span className="font-black text-[#0056d2]">Trip ID:</span> {selectedTrip.id}</div>
-                <div className="mt-1"><span className="font-black text-[#0056d2]">Trip No:</span> {selectedTrip.tripNo || selectedTrip.tripId || selectedTrip.tripNo || '-'}</div>
+                <div className="mt-1"><span className="font-black text-[#0056d2]">Trip No:</span> {selectedTrip.tripNo || selectedTrip.tripId || '-'}</div>
                 <div className="mt-1"><span className="font-black text-[#0056d2]">Plant:</span> {selectedTrip.plantCode || '-'}</div>
                 <div className="mt-1"><span className="font-black text-[#0056d2]">Order No:</span> {selectedTrip.orderNo || selectedTrip.saleOrderNo || selectedTrip.saleOrder || '-'}</div>
               </div>
@@ -276,17 +276,16 @@ export default function QRScanCNPage() {
                             </td>
                           </tr>
                         ) : (
-                          {(selectedTrip.invoices || []).map((inv: any, idx: number) => (
+                          (selectedTrip.invoices || []).map((inv: any, idx: number) => (
                             <tr key={inv.id || idx} className="hover:bg-blue-50/20">
                               <td className="p-2 border-b border-slate-100">{inv.invNo || '-'}</td>
                               <td className="p-2 border-b border-slate-100">{inv.ewaybillNo || '-'}</td>
                               <td className="p-2 border-b border-slate-100">{inv.desc || '-'}</td>
-                              <td className="p-2 border-b border-slate-100">{inv.pkg ?? '-'} </td>
+                              <td className="p-2 border-b border-slate-100">{inv.pkg ?? '-'}</td>
                               <td className="p-2 border-b border-slate-100">{inv.uom || '-'}</td>
                             </tr>
-                          ))}
+                          ))
                         )}
-
                       </tbody>
                     </table>
                   </div>
@@ -303,4 +302,3 @@ export default function QRScanCNPage() {
     </div>
   );
 }
-
