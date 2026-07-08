@@ -230,7 +230,7 @@ export default function CNPrintPage() {
                               <td className="p-2 border-r border-black align-top">
                                  <div className="flex flex-wrap gap-1 max-w-[130px]">
                                     {invList.map((num: string, idx: number) => (
-                                       <span key={idx} className="text-[9px] bg-slate-50 border border-slate-200 px-1 py-0.5 rounded-sm font-mono tracking-tight break-all">
+                                       <span key={idx} className="text-[9px] px-1 py-0.5 font-mono tracking-tight break-all">
                                           {num}
                                        </span>
                                     ))}
@@ -241,7 +241,7 @@ export default function CNPrintPage() {
                               <td className="p-2 border-r border-black align-top">
                                  <div className="flex flex-wrap gap-1 max-w-[160px]">
                                     {ewayList.map((num: string, idx: number) => (
-                                       <span key={idx} className="text-[9px] bg-slate-50 border border-slate-200 px-1 py-0.5 rounded-sm font-mono tracking-tight break-all">
+                                       <span key={idx} className="text-[9px] px-1 py-0.5 font-mono tracking-tight break-all">
                                           {num}
                                        </span>
                                     ))}

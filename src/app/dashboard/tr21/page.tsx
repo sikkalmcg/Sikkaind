@@ -131,10 +131,10 @@ export default function TR21Page() {
   }, [isBootstrapAdmin, userProfile, isProfileLoading]);
 
   React.useEffect(() => {
-    if (mounted && authorizedPlantCodes && authorizedPlantCodes.length > 0 && plantFilter === 'ALL') {
+    if (mounted && authorizedPlantCodes && authorizedPlantCodes.length === 1) {
       setPlantFilter(authorizedPlantCodes[0]);
     }
-  }, [mounted, authorizedPlantCodes, plantFilter]);
+  }, [mounted, authorizedPlantCodes]);
 
   const tabCounts = React.useMemo(() => {
     const counts: { [key: string]: number } = {
@@ -560,7 +560,7 @@ export default function TR21Page() {
                disabled={!isBootstrapAdmin && authorizedPlantCodes?.length === 1}
                className="h-7 bg-transparent text-[10px] font-normal uppercase outline-none"
              >
-               {isBootstrapAdmin && <option value="ALL">All Plants</option>}
+               {(isBootstrapAdmin || (authorizedPlantCodes && authorizedPlantCodes.length > 1)) && <option value="ALL">All Plants</option>}
                {plants?.filter(p => !authorizedPlantCodes || authorizedPlantCodes.includes(p.plantCode)).map(p => (
                  <option key={p.id} value={p.plantCode}>{p.plantCode}</option>
                ))}
