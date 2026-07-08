@@ -346,7 +346,16 @@ export default function TR21Page() {
     if (plantFilter !== 'ALL') baseData = baseData.filter(d => d.plantCode === plantFilter);
     if (searchQuery) {
       const query = searchQuery.toUpperCase();
-      baseData = baseData.filter(d => (d.orderNo || '').includes(query) || (d.tripNo || '').includes(query) || (d.vehicleNo || '').includes(query));
+      baseData = baseData.filter(d => 
+        (d.orderNo || '').toUpperCase().includes(query) || 
+        (d.tripNo || '').toUpperCase().includes(query) || 
+        (d.vehicleNo || '').toUpperCase().includes(query) ||
+        (d.consignorName || '').toUpperCase().includes(query) ||
+        (d.consigneeName || '').toUpperCase().includes(query) ||
+        (d.shipToParty || '').toUpperCase().includes(query) ||
+        (d.destination || '').toUpperCase().includes(query) ||
+        (d.cnNumber || '').toUpperCase().includes(query) ||
+        (Array.isArray(d.invoices) && d.invoices.some((inv: any) => (inv.invNo || '').toUpperCase().includes(query))));
     }
     return baseData;
   }, [orders, trips, activeTab, mounted, plantFilter, searchQuery, authorizedPlantCodes]);
