@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import placeholderData from '@/app/lib/placeholder-images.json';
+import { Download } from 'lucide-react';
 
 const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
@@ -39,6 +39,7 @@ export default function TR21Page() {
   const [showVehiclePortal, setShowVehiclePortal] = React.useState(false);
   const [showPODPortal, setShowPODPortal] = React.useState(false);
   const [showStatusPortal, setShowStatusPortal] = React.useState(false);
+  const [showPODViewer, setShowPODViewer] = React.useState(false);
   
   const [podFile, setPodFile] = React.useState<string | null>(null);
   const [isCompressing, setIsCompressing] = React.useState(false);
@@ -926,7 +927,10 @@ export default function TR21Page() {
                 <div className="p-4 bg-emerald-50 border border-emerald-100 space-y-4">
                    <div className="flex items-center justify-between">
                      <span className="text-[9px] font-normal uppercase text-emerald-700">Current POD Active</span>
-                     <Button variant="outline" className="h-6 text-[8px] font-normal rounded-none border-emerald-300" onClick={() => window.open(selectedTrip.podUrl, '_blank')}>View Original</Button>
+                     <Button variant="outline" className="h-6 text-[8px] font-normal rounded-none border-emerald-300" onClick={() => {
+                       setShowPODPortal(false);
+                       setShowPODViewer(true);
+                     }}>View Original</Button>
                    </div>
                    <div className="w-full flex justify-center bg-white border border-emerald-200 p-2">
                      <img src={selectedTrip.podUrl} alt="POD Preview" className="max-h-64 object-contain" />
@@ -953,6 +957,34 @@ export default function TR21Page() {
                 Sync & Close
               </Button>
            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPODViewer} onOpenChange={setShowPODViewer}>
+        <DialogContent className="max-w-4xl h-[90vh] rounded-none border-[3px] border-blue-900 font-mono p-0 flex flex-col text-left text-black">
+          <DialogHeader className="bg-slate-50 p-4 border-b border-slate-200 text-left flex flex-row justify-between items-center shrink-0">
+             <DialogTitle className="text-[12px] font-normal uppercase text-blue-900 italic">POD Viewer</DialogTitle>
+             <div className="flex items-center gap-2">
+                <Button variant="outline" className="h-8 rounded-none text-xs" onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = selectedTrip?.podUrl;
+                    link.download = `POD_${selectedTrip?.tripNo || selectedTrip?.cnNumber || 'download'}.jpg`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                <Button variant="outline" className="h-8 rounded-none text-xs" onClick={() => setShowPODViewer(false)}>
+                  <X className="h-4 w-4 mr-2" />
+                  Close
+                </Button>
+             </div>
+          </DialogHeader>
+          <div className="flex-1 p-4 overflow-auto bg-slate-100 flex items-center justify-center">
+            {selectedTrip?.podUrl && <img src={selectedTrip.podUrl} alt="POD" className="max-w-full max-h-full object-contain" />}
+          </div>
         </DialogContent>
       </Dialog>
 
