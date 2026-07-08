@@ -1080,6 +1080,14 @@ export default function TR21Page() {
                 />
              </div>
 
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-normal text-slate-400 uppercase">Payment Terms</label>
+                <select value={assignData.paymentTerms} onChange={e => setAssignData({...assignData, paymentTerms: e.target.value})} className="h-9 w-full border border-slate-400 bg-white px-3 text-xs font-normal uppercase outline-none">
+                  <option value="PAID">PAID</option>
+                  <option value="TO PAY">TO PAY</option>
+                </select>
+             </div>
+
              {assignData.fleetType === 'Market Vehicle' && (
                <>
                  <div className="space-y-1.5">

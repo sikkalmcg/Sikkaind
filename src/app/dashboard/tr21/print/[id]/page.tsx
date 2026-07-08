@@ -62,7 +62,11 @@ export default function CNPrintPage() {
   }
 
   const logoFallback = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
-  const carrier = companies?.find(c => c.companyName === trip.carrierName) || companies?.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(trip.plantCode)) || companies?.[0];
+  const carrier =
+    companies?.find(
+      (c) => Array.isArray(c.plantCodes) && c.plantCodes.includes(trip.plantCode),
+    ) ||
+    companies?.find((c) => c.companyName === trip.carrierName) || companies?.[0];
   const consignor = customers?.find(c => c.customerCode === trip.consignorCode);
   const consignee = customers?.find(c => c.customerCode === trip.consigneeCode);
   const shipToParty = customers?.find(c => c.customerCode === trip.shipToPartyCode);
@@ -132,21 +136,25 @@ export default function CNPrintPage() {
                     {carrier?.panNo && <span>PAN: {carrier.panNo}</span>}
                     <span>MOB: {carrier?.mobile}</span>
                     <span>EMAIL: {carrier?.email}</span>
+                    {carrier?.website && <span>WEBSITE: {carrier.website}</span>}
                   </div>
                 </div>
               </div>
 
-              {/* Right Side: QR Code and Copy Label Box */}
-              <div className="flex items-center gap-4 shrink-0">
+              {/* Right Side: Copy Label Box and QR Code underneath */}
+              <div className="flex flex-col items-center gap-2 shrink-0">
+                {/* Top: Copy Label Box */}
+                <div className="border border-black px-4 py-1.5 text-[10px] font-normal uppercase italic bg-white tracking-widest text-black whitespace-nowrap min-w-[130px] text-center">
+                  {copyLabel}
+                </div>
+                
+                {/* Bottom: QR Code */}
                 <div className="flex items-center justify-center h-[64px]">
                   <QRCodeSVG
                     value={`${origin || 'http://localhost:3000'}/dashboard/tr21/print/${id}`}
                     size={64}
                     level="M"
                   />
-                </div>
-                <div className="border border-black px-4 py-1.5 text-[10px] font-normal uppercase italic bg-white tracking-widest text-black whitespace-nowrap">
-                  {copyLabel}
                 </div>
               </div>
 
@@ -248,7 +256,6 @@ export default function CNPrintPage() {
                         const invList = inv.invNo ? inv.invNo.split(',').map((x: string) => x.trim()).filter(Boolean) : [];
                         const ewayList = inv.ewaybillNo ? inv.ewaybillNo.split(',').map((x: string) => x.trim()).filter(Boolean) : [];
 
-                        {/* FIXED: Removed 'font-medium' and 'font-mono' weightings to make it non-bold */}
                         const invFontClass = invList.length === 1 ? 'text-[13px] tracking-normal' : 'text-[9px] tracking-tight break-all';
                         const ewayFontClass = ewayList.length === 1 ? 'text-[13px] tracking-normal' : 'text-[9px] tracking-tight break-all';
 

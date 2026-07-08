@@ -336,22 +336,43 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-full">
             <button onClick={triggerGlobalSave} className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Save (F8 / Ctrl+S)"><Save className="h-4 w-4" /></button>
-            <button
+              <button
               className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700 disabled:opacity-30 disabled:pointer-events-none"
               title="Back (F3)"
               onClick={() => {
+                const current = pathname;
+                if (current === '/dashboard') return;
+
+                const stackRaw = localStorage.getItem('sap_nav_stack');
+                let stack: string[] = [];
                 try {
-                  const stackRaw = localStorage.getItem('sap_nav_stack');
-                  const stack: string[] = stackRaw ? JSON.parse(stackRaw) : [];
-                  const current = pathname;
-                  const atHome = current === '/dashboard';
-                  if (atHome || stack.length <= 1) return;
-                  // pop current
-                  stack.pop();
-                  localStorage.setItem('sap_nav_stack', JSON.stringify(stack));
-                  const prev = stack[stack.length - 1];
-                  if (prev && prev !== current) router.push(prev);
+                  stack = stackRaw ? JSON.parse(stackRaw) : [];
                 } catch {
+                  stack = [];
+                }
+
+                // If stack is missing/empty, fall back to browser back.
+                if (!Array.isArray(stack) || stack.length <= 1) {
+                  router.back();
+                  return;
+                }
+
+                // Remove current from stack if present.
+                // If it doesn't match exactly (query params etc.), we still pop top.
+                const top = stack[stack.length - 1];
+                if (top === current) {
+                  stack.pop();
+                } else {
+                  // current route not matching exactly the top; try to drop last anyway.
+                  stack.pop();
+                }
+
+                localStorage.setItem('sap_nav_stack', JSON.stringify(stack));
+                const prev = stack[stack.length - 1];
+
+                if (prev && prev !== current) {
+                  router.push(prev);
+                } else {
                   router.back();
                 }
               }}
