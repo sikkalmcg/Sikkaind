@@ -7,6 +7,7 @@ import { doc, collection } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { Loader2, Printer, X } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
 const SHARED_HUB_ID = 'Sikkaind';
@@ -22,6 +23,14 @@ export default function CNPrintPage() {
   const db = useMongoStore();
   const id = params.id as string;
   const isAuto = searchParams.get('auto') === 'true';
+
+  const [origin, setOrigin] = React.useState('');
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setOrigin(window.location.origin);
+    }
+  }, []);
 
   const tripRef = useMemoMongo(() => {
     if (!id) return null;
@@ -70,8 +79,8 @@ export default function CNPrintPage() {
       groups[uom] = (groups[uom] || 0) + qty;
     });
     return Object.entries(groups)
-      .map(([uom, sum]) => `${sum} ${uom}`)
-      .join(", ");
+          .map(([uom, sum]) => `${sum} ${uom}`)
+          .join(", ");
   })();
 
   const termsList = (() => {
@@ -100,10 +109,12 @@ export default function CNPrintPage() {
         {copies.map((copyLabel, index) => (
           <div key={index} className="cn-page bg-white text-black font-normal p-[15mm] min-h-[297mm] flex flex-col relative overflow-hidden print:overflow-visible print:border-none">
             {/* Header branding section */}
-            <div className="flex justify-between items-start mb-4 shrink-0">
-              <div className="flex gap-1.5 items-start">
+            <div className="flex justify-between items-center mb-4 shrink-0">
+              
+              {/* Left Side: Logo and Company Details */}
+              <div className="flex gap-4 items-start">
                 {(carrier?.logoUrl || logoFallback?.url) && (
-                  <div className="relative w-[90px] h-[45px] shrink-0">
+                  <div className="relative w-[90px] h-[45px] shrink-0 mt-0.5">
                     <Image 
                       src={carrier?.logoUrl || logoFallback?.url || ''} 
                       alt="Carrier Logo" 
@@ -124,15 +135,29 @@ export default function CNPrintPage() {
                   </div>
                 </div>
               </div>
-              <div className="border border-black px-4 py-1.5 text-[10px] font-normal uppercase italic bg-white tracking-widest shrink-0 text-black">{copyLabel}</div>
+
+              {/* Right Side: QR Code and Copy Label Box */}
+              <div className="flex items-center gap-4 shrink-0">
+                <div className="flex items-center justify-center h-[64px]">
+                  <QRCodeSVG
+                    value={`${origin || 'http://localhost:3000'}/dashboard/tr21/print/${id}`}
+                    size={64}
+                    level="M"
+                  />
+                </div>
+                <div className="border border-black px-4 py-1.5 text-[10px] font-normal uppercase italic bg-white tracking-widest text-black whitespace-nowrap">
+                  {copyLabel}
+                </div>
+              </div>
+
             </div>
 
             {/* Protocol Header Table */}
             <div className="mb-4 text-black shrink-0">
                <table className="w-full border-collapse border border-black text-[12px]">
                   <thead>
-                     <tr className="bg-white uppercase text-[8px] font-normal text-black border-b border-black">
-                        <th className="p-1 border-r border-black text-center font-normal">CN Number</th>
+                     <tr className="bg-white uppercase border-b border-black text-[8px] font-normal text-black">
+                        <th className="p-1 border-r border-black text-center font-normal text-[10px]">CN Number</th>
                         <th className="p-1 border-r border-black text-center font-normal">Date</th>
                         <th className="p-1 border-r border-black text-center font-normal">From</th>
                         <th className="p-1 border-r border-black text-center font-normal">Via</th>
@@ -141,7 +166,7 @@ export default function CNPrintPage() {
                   </thead>
                   <tbody>
                      <tr className="uppercase font-normal text-black text-[12px]">
-                        <td className="p-2 border-r border-black text-center whitespace-nowrap">{trip.cnNumber || 'DRAFT'}</td>
+                        <td className="p-2 border-r border-black text-center whitespace-nowrap text-[14px] font-medium">{trip.cnNumber || 'DRAFT'}</td>
                         <td className="p-2 border-r border-black text-center">{trip.cnDate ? format(new Date(trip.cnDate), 'dd-MMM-yyyy') : '-'}</td>
                         <td className="p-2 border-r border-black text-center text-[10px]">{trip.from}</td>
                         <td className="p-2 border-r border-black text-center text-[10px]">{trip.via || '-'}</td>
@@ -220,28 +245,31 @@ export default function CNPrintPage() {
                   </thead>
                   <tbody>
                      {(trip.invoices || []).filter((inv: any) => inv.invNo).map((inv: any, i: number) => {
-                        // Comma se values ko split karke individual arrays bana rhe hain
                         const invList = inv.invNo ? inv.invNo.split(',').map((x: string) => x.trim()).filter(Boolean) : [];
                         const ewayList = inv.ewaybillNo ? inv.ewaybillNo.split(',').map((x: string) => x.trim()).filter(Boolean) : [];
 
+                        {/* FIXED: Removed 'font-medium' and 'font-mono' weightings to make it non-bold */}
+                        const invFontClass = invList.length === 1 ? 'text-[13px] tracking-normal' : 'text-[9px] tracking-tight break-all';
+                        const ewayFontClass = ewayList.length === 1 ? 'text-[13px] tracking-normal' : 'text-[9px] tracking-tight break-all';
+
                         return (
                            <tr key={i} className="border-b border-black last:border-b-0 uppercase font-normal text-black text-[11px]">
-                              {/* Invoice No Layout Fix */}
+                              {/* Invoice No Layout Block */}
                               <td className="p-2 border-r border-black align-top">
                                  <div className="flex flex-wrap gap-1 max-w-[130px]">
                                     {invList.map((num: string, idx: number) => (
-                                       <span key={idx} className="text-[9px] px-1 py-0.5 font-mono tracking-tight break-all">
+                                       <span key={idx} className={invFontClass}>
                                           {num}
                                        </span>
                                     ))}
                                  </div>
                               </td>
 
-                              {/* E-Waybill No Layout Fix */}
+                              {/* E-Waybill No Layout Block */}
                               <td className="p-2 border-r border-black align-top">
                                  <div className="flex flex-wrap gap-1 max-w-[160px]">
                                     {ewayList.map((num: string, idx: number) => (
-                                       <span key={idx} className="text-[9px] px-1 py-0.5 font-mono tracking-tight break-all">
+                                       <span key={idx} className={ewayFontClass}>
                                           {num}
                                        </span>
                                     ))}
