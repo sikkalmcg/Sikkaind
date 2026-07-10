@@ -50,8 +50,11 @@ export default function SE38Page() {
 
   const handleExecute = () => {
     if (!search.plant || !search.from || !search.to) { alert('Criteria Mandatory'); return; }
+    const normalizedPlant = String(search.plant || '').trim().toUpperCase();
+
     const filtered = (trips || []).filter(t => {
-      const matchPlant = t.plantCode === search.plant;
+      const tripPlant = String(t?.plantCode || '').trim().toUpperCase();
+      const matchPlant = tripPlant === normalizedPlant;
       const matchDate = isAnyRelevantDateInRange(t);
       return matchPlant && matchDate;
     });

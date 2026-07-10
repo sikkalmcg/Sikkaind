@@ -1,9 +1,13 @@
-
-import './globals.css';
+import type {} from 'next';
 import { Inter } from 'next/font/google';
 import { ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import Script from 'next/script';
+
+// @ts-ignore
+import './globals.css';
+
+
 
 /**
  * @fileOverview Root Layout Node (Server Component).

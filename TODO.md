@@ -1,10 +1,7 @@
-# TODO
+## TODO (auto-tracked)
 
-- [ ] TR21 (src/app/dashboard/tr21/page.tsx) me VK13 primary freight rates ko fetch karke CN ENTRY / Post Protocol ke time `trip_board` document me:
-  - [ ] `primaryRate`
-  - [ ] `primaryFreightAmount`
-  - [ ] set/update karna
-- [ ] Matching key decide karna (VK13: plantCode|origin|destination|ratePMT|conditionRecord)
-- [ ] VT11 (src/app/dashboard/vt11/page.tsx) me confirm karna ki wo fields render ho rahe hain (already present)
+- [x] TR24: MapTiler GeoJSON dataset URL me hardcoded API key use ho rahi hai; direct URL me key replace karke token-flow (NEXT_PUBLIC_MAPTILER_API_KEY) use karna.
+- [ ] TR24: Routing line show nahi ho rahi / map recreate: route source/layer update in-place + effect dependencies stable.
+
 
 

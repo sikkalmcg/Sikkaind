@@ -9,7 +9,7 @@ import {
   Loader2, CheckCircle, FileUp, ExternalLink, Calculator, History, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc, useUser } from '@/mongodb';
+import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc, useUser, addDocumentNonBlocking } from '@/mongodb';
 import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -40,6 +40,10 @@ export default function TR21Page() {
   const [showPODPortal, setShowPODPortal] = React.useState(false);
   const [showStatusPortal, setShowStatusPortal] = React.useState(false);
   const [showPODViewer, setShowPODViewer] = React.useState(false);
+  const [showResentDialog, setShowResentDialog] = React.useState(false);
+  const [showSRNDialog, setShowSRNDialog] = React.useState(false);
+  const [srnData, setSrnData] = React.useState({ srnNo: '', srnDate: '' });
+  const [resentTrip, setResentTrip] = React.useState<any>(null);
   
   const [podFile, setPodFile] = React.useState<string | null>(null);
   const [isCompressing, setIsCompressing] = React.useState(false);
@@ -90,6 +94,8 @@ export default function TR21Page() {
     consignor: '',
     consignee: '',
     route: ''
+  } as {
+    tripId: string; newStatus: string; dateField: string; timestamp: string; label: string; consignor: string; consignee: string; route: string; saleOrderDate?: Date; outDate?: Date; arrivedDate?: Date; rejectionReason?: string;
   });
 
   React.useEffect(() => { 
@@ -102,6 +108,11 @@ export default function TR21Page() {
     setCNData((prev: any) => ({ ...prev, cnDate: format(new Date(), 'yyyy-MM-dd') }));
 
     setMounted(true); 
+
+    return () => {
+      // Cleanup any potential memory leaks from file reader
+      setPodFile(null);
+    };
   }, []);
 
   const profileRef = useMemoMongo(() => {
@@ -154,12 +165,14 @@ export default function TR21Page() {
       baseTrips = baseTrips.filter(d => d.plantCode === plantFilter);
     }
 
-    counts['Open Orders'] = baseOrders.filter(o => o.status === 'Open').map(o => {
+    const openOrdersWithBalanceArray = baseOrders.filter(o => o.status === 'Open').map(o => {
       const dispatched = baseTrips.filter(t => t.orderNo === o.orderNo && t.status !== 'REJECTION')
                                .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
       const weight = parseFloat(o.quantity) || 0;
       return { ...o, dispatched, balance: weight - dispatched };
     }).filter(o => o.balance > 0.001).length;
+
+    counts['Open Orders'] = openOrdersWithBalanceArray;
 
     const statusMap: { [key: string]: string } = { 
       'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 
@@ -320,9 +333,21 @@ export default function TR21Page() {
     }
   }, [showCNPortal, selectedTrip, trips, companies]);
 
+  const validateIndianVehicleNumber = (vehicleNo: string) => {
+    if (!vehicleNo) return true; // Allow empty
+    const pattern = /^[A-Z]{2}[0-9]{1,2}(?:[A-Z]{1,3})?[0-9]{4}$/;
+    return pattern.test(vehicleNo.replace(/\s/g, ''));
+  };
+
   const filteredData = React.useMemo(() => {
     if (!orders || !trips || !mounted || authorizedPlantCodes === undefined) return [];
     let baseData: any[] = [];
+
+    const getOrderForTrip = (trip: any) => {
+        if (!orders) return null;
+        return orders.find((o: any) => o.orderNo === trip.orderNo);
+    };
+
 
     if (activeTab === 'Open Orders') {
       baseData = orders.filter(o => o.status === 'Open').map(o => {
@@ -336,7 +361,10 @@ export default function TR21Page() {
         'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 
         'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' 
       };
-      baseData = trips.filter(t => t.status === statusMap[activeTab]);
+      baseData = trips.filter(t => t.status === statusMap[activeTab]).map(trip => ({
+        ...trip,
+        orderDate: getOrderForTrip(trip)?.orderDate
+      }));
     }
 
     if (authorizedPlantCodes) {
@@ -367,6 +395,12 @@ export default function TR21Page() {
   const totalPages = Math.ceil(filteredData.length / PAGE_SIZE);
 
   const handlePostAssignment = () => {
+    const vehicleNo = assignData.vehicleNo.replace(/\s/g, '').toUpperCase();
+    if (!validateIndianVehicleNumber(vehicleNo)) {
+      alert("Invalid Vehicle Number format. Please use a valid Indian vehicle registration format.");
+      return;
+    }
+
     if (!assignData.vehicleNo || !assignData.assignWeight) return alert('Mandatory fields missing');
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
     const now = new Date().toISOString();
@@ -374,7 +408,7 @@ export default function TR21Page() {
       id: crypto.randomUUID(), tripNo: tripId, orderNo: selectedOrder.orderNo, plantCode: selectedOrder.plantCode,
       consigneeName: selectedOrder.consigneeName, consigneeCode: selectedOrder.consigneeCode,
       shipToParty: selectedOrder.shipToParty, shipToPartyCode: selectedOrder.shipToPartyCode,
-      destination: selectedOrder.destination, vehicleNo: assignData.vehicleNo.toUpperCase(),
+      destination: selectedOrder.destination, vehicleNo: vehicleNo,
       driverMobile: assignData.driverMobile || '', assignWeight: parseFloat(assignData.assignWeight),
       status: 'LOADING', assignDate: assignData.assignDate, mode: assignData.mode || 'Road',
       via: assignData.via || '', fleetType: assignData.fleetType, createdAt: now, updatedAt: now,
@@ -398,6 +432,12 @@ export default function TR21Page() {
 
   const handlePostCN = () => {
     const cnNumber = cnData.cnNumber?.trim().toUpperCase();
+    const existingCN = trips?.find(t => t.cnNumber === cnNumber && t.id !== selectedTrip.id);
+    if (existingCN) {
+      alert("Duplicate CN Number is not allowed. Please enter a unique CN Number.");
+      return;
+    }
+
     if (!cnNumber) return alert('CN Number Mandatory');
 
     const normalizedInvoices = (cnData.invoices || [])
@@ -421,7 +461,13 @@ export default function TR21Page() {
       .filter((r: any) => r.invNo || r.ewaybillNo || r.desc || r.pkg !== '' && r.pkg !== 0);
 
     const vehicleNo = (vehicleData.vehicleNo || selectedTrip?.vehicleNo || '').toString().toUpperCase().trim();
-    const assignWeightNum = parseFloat((assignData.assignWeight || selectedTrip?.assignWeight || 0).toString());
+    
+    if (!validateIndianVehicleNumber(vehicleNo)) {
+      alert("Invalid Vehicle Number format. Please use a valid Indian vehicle registration format.");
+      return;
+    }
+
+    const assignWeightNum = parseFloat((cnVehicleWeightData.assignWeight || selectedTrip?.assignWeight || 0).toString());
     const freightAmountNum = assignData.fixRate ? selectedTrip?.freightAmount : (assignWeightNum * parseFloat(assignData.rate || 0));
 
     const carrier = companies?.find(c => Array.isArray(c.plantCodes) && c.plantCodes.includes(selectedTrip.plantCode)) || companies?.[0];
@@ -442,6 +488,24 @@ export default function TR21Page() {
   };
 
   const openStatusPortal = (trip: any, newStatus: string, dateField: string, label: string) => {
+    const order = orders?.find((o: any) => o.orderNo === trip.orderNo);
+    const orderDate = order ? new Date(order.orderDate) : null;
+    const outDate = trip.outDate ? new Date(trip.outDate) : null;
+
+    if (dateField === 'outDate' && orderDate) {
+        const now = new Date();
+        if (now < orderDate) {
+            alert("Out Date & Time cannot be earlier than Sale Order Date.");
+            return;
+        }
+    }
+    if (dateField === 'arrivedDate' && outDate) {
+        const now = new Date();
+        if (now < outDate) {
+            alert("Arrival Date & Time cannot be earlier than Out Date & Time.");
+            return;
+        }
+    }
     setStatusUpdateData({
       tripId: trip.id,
       newStatus,
@@ -450,12 +514,31 @@ export default function TR21Page() {
       timestamp: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       consignor: trip.consignorName || trip.consignorCode,
       consignee: trip.consigneeName || trip.consigneeCode,
-      route: `${trip.from} → ${trip.destination}`
+      route: `${trip.from} → ${trip.destination}`,
+      ...(orderDate && { saleOrderDate: orderDate }),
+      ...(outDate && { outDate: outDate }),
+      ...(trip.arrivedDate && { arrivedDate: new Date(trip.arrivedDate) })
     });
     setShowStatusPortal(true);
   };
 
   const handleCommitStatusUpdate = () => {
+    const updateTimestamp = new Date(statusUpdateData.timestamp);
+
+    if (statusUpdateData.dateField === 'outDate' && statusUpdateData.saleOrderDate && updateTimestamp < statusUpdateData.saleOrderDate) {
+        alert("Out Date & Time cannot be earlier than Sale Order Date.");
+        return;
+    }
+    if (statusUpdateData.dateField === 'arrivedDate' && statusUpdateData.outDate && updateTimestamp < statusUpdateData.outDate) {
+        alert("Arrival Date & Time cannot be earlier than Out Date & Time.");
+        return;
+    }
+    if ((statusUpdateData.dateField === 'unloadDate' || statusUpdateData.dateField === 'rejectionDate') && statusUpdateData.arrivedDate && updateTimestamp < statusUpdateData.arrivedDate) {
+        alert("Date & Time cannot be earlier than Arrival Date & Time.");
+        return;
+    }
+
+
     const updates: any = { 
       status: statusUpdateData.newStatus, 
       updatedAt: new Date().toISOString() 
@@ -463,6 +546,10 @@ export default function TR21Page() {
     if (statusUpdateData.dateField) {
       updates[statusUpdateData.dateField] = statusUpdateData.timestamp;
     }
+    if (statusUpdateData.newStatus === 'REJECTION' && statusUpdateData.rejectionReason) {
+      updates.rejectionReason = statusUpdateData.rejectionReason;
+    }
+
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', statusUpdateData.tripId), updates);
     setShowStatusPortal(false);
     alert(`Node Status Updated: ${statusUpdateData.newStatus}`);
@@ -554,6 +641,45 @@ export default function TR21Page() {
     window.open(`/dashboard/tr21/print/${tripId}`, '_blank');
   };
 
+  const handleResentConfirm = () => {
+    if (!resentTrip) return;
+    const newTripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
+    const now = new Date().toISOString();
+
+    const newTripPayload = {
+      ...resentTrip,
+      id: crypto.randomUUID(),
+      tripNo: newTripId,
+      status: 'LOADING',
+      createdAt: now,
+      updatedAt: now,
+      // Reset dates
+      assignDate: now,
+      outDate: null,
+      arrivedDate: null,
+      unloadDate: null,
+      rejectionDate: null,
+      podUrl: null,
+      srnNo: null,
+      srnDate: null,
+      resentFromTripId: resentTrip.id
+    };
+    delete newTripPayload._id; // remove mongo id
+
+    addDocumentNonBlocking(collection(db, 'users', SHARED_HUB_ID, 'trip_board'), newTripPayload);
+    
+    setShowResentDialog(false);
+    setResentTrip(null);
+    alert(`Trip ${resentTrip.tripNo} has been resent. New trip ID is ${newTripId}.`);
+  };
+
+  const handleSRNConfirm = () => {
+    if (!resentTrip || !srnData.srnNo || !srnData.srnDate) return alert("SRN Number and Date are mandatory.");
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', resentTrip.id), { srnNo: srnData.srnNo, srnDate: srnData.srnDate, updatedAt: new Date().toISOString() });
+    setShowSRNDialog(false);
+    setResentTrip(null);
+  };
+
   if (!mounted) return null;
 
   return (
@@ -627,6 +753,70 @@ export default function TR21Page() {
           </DialogContent>
         </Dialog>
 
+        <Dialog open={showResentDialog} onOpenChange={setShowResentDialog}>
+          <DialogContent className="max-w-2xl rounded-none border-[3px] border-blue-600 font-mono p-0 text-black">
+            <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
+              <DialogTitle className="text-[12px] font-normal uppercase text-blue-700 italic">Confirm Resend</DialogTitle>
+            </DialogHeader>
+            <div className="p-8 space-y-4 text-xs">
+              <p>You are about to create a new trip for the rejected goods.</p>
+              <div>Plant: {resentTrip?.plantCode}</div>
+              <div>Consignee: {resentTrip?.consigneeName}</div>
+              <div>Ship To Party: {resentTrip?.shipToParty}</div>
+              <div>Route: {resentTrip?.from} → {resentTrip?.destination}</div>
+              <div>Invoice: {(resentTrip?.invoices || []).map((i: any) => i.invNo).join(', ')}</div>
+              <div>Goods: {(resentTrip?.invoices || []).map((i: any) => i.desc).join(', ')}</div>
+              <div>Weight: {resentTrip?.assignWeight} MT</div>
+              <div>Reject Date: {resentTrip?.rejectionDate ? format(new Date(resentTrip.rejectionDate), 'dd-MMM-yy HH:mm') : '-'}</div>
+              <div>Reject Reason: {resentTrip?.rejectionReason || 'N/A'}</div>
+            </div>
+            <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
+              <Button onClick={() => setShowResentDialog(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-normal px-10">Cancel</Button>
+              <Button onClick={handleResentConfirm} className="bg-blue-600 text-white rounded-none h-10 uppercase text-[10px] font-normal px-16">Confirm</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showSRNDialog} onOpenChange={setShowSRNDialog}>
+          <DialogContent className="max-w-2xl rounded-none border-[3px] border-slate-600 font-mono p-0 text-black">
+            <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200">
+              <DialogTitle className="text-[12px] font-normal uppercase text-slate-700 italic">Enter SRN Details</DialogTitle>
+            </DialogHeader>
+            <div className="p-8 space-y-4 text-xs">
+                <p>Please enter the Sales Return Note (SRN) details for this rejected trip.</p>
+                <div>Plant: {resentTrip?.plantCode}</div>
+                <div>Consignee: {resentTrip?.consigneeName}</div>
+                <div>Route: {resentTrip?.from} → {resentTrip?.destination}</div>
+                <div>Weight: {resentTrip?.assignWeight} MT</div>
+                <div>Reject Date: {resentTrip?.rejectionDate ? format(new Date(resentTrip.rejectionDate), 'dd-MMM-yy HH:mm') : '-'}</div>
+                <div>Reject Reason: {resentTrip?.rejectionReason || 'N/A'}</div>
+                <div className="pt-4 grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                      <label className="text-[10px] font-normal text-slate-400 uppercase">SRN No. *</label>
+                      <input 
+                        value={srnData.srnNo} 
+                        onChange={e => setSrnData({...srnData, srnNo: e.target.value.toUpperCase()})} 
+                        className="h-9 w-full border border-slate-400 px-3 text-xs font-normal uppercase outline-none focus:bg-yellow-50" 
+                      />
+                  </div>
+                  <div className="space-y-1.5">
+                      <label className="text-[10px] font-normal text-slate-400 uppercase">SRN Date *</label>
+                      <input 
+                        type="date"
+                        value={srnData.srnDate} 
+                        onChange={e => setSrnData({...srnData, srnDate: e.target.value})} 
+                        className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" 
+                      />
+                  </div>
+                </div>
+            </div>
+            <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
+              <Button onClick={() => setShowSRNDialog(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-normal px-10">Cancel</Button>
+              <Button onClick={handleSRNConfirm} className="bg-slate-600 text-white rounded-none h-10 uppercase text-[10px] font-normal px-16">Confirm</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-inner custom-scrollbar relative flex flex-col">
           <div className="flex-1 overflow-auto">
             {isProfileLoading ? (
@@ -650,7 +840,7 @@ export default function TR21Page() {
                       <th className="p-3 border-r w-[100px] text-right">Dispatch Qty</th>
                       <th className="p-3 border-r w-[100px] text-right">Balance Qty</th>
                       <th className="p-3 text-center">Action</th>
-                    </tr>
+                    </tr> 
                   ) : (
                     <tr>
                       <th className="p-3 border-r w-[60px]">Plant</th>
@@ -671,6 +861,9 @@ export default function TR21Page() {
                         <>
                           <th className="p-3 border-r w-[120px]">Out Date/Time</th>
                           <th className="p-3 border-r w-[120px]">Arrived Date/Time</th>
+                          {activeTab === 'Closed' && (
+                            <th className="p-3 border-r w-[120px]">Unload Date/Time</th>
+                          )}
                         </>
                       )}
                       <th className="p-3 text-center">Action</th>
@@ -684,7 +877,7 @@ export default function TR21Page() {
                       <td className="p-3 border-r">
                         <div className="flex flex-col leading-tight">
                           <span className="font-normal text-slate-800">{item.orderNo}</span>
-                          <span className="text-[9px] text-slate-400 font-normal">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yyyy') : '-'}</span>
+                          <span className="text-[9px] text-slate-400 font-normal">{item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yy HH:mm') : '-'}</span>
                         </div>
                       </td>
                       
@@ -692,7 +885,7 @@ export default function TR21Page() {
                         <td className="p-3 border-r text-left">
                           <div className="flex flex-col leading-tight">
                             <span className="font-normal text-blue-700">{item.tripNo || '-'}</span>
-                            <span className="text-[9px] text-slate-400 font-normal">{item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '-'}</span>
+                            <span className="text-[9px] text-slate-400 font-normal">{item.assignDate ? format(new Date(item.assignDate), 'dd-MMM-yy HH:mm') : '-'}</span>
                           </div>
                         </td>
                       )}
@@ -739,11 +932,10 @@ export default function TR21Page() {
                           </td>
                           <td className="p-3 border-r text-left text-[#0056d2] font-normal text-[10px] truncate" title={item.carrierName}>{item.carrierName || 'PENDING'}</td>
                           <td className="p-3 border-r text-left">
-                                  <div className="flex flex-col leading-tight overflow-hidden">
-                                    <span className="text-slate-500 font-normal text-[9px] truncate" title={item.vendorName}>
-                                      {item.vendorName || '-'}
-                                    </span>
-                                  </div>
+                            <div className="flex flex-col leading-tight overflow-hidden">
+                              <span className="text-slate-500 font-normal text-[9px] truncate" title={item.vendorName}>{item.vendorName || '-'}</span>
+                              <span className="text-slate-400 font-normal text-[9px] italic truncate" title={item.arrangeBy}>{item.arrangeBy}</span>
+                            </div>
                           </td>
                           <td className="p-3 border-r text-[9px] font-normal text-slate-400">{item.fleetType}</td>
                           <td className="p-3 border-r text-left">
@@ -760,6 +952,9 @@ export default function TR21Page() {
                             <>
                               <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.outDate ? format(new Date(item.outDate), 'dd-MM HH:mm') : '-'}</td>
                               <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.arrivedDate ? format(new Date(item.arrivedDate), 'dd-MM HH:mm') : '-'}</td>
+                              {activeTab === 'Closed' && (
+                                <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.unloadDate ? format(new Date(item.unloadDate), 'dd-MM HH:mm') : '-'}</td>
+                              )}
                             </>
                           )}
                           <td className="p-3 text-center flex flex-row gap-2 items-center justify-center min-w-[200px]">
@@ -776,7 +971,7 @@ export default function TR21Page() {
                                 <Button onClick={() => { 
                                   setSelectedTrip(item);
                                   setVehicleData({ vehicleNo: item.vehicleNo || '', driverMobile: item.driverMobile || '' });
-                                  setAssignData((prev: any) => ({
+                                  setCnVehicleWeightData((prev: any) => ({
                                     ...prev,
                                     assignWeight: (item.assignWeight ?? item.balance ?? item.weight ?? 0).toString(),
                                     rate: (item.rate || 0).toString(),
@@ -805,6 +1000,9 @@ export default function TR21Page() {
                                 }} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">CN ENTRY</Button>
                               </>
                             )}
+                            {activeTab === 'Loading' && isAdminUser && (
+                              <Button onClick={() => openRestoreDialog(item)} className="h-6 w-20 text-[8px] font-normal bg-slate-500 text-white rounded-none">RESTORE</Button>
+                            )}
                             {activeTab === 'In-Transit' && (
                               <>
                                 <Button onClick={() => openStatusPortal(item, 'ARRIVED', 'arrivedDate', 'ARRIVAL HANDSHAKE')} className="h-6 w-20 text-[8px] font-normal bg-emerald-600 text-white rounded-none">ARRIVED</Button>
@@ -814,7 +1012,7 @@ export default function TR21Page() {
                                 <Button onClick={() => { 
                                   setSelectedTrip(item); 
                                   setVehicleData({ vehicleNo: item.vehicleNo || '', driverMobile: item.driverMobile || '' });
-                                  setAssignData((prev: any) => ({
+                                  setCnVehicleWeightData((prev: any) => ({
                                     ...prev,
                                     assignWeight: (item.assignWeight ?? item.balance ?? item.weight ?? 0).toString(),
                                     rate: (item.rate || 0).toString(),
@@ -835,7 +1033,7 @@ export default function TR21Page() {
                                 <Button onClick={() => { 
                                   setSelectedTrip(item); 
                                   setVehicleData({ vehicleNo: item.vehicleNo || '', driverMobile: item.driverMobile || '' });
-                                  setAssignData((prev: any) => ({
+                                  setCnVehicleWeightData((prev: any) => ({
                                     ...prev,
                                     assignWeight: (item.assignWeight ?? item.balance ?? item.weight ?? 0).toString(),
                                     rate: (item.rate || 0).toString(),
@@ -848,8 +1046,8 @@ export default function TR21Page() {
                             )}
                             {activeTab === 'Reject' && (
                               <>
-                                <Button className="h-6 w-20 text-[8px] font-normal bg-blue-600 text-white rounded-none">RESENT</Button>
-                                <Button className="h-6 w-20 text-[8px] font-normal bg-slate-800 text-white rounded-none">SRN</Button>
+                                <Button onClick={() => { setResentTrip(item); setShowResentDialog(true); }} disabled={!!item.srnNo} className="h-6 w-20 text-[8px] font-normal bg-blue-600 text-white rounded-none">RESENT</Button>
+                                <Button onClick={() => { setResentTrip(item); setSrnData({ srnNo: '', srnDate: format(new Date(), 'yyyy-MM-dd') }); setShowSRNDialog(true); }} disabled={!!item.srnNo} className="h-6 w-20 text-[8px] font-normal bg-slate-800 text-white rounded-none">SRN</Button>
                                 {isAdminUser && (
                                   <Button onClick={() => openRestoreDialog(item)} className="h-6 w-20 text-[8px] font-normal bg-slate-500 text-white rounded-none">RESTORE</Button>
                                 )}
@@ -1108,7 +1306,7 @@ export default function TR21Page() {
                        <label className="text-[10px] font-normal text-slate-400 uppercase">Secondary Rate (Per MT)</label>
                        <div className="flex items-center gap-2">
                           <Checkbox 
-                            id="fix-charge" 
+                            id="fix-charge"
                             checked={assignData.fixRate} 
                             onCheckedChange={checked => setAssignData({...assignData, fixRate: !!checked})} 
                             className="rounded-none border-slate-400"
@@ -1194,8 +1392,8 @@ export default function TR21Page() {
                 <div className="space-y-1.5 flex flex-col justify-end">
                    <label className="text-[10px] font-normal text-slate-400 uppercase">Vehicle Number</label>
                    <input 
-                     value={vehicleData.vehicleNo || ''} 
-                     onChange={e => setVehicleData({...vehicleData, vehicleNo: e.target.value.toUpperCase()})} 
+                     value={cnVehicleWeightData.vehicleNo || ''} 
+                     onChange={e => setCnVehicleWeightData({...cnVehicleWeightData, vehicleNo: e.target.value.toUpperCase()})} 
                      className="h-9 w-full border border-slate-400 px-3 text-xs font-normal bg-white focus:bg-yellow-50 outline-none" 
                    />
                 </div>
@@ -1203,8 +1401,8 @@ export default function TR21Page() {
                    <label className="text-[10px] font-normal text-slate-400 uppercase">Assign Qty (MT)</label>
                    <input 
                      type="number" step="0.001"
-                     value={assignData.assignWeight || ''} 
-                     onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} 
+                     value={cnVehicleWeightData.assignWeight || ''} 
+                     onChange={e => setCnVehicleWeightData({...cnVehicleWeightData, assignWeight: e.target.value})} 
                      className="h-9 w-full border border-slate-400 px-3 text-xs font-normal bg-white focus:bg-yellow-50 outline-none" 
                    />
                 </div>
@@ -1260,6 +1458,12 @@ export default function TR21Page() {
              <DialogTitle className="text-[12px] font-normal uppercase text-[#1e3a8a] italic mb-4">{statusUpdateData.label}</DialogTitle>
              <div className="grid grid-cols-1 gap-2 bg-white border border-slate-200 p-4 shadow-inner text-[9px] font-normal uppercase">
                 <div className="flex items-center gap-2"><span className="text-slate-400 text-[8px] w-20 shrink-0">Consignor:</span><span className="truncate font-normal">{statusUpdateData.consignor}</span></div>
+                {statusUpdateData.saleOrderDate && 
+                  <div className="flex items-center gap-2"><span className="text-slate-400 text-[8px] w-20 shrink-0">SO Date:</span><span className="truncate font-normal">{format(new Date(statusUpdateData.saleOrderDate), 'dd-MMM-yy HH:mm')}</span></div>
+                }
+                {statusUpdateData.outDate && 
+                  <div className="flex items-center gap-2"><span className="text-slate-400 text-[8px] w-20 shrink-0">Out Date:</span><span className="truncate font-normal">{format(new Date(statusUpdateData.outDate), 'dd-MMM-yy HH:mm')}</span></div>
+                }
                 <div className="flex items-center gap-2"><span className="text-slate-400 text-[8px] w-20 shrink-0">Consignee:</span><span className="truncate font-normal">{statusUpdateData.consignee}</span></div>
                 <div className="flex items-center gap-2"><span className="text-slate-400 text-[8px] w-20 shrink-0">Route:</span><span className="truncate text-emerald-600 italic font-normal">{statusUpdateData.route}</span></div>
              </div>
@@ -1277,6 +1481,12 @@ export default function TR21Page() {
                   className="h-10 w-full border border-slate-400 px-3 text-xs font-normal bg-white focus:bg-yellow-50 outline-none" 
                 />
              </div>
+              {statusUpdateData.newStatus === 'REJECTION' && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-normal text-slate-400 uppercase">Reject Reason *</label>
+                  <input value={statusUpdateData.rejectionReason || ''} onChange={e => setStatusUpdateData({...statusUpdateData, rejectionReason: e.target.value})} className="h-10 w-full border border-slate-400 px-3 text-xs font-normal bg-white focus:bg-yellow-50 outline-none" />
+                </div>
+              )}
              <p className="text-[9px] text-slate-400 italic uppercase">Warning: This action will record a permanent transactional node in the control registry.</p>
           </div>
           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
