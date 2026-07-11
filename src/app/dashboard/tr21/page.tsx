@@ -874,34 +874,29 @@ export default function TR21Page() {
 
   const handleResentConfirm = () => {
     if (!resentTrip) return;
-    const newTripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
     const now = new Date().toISOString();
 
-    const newTripPayload = {
-      ...resentTrip,
-      id: crypto.randomUUID(),
-      tripNo: newTripId,
+    const updates = {
       status: 'LOADING',
-      createdAt: now,
       updatedAt: now,
       // Reset dates
-      assignDate: now,
       outDate: null,
       arrivedDate: null,
       unloadDate: null,
       rejectionDate: null,
+      rejectionReason: null,
       podUrl: null,
       srnNo: null,
       srnDate: null,
-      resentFromTripId: resentTrip.id
+      resentFromTripId: resentTrip.id // Keep a record of the original resent action if needed
     };
-    delete newTripPayload._id; // remove mongo id
 
-    addDocumentNonBlocking(collection(db, 'users', SHARED_HUB_ID, 'trip_board'), newTripPayload);
+    updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', resentTrip.id), updates);
     
     setShowResentDialog(false);
     setResentTrip(null);
-    alert(`Trip ${resentTrip.tripNo} has been resent. New trip ID is ${newTripId}.`);
+    setCurrentPage(1); // Force UI refresh
+    alert(`Trip ${resentTrip.tripNo} has been resent and moved to Loading.`);
   };
 
   const dataError = ordersError || tripsError || plantsError || companiesError || vendorsError || forwardingAgentsError;
@@ -922,6 +917,103 @@ export default function TR21Page() {
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', resentTrip.id), { srnNo: srnData.srnNo, srnDate: srnData.srnDate, updatedAt: new Date().toISOString() });
     setShowSRNDialog(false);
     setResentTrip(null);
+  };
+
+  const handleExport = () => {
+    if (filteredData.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    const headersMap: { [key: string]: string[] } = {
+      'Open Orders': ['Plant', 'Sale Order', 'Order Date', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Dispatch Qty', 'Balance Qty'],
+      'Loading': ['Plant', 'Sale Order', 'Order Date', 'Trip ID', 'Assign Date', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'Invoice', 'E-Way Bill', 'Total Pkg', 'Vehicle/Mobile', 'Carrier', 'Vendor Firm / Arrange By', 'Fleet Type', 'CN No / Date'],
+      'In-Transit': ['Plant', 'Sale Order', 'Order Date', 'Trip ID', 'Assign Date', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'Invoice', 'E-Way Bill', 'Total Pkg', 'Vehicle/Mobile', 'Carrier', 'Vendor Firm / Arrange By', 'Fleet Type', 'CN No / Date', 'Out Date/Time'],
+      'Arrived': ['Plant', 'Sale Order', 'Order Date', 'Trip ID', 'Assign Date', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'Invoice', 'E-Way Bill', 'Total Pkg', 'Vehicle/Mobile', 'Carrier', 'Vendor Firm / Arrange By', 'Fleet Type', 'CN No / Date', 'Out Date/Time', 'Arrived Date/Time'],
+      'Reject': ['Plant', 'Sale Order', 'Order Date', 'Trip ID', 'Assign Date', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'Invoice', 'E-Way Bill', 'Total Pkg', 'Vehicle/Mobile', 'Carrier', 'Vendor Firm / Arrange By', 'Fleet Type', 'CN No / Date', 'Out Date/Time', 'Arrived Date/Time', 'SRN', 'SRN Date', 'Rejection Reason'],
+      'POD Verify': ['Plant', 'Sale Order', 'Order Date', 'Trip ID', 'Assign Date', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'Invoice', 'E-Way Bill', 'Total Pkg', 'Vehicle/Mobile', 'Carrier', 'Vendor Firm / Arrange By', 'Fleet Type', 'CN No / Date', 'Out Date/Time', 'Arrived Date/Time', 'Unload Date/Time'],
+      'Closed': ['Plant', 'Sale Order', 'Order Date', 'Trip ID', 'Assign Date', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'Invoice', 'E-Way Bill', 'Total Pkg', 'Vehicle/Mobile', 'Carrier', 'Vendor Firm / Arrange By', 'Fleet Type', 'CN No / Date', 'Out Date/Time', 'Arrived Date/Time', 'Unload Date/Time'],
+    };
+
+    const headers = headersMap[activeTab] || Object.keys(filteredData[0]);
+
+    const escapeCsvCell = (cellData: any) => {
+      if (cellData === null || cellData === undefined) {
+        return '';
+      }
+      const stringData = String(cellData);
+      if (stringData.includes(',') || stringData.includes('"') || stringData.includes('\n')) {
+        return `"${stringData.replace(/"/g, '""')}"`;
+      }
+      return stringData;
+    };
+
+    const toCsvRow = (item: any) => {
+      switch (activeTab) {
+        case 'Open Orders':
+          return [item.plantCode, item.orderNo, item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yy HH:mm') : '-', item.consignorName, item.consigneeName, item.shipToParty, `${item.from} -> ${item.destination}`, parseFloat(item.quantity || 0).toFixed(3), parseFloat(item.dispatched || 0).toFixed(3), parseFloat(item.balance || 0).toFixed(3)];
+        case 'Loading':
+        case 'In-Transit':
+        case 'Arrived':
+        case 'POD Verify':
+        case 'Closed':
+        case 'Reject':
+          const baseRow = [
+            item.plantCode,
+            item.orderNo,
+            item.orderDate ? format(new Date(item.orderDate), 'dd-MMM-yy HH:mm') : '-',
+            item.tripNo,
+            item.assignDate ? format(new Date(item.assignDate), 'dd-MMM-yy HH:mm') : '-',
+            item.consignorName,
+            item.consigneeName,
+            item.shipToParty,
+            `${item.from} -> ${item.destination}`,
+            parseFloat(item.assignWeight || 0).toFixed(3),
+            (item.invoices || []).map((i: any) => i.invNo).filter(Boolean).join(', '),
+            (item.invoices || []).map((i: any) => i.ewaybillNo).filter(Boolean).join(', '),
+            (item.invoices || []).reduce((acc: number, i: any) => acc + (Number(i.pkg) || 0), 0),
+            `${item.vehicleNo || ''} / ${item.driverMobile || ''}`,
+            item.carrierName || 'PENDING',
+            `${item.vendorName || '-'} / ${item.arrangeBy || ''}`,
+            item.fleetType,
+            item.cnNumber ? `${item.cnNumber} / ${item.cnDate ? format(new Date(item.cnDate), 'dd-MMM-yyyy') : '-'}` : 'PENDING',
+          ];
+          if (activeTab === 'In-Transit' || activeTab === 'Arrived' || activeTab === 'POD Verify' || activeTab === 'Closed' || activeTab === 'Reject') {
+            baseRow.push(item.outDate ? format(new Date(item.outDate), 'dd-MM HH:mm') : '-');
+          }
+          if (activeTab === 'Arrived' || activeTab === 'POD Verify' || activeTab === 'Closed' || activeTab === 'Reject') {
+            baseRow.push(item.arrivedDate ? format(new Date(item.arrivedDate), 'dd-MM HH:mm') : '-');
+          }
+          if (activeTab === 'POD Verify' || activeTab === 'Closed') {
+            baseRow.push(item.unloadDate ? format(new Date(item.unloadDate), 'dd-MM HH:mm') : '-');
+          }
+          if (activeTab === 'Reject') {
+            baseRow.push(item.srnNo || '');
+            baseRow.push(item.srnDate ? format(new Date(item.srnDate), 'dd-MMM-yy') : '');
+            baseRow.push(item.rejectionReason || '');
+          }
+          return baseRow;
+        default:
+          return [];
+      }
+    };
+
+    const csvContent = [
+      headers.join(','),
+      ...filteredData.map(item => toCsvRow(item).map(escapeCsvCell).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `TR21_${activeTab.replace(' ', '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   if (!mounted) return null;
@@ -953,6 +1045,11 @@ export default function TR21Page() {
              <Search className="h-3.5 w-3.5 text-slate-400" />
              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="h-7 w-48 bg-transparent text-[10px] font-normal uppercase outline-none" placeholder="SEARCH..." />
            </div>
+           <div className="w-[1px] h-4 bg-slate-300" />
+            <button onClick={handleExport} className="flex items-center gap-2 text-slate-600 hover:text-emerald-700 transition-colors">
+              <Download className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-normal uppercase">Export Excel</span>
+            </button>
         </div>
 
       </div>
@@ -1101,6 +1198,7 @@ export default function TR21Page() {
                       <th className="p-3 border-r w-[180px]">Route</th>
                       <th className="p-3 border-r w-[100px] text-right">Assign Qty</th>
                       <th className="p-3 border-r w-[180px]">Invoice / E-Way Bill</th>
+                      <th className="p-3 border-r w-[100px] text-right">Total Pkg</th>
                       <th className="p-3 border-r w-[150px]">Vehicle/Mobile</th>
                       <th className="p-3 border-r w-[180px]">Carrier</th>
                       <th className="p-3 border-r w-[180px]">Vendor Firm / Arrange By</th>
@@ -1110,7 +1208,7 @@ export default function TR21Page() {
                         <>
                           <th className="p-3 border-r w-[120px]">Out Date/Time</th>
                           <th className="p-3 border-r w-[120px]">Arrived Date/Time</th>
-                          {activeTab === 'Closed' && (
+                          {(activeTab === 'POD Verify' || activeTab === 'Closed') && (
                             <th className="p-3 border-r w-[120px]">Unload Date/Time</th>
                           )}
                         </>
@@ -1173,6 +1271,9 @@ export default function TR21Page() {
                               <span className="text-[9px] text-slate-400 font-normal truncate" title={(item.invoices || []).map((i: any) => i.ewaybillNo).filter(Boolean).join(', ')}>{(item.invoices || []).map((i: any) => i.ewaybillNo).filter(Boolean).join(', ') || '-'}</span>
                             </div>
                           </td>
+                          <td className="p-3 border-r text-right font-normal text-slate-800">
+                            {(item.invoices || []).reduce((acc: number, i: any) => acc + (Number(i.pkg) || 0), 0) || '-'}
+                          </td>
                           <td className="p-3 border-r text-left">
                             <button onClick={() => { setSelectedTrip(item); setVehicleData({vehicleNo: item.vehicleNo, driverMobile: item.driverMobile}); setShowVehiclePortal(true); }} className="flex flex-col text-left hover:underline">
                               <span className="font-normal text-blue-800">{item.vehicleNo || 'ADD'}</span>
@@ -1201,7 +1302,7 @@ export default function TR21Page() {
                             <>
                               <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.outDate ? format(new Date(item.outDate), 'dd-MM HH:mm') : '-'}</td>
                               <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.arrivedDate ? format(new Date(item.arrivedDate), 'dd-MM HH:mm') : '-'}</td>
-                              {activeTab === 'Closed' && (
+                              {(activeTab === 'POD Verify' || activeTab === 'Closed') && (
                                 <td className="p-3 border-r text-slate-400 text-[9px] font-normal">{item.unloadDate ? format(new Date(item.unloadDate), 'dd-MM HH:mm') : '-'}</td>
                               )}
                             </>
@@ -1295,9 +1396,19 @@ export default function TR21Page() {
                             )}
                             {activeTab === 'Reject' && (
                               <>
-                                <Button onClick={() => { setResentTrip(item); setShowResentDialog(true); }} disabled={!!item.srnNo} className="h-6 w-20 text-[8px] font-normal bg-blue-600 text-white rounded-none">RESENT</Button>
-                                <Button onClick={() => { setResentTrip(item); setSrnData({ srnNo: '', srnDate: format(new Date(), 'yyyy-MM-dd') }); setShowSRNDialog(true); }} disabled={!!item.srnNo} className="h-6 w-20 text-[8px] font-normal bg-slate-800 text-white rounded-none">SRN</Button>
-                                {isAdminUser && (
+                                {item.srnNo ? (
+                                  <div className="flex flex-col text-left text-[9px] p-1">
+                                    <span className="font-bold text-slate-700">SRN: {item.srnNo}</span>
+                                    <span className="text-slate-500">Date: {item.srnDate ? format(new Date(item.srnDate), 'dd-MMM-yy') : '-'}</span>
+                                    <span className="text-red-600 italic truncate max-w-[150px]" title={item.rejectionReason}>Reason: {item.rejectionReason || 'N/A'}</span>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <Button onClick={() => { setResentTrip(item); setShowResentDialog(true); }} className="h-6 w-20 text-[8px] font-normal bg-blue-600 text-white rounded-none">RESENT</Button>
+                                    <Button onClick={() => { setResentTrip(item); setSrnData({ srnNo: '', srnDate: format(new Date(), 'yyyy-MM-dd') }); setShowSRNDialog(true); }} className="h-6 w-20 text-[8px] font-normal bg-slate-800 text-white rounded-none">SRN</Button>
+                                  </>
+                                )}
+                                {isAdminUser && !item.srnNo && (
                                   <Button onClick={() => openRestoreDialog(item)} className="h-6 w-20 text-[8px] font-normal bg-slate-500 text-white rounded-none">RESTORE</Button>
                                 )}
                               </>
