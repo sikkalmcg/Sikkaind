@@ -7,6 +7,8 @@ import {
   Filter, Search, MapPin, Truck, Radar, 
   X, Trash2, Plus, FileText, ChevronLeft, ChevronRight, Printer,
   Loader2, CheckCircle, FileUp, ExternalLink, Calculator, History, Clock
+
+
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc, useUser, addDocumentNonBlocking } from '@/mongodb';
@@ -16,9 +18,148 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Download } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
+
+const getQuarter = (date: Date) => Math.floor(date.getMonth() / 3) + 1;
+
+const Quarter = ({ year, quarter, months, onQuarterSelect, onDateSelect, selectedQuarters, selectedDate, theme }: { year: number, quarter: number, months: { name: string, days: number, startDay: number }[], onQuarterSelect: (q: number) => void, onDateSelect: (d: Date) => void, selectedQuarters: number[], selectedDate: Date | null, theme: string }) => {
+  const isQuarterSelected = selectedQuarters.includes(quarter) && !selectedDate;
+  const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+  return (
+    <div className={cn("rounded-lg p-3 transition-all", isQuarterSelected ? `bg-${theme}-100 border-2 border-${theme}-400` : 'bg-slate-50 border border-slate-200')}>
+      <button 
+        onClick={() => onQuarterSelect(quarter)}
+        className={cn("w-full text-left text-[10px] font-bold uppercase mb-2 p-2 rounded", isQuarterSelected ? `bg-${theme}-200 text-${theme}-800` : `hover:bg-${theme}-100`)}
+      >
+        Quarter-{String(quarter).padStart(2, '0')} - {months.map(m => m.name.slice(0, 3)).join('-')}
+      </button>
+      <div className="grid grid-cols-3 gap-2">
+        {months.map((month, monthIndex) => (
+          <div key={month.name}>
+            <div className="text-center text-[9px] font-bold text-slate-600 mb-1">{month.name}</div>
+            <div className="grid grid-cols-7 gap-px text-[9px] text-center">
+              {weekDays.map((day, index) => <div key={`${day}-${index}`} className="font-medium text-slate-400">{day}</div>)}
+              {Array.from({ length: month.startDay }).map((_, i) => <div key={`empty-${i}`}></div>)}
+              {Array.from({ length: month.days }).map((_, day) => {
+                const date = new Date(year, (quarter - 1) * 3 + monthIndex, day + 1);
+                const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+                return (
+                  <button 
+                    key={day} 
+                    onClick={() => onDateSelect(date)}
+                    className={cn(
+                      "h-5 w-5 flex items-center justify-center rounded-full hover:bg-gray-200",
+                      isSelected ? `bg-${theme}-500 text-white` : "text-slate-700"
+                    )}
+                  >
+                    {day + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const QuarterlyFilter = ({ onFilterChange }: { onFilterChange: (filter: { type: 'quarter' | 'date' | 'all', value: any }) => void }) => {
+  const [year, setYear] = React.useState(new Date().getFullYear());
+  const [selectedQuarters, setSelectedQuarters] = React.useState<number[]>([getQuarter(new Date())]);
+  const [selectedDate, setSelectedDate] = React.useState<Date | null>(null);
+
+  React.useEffect(() => {
+    if (selectedDate) {
+      onFilterChange({ type: 'date', value: selectedDate });
+    } else if (selectedQuarters.length > 0) {
+      onFilterChange({ type: 'quarter', value: { year, quarters: selectedQuarters } });
+    } else {
+      onFilterChange({ type: 'all', value: null });
+    }
+  }, [year, selectedQuarters, selectedDate, onFilterChange]);
+
+  const handleQuarterSelect = (q: number) => {
+    setSelectedDate(null);
+    setSelectedQuarters(prev => {
+      const newSelection = prev.includes(q) ? prev.filter(sq => sq !== q) : [...prev, q];
+      return newSelection.length === 0 ? [q] : newSelection; // Prevent empty selection
+    });
+  };
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedQuarters([]);
+    setSelectedDate(prev => prev?.getTime() === date.getTime() ? null : date);
+  };
+
+  const getMonthsForQuarter = (q: number) => {
+    const months = [];
+    for (let i = 0; i < 3; i++) {
+      const monthIndex = (q - 1) * 3 + i;
+      const date = new Date(year, monthIndex, 1);
+      months.push({
+        name: format(date, 'MMMM'),
+        days: new Date(year, monthIndex + 1, 0).getDate(),
+        startDay: date.getDay(),
+      });
+    }
+    return months;
+  };
+
+  const themes = ['blue', 'green', 'yellow', 'purple'];
+
+  const getDisplayValue = () => {
+    if (selectedDate) {
+      return format(selectedDate, 'dd-MMM-yyyy');
+    }
+    if (selectedQuarters.length > 0) {
+      return selectedQuarters.map(q => `Q${q}`).join(', ') + ` ${year}`;
+    }
+    return 'All Time';
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <div className="flex flex-col items-center justify-center px-3 py-1 border border-slate-200 bg-white shadow-inner cursor-pointer hover:bg-slate-50">
+          <div className="text-[10px] font-black text-[#1e3a8a] uppercase italic tracking-widest">{getDisplayValue()}</div>
+          <div className="mt-1 text-[9px] font-normal text-slate-600">
+            Click to change filter
+          </div>
+        </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-[800px] p-4 rounded-xl shadow-2xl border-2 border-slate-300">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">Quarterly Overview</h3>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => setYear(y => y - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-lg font-bold text-slate-800 w-20 text-center">{year}</span>
+            <Button variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => setYear(y => y + 1)}><ChevronRight className="h-4 w-4" /></Button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map(q => (
+            <Quarter 
+              key={q}
+              year={year}
+              quarter={q}
+              months={getMonthsForQuarter(q)}
+              onQuarterSelect={handleQuarterSelect}
+              onDateSelect={handleDateSelect}
+              selectedQuarters={selectedQuarters}
+              selectedDate={selectedDate}
+              theme={themes[q-1]}
+            />
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 export default function TR21Page() {
   const router = useRouter();
@@ -33,6 +174,9 @@ export default function TR21Page() {
   const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [dateFilter, setDateFilter] = React.useState<any>({ type: 'quarter', value: { year: new Date().getFullYear(), quarters: [getQuarter(new Date())] } });
+
+
 
   const [showAssign, setShowAssign] = React.useState(false);
   const [showCNPortal, setShowCNPortal] = React.useState(false);
@@ -141,6 +285,25 @@ export default function TR21Page() {
     return userProfile?.plantAccess || [];
   }, [isBootstrapAdmin, userProfile, isProfileLoading]);
 
+  const applyDateFilterToCounts = (data: any[], dateField: string) => {
+    if (!dateFilter || dateFilter.type === 'all' || !dateField) return data;
+
+    if (dateFilter.type === 'date') {
+      const selected = dateFilter.value as Date;
+      return data.filter(d => d[dateField] && new Date(d[dateField]).toDateString() === selected.toDateString());
+    }
+
+    if (dateFilter.type === 'quarter') {
+      const { year, quarters } = dateFilter.value;
+      const quarterRanges = quarters.map((q: number) => ({ start: new Date(year, (q - 1) * 3, 1), end: new Date(year, q * 3, 0, 23, 59, 59) }));
+      return data.filter(d => {
+        const itemDate = d[dateField] ? new Date(d[dateField]) : null;
+        return itemDate && quarterRanges.some((range: any) => itemDate >= range.start && itemDate <= range.end);
+      });
+    }
+    return data;
+  };
+
   React.useEffect(() => {
     if (mounted && authorizedPlantCodes && authorizedPlantCodes.length === 1) {
       setPlantFilter(authorizedPlantCodes[0]);
@@ -165,27 +328,35 @@ export default function TR21Page() {
       baseTrips = baseTrips.filter(d => d.plantCode === plantFilter);
     }
 
-    const openOrdersWithBalanceArray = baseOrders.filter(o => o.status === 'Open').map(o => {
+    const dateFilteredOpenOrders = applyDateFilterToCounts(baseOrders, 'orderDate');
+    const openOrdersWithBalance = dateFilteredOpenOrders.filter(o => o.status === 'Open').map(o => {
       const dispatched = baseTrips.filter(t => t.orderNo === o.orderNo && t.status !== 'REJECTION')
                                .reduce((acc, t) => acc + (parseFloat(t.assignWeight) || 0), 0);
       const weight = parseFloat(o.quantity) || 0;
       return { ...o, dispatched, balance: weight - dispatched };
     }).filter(o => o.balance > 0.001).length;
 
-    counts['Open Orders'] = openOrdersWithBalanceArray;
+    counts['Open Orders'] = openOrdersWithBalance;
 
     const statusMap: { [key: string]: string } = { 
       'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 
       'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' 
     };
 
+    const dateFieldMap: { [key: string]: string } = {
+      'Loading': 'assignDate', 'In-Transit': 'outDate', 'Arrived': 'arrivedDate',
+      'Reject': 'rejectionDate', 'POD Verify': 'unloadDate', 'Closed': 'updatedAt'
+    };
+
     Object.keys(statusMap).forEach(tabName => {
-      counts[tabName] = baseTrips.filter(t => t.status === statusMap[tabName]).length;
+      const tripsForStatus = baseTrips.filter(t => t.status === statusMap[tabName]);
+      const dateField = dateFieldMap[tabName];
+      const dateFilteredTrips = applyDateFilterToCounts(tripsForStatus, dateField);
+      counts[tabName] = dateFilteredTrips.length;
     });
 
     return counts;
-
-  }, [orders, trips, mounted, plantFilter, authorizedPlantCodes]);
+  }, [orders, trips, mounted, plantFilter, authorizedPlantCodes, dateFilter]);
 
   React.useEffect(() => {
     if (!assignData.fixRate) {
@@ -339,6 +510,35 @@ export default function TR21Page() {
     return pattern.test(vehicleNo.replace(/\s/g, ''));
   };
 
+  const dateFieldForTab = React.useMemo(() => {
+    const map: { [key: string]: string } = {
+      'Open Orders': 'orderDate',
+      'Loading': 'assignDate',
+      'In-Transit': 'outDate',
+      'Arrived': 'arrivedDate',
+      'Reject': 'rejectionDate',
+      'POD Verify': 'unloadDate',
+      'Closed': 'updatedAt'
+    };
+    return map[activeTab];
+  }, [activeTab]);
+
+  const applyDateFilter = (data: any[]) => {
+    if (!dateFilter || dateFilter.type === 'all' || !dateFieldForTab) return data;
+
+    if (dateFilter.type === 'date') {
+      const selected = dateFilter.value as Date;
+      return data.filter(d => d[dateFieldForTab] && new Date(d[dateFieldForTab]).toDateString() === selected.toDateString());
+    }
+
+    if (dateFilter.type === 'quarter') {
+      const { year, quarters } = dateFilter.value;
+      const quarterRanges = quarters.map((q: number) => ({ start: new Date(year, (q - 1) * 3, 1), end: new Date(year, q * 3, 0, 23, 59, 59) }));
+      return data.filter(d => d[dateFieldForTab] && quarterRanges.some((range: any) => new Date(d[dateFieldForTab]) >= range.start && new Date(d[dateFieldForTab]) <= range.end));
+    }
+    return data;
+  };
+
   const filteredData = React.useMemo(() => {
     if (!orders || !trips || !mounted || authorizedPlantCodes === undefined) return [];
     let baseData: any[] = [];
@@ -347,6 +547,8 @@ export default function TR21Page() {
         if (!orders) return null;
         return orders.find((o: any) => o.orderNo === trip.orderNo);
     };
+
+
 
 
     if (activeTab === 'Open Orders') {
@@ -372,6 +574,10 @@ export default function TR21Page() {
     }
 
     if (plantFilter !== 'ALL') baseData = baseData.filter(d => d.plantCode === plantFilter);
+
+
+
+    baseData = applyDateFilter(baseData);
     if (searchQuery) {
       const query = searchQuery.toUpperCase();
       baseData = baseData.filter(d => 
@@ -386,7 +592,7 @@ export default function TR21Page() {
         (Array.isArray(d.invoices) && d.invoices.some((inv: any) => (inv.invNo || '').toUpperCase().includes(query))));
     }
     return baseData;
-  }, [orders, trips, activeTab, mounted, plantFilter, searchQuery, authorizedPlantCodes]);
+  }, [orders, trips, activeTab, mounted, plantFilter, searchQuery, authorizedPlantCodes, dateFilter, dateFieldForTab]);
 
   const paginated = React.useMemo(() => {
     return filteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -525,6 +731,10 @@ export default function TR21Page() {
   const handleCommitStatusUpdate = () => {
     const updateTimestamp = new Date(statusUpdateData.timestamp);
 
+    // ensure tab/table UI re-compute immediately after update
+    setCurrentPage(1);
+
+
     if (statusUpdateData.dateField === 'outDate' && statusUpdateData.saleOrderDate && updateTimestamp < statusUpdateData.saleOrderDate) {
         alert("Out Date & Time cannot be earlier than Sale Order Date.");
         return;
@@ -552,6 +762,7 @@ export default function TR21Page() {
 
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', statusUpdateData.tripId), updates);
     setShowStatusPortal(false);
+    setCurrentPage(1); // Force a re-render of the table data
     alert(`Node Status Updated: ${statusUpdateData.newStatus}`);
   };
 
@@ -686,12 +897,15 @@ export default function TR21Page() {
     <div className="flex-1 flex flex-col bg-[#f2f2f2] font-mono overflow-hidden text-black">
       <div className="bg-white border-b border-slate-300 px-8 py-3 shadow-sm flex justify-between items-center z-30 shrink-0">
         <h2 className="text-[16px] font-normal text-[#1e3a8a] uppercase italic">TR21 – TRIP BOARD</h2>
-        <div className="flex gap-4 bg-[#f8fafc] border border-slate-200 p-1 px-4 shadow-inner">
+           <div className="flex gap-4 bg-[#f8fafc] border border-slate-200 p-1 px-4 shadow-inner">
+           <QuarterlyFilter onFilterChange={setDateFilter} />
+           <div className="w-[1px] h-4 bg-slate-300" />
            <div className="flex items-center gap-2">
              <Filter className="h-3.5 w-3.5 text-slate-400" />
+
              <select 
-               value={plantFilter} 
-               onChange={e => setPlantFilter(e.target.value)} 
+               value={plantFilter}
+               onChange={e => setPlantFilter(e.target.value)}
                disabled={!isBootstrapAdmin && authorizedPlantCodes?.length === 1}
                className="h-7 bg-transparent text-[10px] font-normal uppercase outline-none"
              >
@@ -707,6 +921,7 @@ export default function TR21Page() {
              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="h-7 w-48 bg-transparent text-[10px] font-normal uppercase outline-none" placeholder="SEARCH..." />
            </div>
         </div>
+
       </div>
 
       <div className="flex-1 flex flex-col p-8 overflow-hidden">
