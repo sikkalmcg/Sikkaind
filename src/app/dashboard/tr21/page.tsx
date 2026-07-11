@@ -20,6 +20,25 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Download } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
+const useOnlineStatus = () => {
+  const [isOnline, setIsOnline] = React.useState(true);
+
+  React.useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  return isOnline;
+};
+
 const SHARED_HUB_ID = 'Sikkaind';
 const PAGE_SIZE = 15;
 
@@ -162,6 +181,7 @@ const QuarterlyFilter = ({ onFilterChange }: { onFilterChange: (filter: { type: 
 };
 
 export default function TR21Page() {
+  const isOnline = useOnlineStatus();
   const router = useRouter();
   const searchParams = useSearchParams();
   const db = useMongoStore();
@@ -271,13 +291,13 @@ export default function TR21Page() {
   const companiesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
   const vendorsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
   const forwardingAgentsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'forwarding_agents'), [db]);
-
-  const { data: orders } = useCollectionOptimized(ordersQuery);
-  const { data: trips } = useCollectionOptimized(tripsQuery);
-  const { data: plants } = useCollectionOptimized(plantsQuery);
-  const { data: companies } = useCollectionOptimized(companiesQuery);
-  const { data: vendors } = useCollectionOptimized(vendorsQuery);
-  const { data: forwardingAgents } = useCollectionOptimized(forwardingAgentsQuery);
+  
+  const { data: orders, error: ordersError } = useCollectionOptimized(ordersQuery);
+  const { data: trips, error: tripsError } = useCollectionOptimized(tripsQuery);
+  const { data: plants, error: plantsError } = useCollectionOptimized(plantsQuery);
+  const { data: companies, error: companiesError } = useCollectionOptimized(companiesQuery);
+  const { data: vendors, error: vendorsError } = useCollectionOptimized(vendorsQuery);
+  const { data: forwardingAgents, error: forwardingAgentsError } = useCollectionOptimized(forwardingAgentsQuery);
 
   const authorizedPlantCodes = React.useMemo(() => {
     if (isProfileLoading) return undefined;
@@ -884,6 +904,19 @@ export default function TR21Page() {
     alert(`Trip ${resentTrip.tripNo} has been resent. New trip ID is ${newTripId}.`);
   };
 
+  const dataError = ordersError || tripsError || plantsError || companiesError || vendorsError || forwardingAgentsError;
+
+  const ErrorDisplay = () => {
+    if (!isOnline) {
+      return <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 text-center text-sm" role="alert">नेटवर्क कनेक्टिविटी नहीं है। कृपया अपना कनेक्शन जांचें।</div>;
+    }
+    if (dataError) {
+      return <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 text-center text-sm" role="alert">डेटा लोड करते समय एक त्रुटि हुई।</div>;
+    }
+    return null;
+  };
+
+
   const handleSRNConfirm = () => {
     if (!resentTrip || !srnData.srnNo || !srnData.srnDate) return alert("SRN Number and Date are mandatory.");
     updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', resentTrip.id), { srnNo: srnData.srnNo, srnDate: srnData.srnDate, updatedAt: new Date().toISOString() });
@@ -925,6 +958,7 @@ export default function TR21Page() {
       </div>
 
       <div className="flex-1 flex flex-col p-8 overflow-hidden">
+        <ErrorDisplay />
         <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 mb-4 overflow-x-auto no-scrollbar">
           {['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'].map(l => (
             <button key={l} onClick={() => { setActiveTab(l); setCurrentPage(1); }} className={cn("px-6 py-2.5 text-[10px] font-normal uppercase tracking-widest border-r border-slate-300 shrink-0 flex items-center gap-2", activeTab === l ? "bg-white text-[#0056d2] border-t-2 border-t-[#0056d2]" : "text-slate-500 hover:bg-white/50")}>
