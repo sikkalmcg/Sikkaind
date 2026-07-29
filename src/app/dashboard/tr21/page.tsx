@@ -1105,7 +1105,7 @@ export default function TR21Page() {
               <DialogTitle className="text-[12px] font-normal uppercase text-blue-700 italic">Confirm Resend</DialogTitle>
             </DialogHeader>
             <div className="p-8 space-y-4 text-xs">
-              <p>You are about to create a new trip for the rejected goods.</p>
+              <p>You are about to create a new trip for the rejected Goods.</p>
               <div>Plant: {resentTrip?.plantCode}</div>
               <div>Consignee: {resentTrip?.consigneeName}</div>
               <div>Ship To Party: {resentTrip?.shipToParty}</div>
