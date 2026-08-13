@@ -75,7 +75,6 @@ export function useCollectionOptimized<T = any>(
         setIsLoading(false);
         setError(null);
       }
-      return;
     }
 
     if (isMountedRef.current) {

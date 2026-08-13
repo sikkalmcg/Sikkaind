@@ -17,6 +17,12 @@ const calculateStayHours = (inTime: any, outTime: any) => {
   return differenceInHours(end, start);
 };
 
+const formatDateTime = (value: any) => {
+  if (!value) return '-';
+  const date = new Date(value.seconds ? value.seconds * 1000 : value);
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
+};
+
 const VT03Content: NextPage = () => {
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,10 +89,10 @@ const VT03Content: NextPage = () => {
         record.driverName?.toLowerCase().includes(q) ||
         record.customer?.toLowerCase().includes(q);
       
-      const statusMatch = !statusFilter || record.status === statusFilter;
+      const statusMatch = !statusFilter || record.currentStatus === statusFilter;
       const inOutMatch = !inOutFilter || (inOutFilter === 'IN' && !record.outDateTime) || (inOutFilter === 'OUT' && !!record.outDateTime);
       
-      const dateMatch = !dateFilter || (record.inDateTime && new Date(record.inDateTime.seconds * 1000).toISOString().startsWith(dateFilter));
+      const dateMatch = !dateFilter || (record.inDateTime && new Date(record.inDateTime.seconds ? record.inDateTime.seconds * 1000 : record.inDateTime).toISOString().startsWith(dateFilter));
 
       return searchMatch && statusMatch && inOutMatch && dateMatch;
     });
@@ -157,33 +163,39 @@ const VT03Content: NextPage = () => {
               <th>Current Status</th>
               <th>Status Time</th>
               <th>Customer</th>
+              <th>Ship to Party</th>
               <th>Destination</th>
               <th>Remark</th>
+              <th>Out Type</th>
+              <th>CN Numbers</th>
               <th>Out Date Time</th>
               <th>Stay Hour</th>
               <th>Loaded Stay Hour</th>
             </tr>
           </thead>
           <tbody>
-            {isLoading && <tr><td colSpan={13} style={{textAlign: 'center', padding: '20px'}}>Loading...</td></tr>}
+            {isLoading && <tr><td colSpan={16} style={{textAlign: 'center', padding: '20px'}}>Loading...</td></tr>}
             {!isLoading && filteredData.map((record: any) => (
               <tr key={record.id}>
                 <td>{record.plant}</td>
                 <td>{record.vehicleNo}</td>
                 <td>{record.driverName}</td>
                 <td>{record.driverMobile}</td>
-                <td>{record.inDateTime?.seconds ? new Date(record.inDateTime.seconds * 1000).toLocaleString() : '-'}</td>
+                <td>{formatDateTime(record.inDateTime)}</td>
                 <td>{record.currentStatus}</td>
-                <td>{record.statusTime?.seconds ? new Date(record.statusTime.seconds * 1000).toLocaleString() : '-'}</td>
+                <td>{formatDateTime(record.statusDateTime)}</td>
                 <td>{record.customer}</td>
+                <td>{record.shipToParty}</td>
                 <td>{record.destination}</td>
                 <td>{record.remark}</td>
-                <td>{record.outDateTime?.seconds ? new Date(record.outDateTime.seconds * 1000).toLocaleString() : '-'}</td>
+                <td>{record.outType}</td>
+                <td>{record.cnRows?.map((row: any) => row.cnNumber).filter(Boolean).join(', ') || '-'}</td>
+                <td>{formatDateTime(record.outDateTime)}</td>
                 <td>{calculateStayHours(record.inDateTime, record.outDateTime)}</td>
                 <td>{calculateStayHours(record.loadDateTime, record.outDateTime)}</td>
               </tr>
             ))}
-            {!isLoading && filteredData.length === 0 && <tr><td colSpan={13} style={{textAlign: 'center', padding: '20px'}}>No records found.</td></tr>}
+            {!isLoading && filteredData.length === 0 && <tr><td colSpan={16} style={{textAlign: 'center', padding: '20px'}}>No records found.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -30,8 +30,8 @@ const VT02Page: NextPage = () => {
   const vehicleData = useMemo(() => {
     const rows = vehicleMovements || [];
     return {
-      entry: rows.filter((row: any) => !row.currentStatus && !row.outDateTime),
-      status: rows.filter((row: any) => !!row.currentStatus && !row.outDateTime),
+      entry: rows.filter((row: any) => (row.currentStatus === 'IN' || !row.currentStatus) && !row.outDateTime),
+      status: rows.filter((row: any) => !!row.currentStatus && row.currentStatus !== 'IN' && !row.outDateTime),
       exit: rows.filter((row: any) => !!row.outDateTime),
     };
   }, [vehicleMovements]);
@@ -77,7 +77,7 @@ const VT02Page: NextPage = () => {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Plant</th><th>Vehicle Number</th><th>Driver Name</th><th>Driver Mobile</th><th>In Date Time</th><th>Action</th>
+                <th>Plant</th><th>Vehicle Number</th><th>Driver Name</th><th>Driver Mobile</th><th>In Date Time</th><th>Current Status</th><th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -88,6 +88,7 @@ const VT02Page: NextPage = () => {
                   <td>{row.driverName}</td>
                   <td>{row.driverMobile}</td>
                   <td>{new Date(row.inDateTime).toLocaleString()}</td>
+                  <td>{row.currentStatus || 'IN'}</td>
                   <td>
                     <button onClick={() => handleEdit(row.id, 'entry')} className={`${styles.button} ${styles.editButton}`}>Edit</button>
                     <button onClick={() => handleDelete(row.id, 'entry')} className={`${styles.button} ${styles.deleteButton}`}>Delete</button>
@@ -103,7 +104,7 @@ const VT02Page: NextPage = () => {
             <thead>
               <tr>
                 <th>Plant</th><th>Vehicle Number</th><th>Driver Name</th><th>Driver Mobile</th><th>In Date Time</th>
-                <th>Current Status</th><th>Status Time</th><th>Customer</th><th>Destination</th><th>Remark</th><th>Action</th>
+                <th>Current Status</th><th>Status Time</th><th>Customer</th><th>Ship to Party</th><th>Destination</th><th>Remark</th><th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -115,8 +116,9 @@ const VT02Page: NextPage = () => {
                   <td>{row.driverMobile}</td>
                   <td>{new Date(row.inDateTime).toLocaleString()}</td>
                   <td>{row.currentStatus}</td>
-                  <td>{new Date(row.statusTime).toLocaleString()}</td>
+                  <td>{row.statusDateTime ? new Date(row.statusDateTime).toLocaleString() : '-'}</td>
                   <td>{row.customer}</td>
+                  <td>{row.shipToParty}</td>
                   <td>{row.destination}</td>
                   <td>{row.remark}</td>
                   <td>
@@ -134,7 +136,7 @@ const VT02Page: NextPage = () => {
             <thead>
               <tr>
                 <th>Plant</th><th>Vehicle Number</th><th>Driver Name</th><th>Driver Mobile</th><th>In Date Time</th>
-                <th>Current Status</th><th>Status Time</th><th>Customer</th><th>Destination</th><th>Remark</th><th>Out Date Time</th><th>Action</th>
+                <th>Current Status</th><th>Status Time</th><th>Customer</th><th>Ship to Party</th><th>Destination</th><th>Remark</th><th>Out Type</th><th>Out Date Time</th><th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -146,10 +148,12 @@ const VT02Page: NextPage = () => {
                   <td>{row.driverMobile}</td>
                   <td>{new Date(row.inDateTime).toLocaleString()}</td>
                   <td>{row.currentStatus}</td>
-                  <td>{new Date(row.statusTime).toLocaleString()}</td>
+                  <td>{row.statusDateTime ? new Date(row.statusDateTime).toLocaleString() : '-'}</td>
                   <td>{row.customer}</td>
+                  <td>{row.shipToParty}</td>
                   <td>{row.destination}</td>
                   <td>{row.remark}</td>
+                  <td>{row.outType}</td>
                   <td>{new Date(row.outDateTime).toLocaleString()}</td>
                   <td>
                     <button onClick={() => handleEdit(row.id, 'exit')} className={`${styles.button} ${styles.editButton}`}>Edit</button>

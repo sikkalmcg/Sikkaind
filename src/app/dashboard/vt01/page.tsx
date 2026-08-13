@@ -287,6 +287,9 @@ const VT01Page: NextPage = () => {
         body: JSON.stringify({
           plant: statusData.plant,
           vehicleNo: statusData.vehicleNo,
+          customer: statusData.customer,
+          shipToParty: statusData.shipToParty,
+          destination: statusData.destination,
           ...newStatusRow,
         }),
       });
@@ -406,12 +409,12 @@ const VT01Page: NextPage = () => {
               <label>Status Update Date Time:</label>
               <input type="datetime-local" value={statusData.statusUpdateDateTime} onChange={(e) => handleStatusChange('statusUpdateDateTime', e.target.value)} className={styles.formInput} />
             </div>
-            <div className={styles.formGroup}>
-              <label>Customer:</label>
-              <input type="text" value={statusData.customer} onChange={(e) => handleStatusChange('customer', e.target.value)} className={styles.formInput} placeholder="Fetched from XD03" />
-            </div>
             {statusData.currentStatus === 'Load Stay' && (
               <>
+                <div className={styles.formGroup}>
+                  <label>Customer:</label>
+                  <input type="text" value={statusData.customer} onChange={(e) => handleStatusChange('customer', e.target.value)} className={styles.formInput} />
+                </div>
                 <div className={styles.formGroup}>
                   <label>Ship to Party:</label>
                   <input type="text" value={statusData.shipToParty} onChange={(e) => handleStatusChange('shipToParty', e.target.value)} className={styles.formInput} />
@@ -567,9 +570,17 @@ const VT01Page: NextPage = () => {
                       <tr key={row.id}>
                         <td>
                           <input
-                            type="text"
+                            type="number"
+                            min="0"
+                            max="999999"
+                            step="1"
                             value={row.cnNumber}
-                            onChange={(e) => handleCNNumberChange(row.id, e.target.value)}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || (/^\d{1,6}$/.test(value) && Number(value) <= 999999)) {
+                                handleCNNumberChange(row.id, value);
+                              }
+                            }}
                             placeholder="Enter CN Number"
                             className={styles.formInput}
                           />

@@ -18,7 +18,21 @@ export async function POST(request: Request) {
     const history = [...(Array.isArray(vehicle.statusHistory) ? vehicle.statusHistory : []), {
       id: Date.now(), currentStatus: data.currentStatus, statusDateTime: data.statusDateTime, remark: data.remark,
     }];
-    await collection.updateOne({ _id: vehicle._id }, { $set: { currentStatus: data.currentStatus, statusHistory: history, updatedAt: new Date() } });
+    await collection.updateOne(
+      { _id: vehicle._id },
+      {
+        $set: {
+          currentStatus: data.currentStatus,
+          statusDateTime: data.statusDateTime,
+          customer: data.customer || '',
+          shipToParty: data.shipToParty || '',
+          destination: data.destination || '',
+          remark: data.remark,
+          statusHistory: history,
+          updatedAt: new Date(),
+        },
+      },
+    );
     return NextResponse.json(history);
   } catch (error: any) {
     return NextResponse.json({ message: error.message || 'Unable to update vehicle status.' }, { status: 500 });
