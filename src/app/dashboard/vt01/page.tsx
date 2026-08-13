@@ -305,26 +305,27 @@ const VT01Page: NextPage = () => {
     }
   };
 
-  const handleMarkVehicleOut = async () => {
-    try {
-      if (!exitData.plant || !exitData.vehicleNo || !exitData.exitDateTime) {
-        throw new Error('Please select a plant and vehicle before marking it OUT.');
-      }
-      const response = await fetch('/api/vehicles/exit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...exitData, cnRows }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Unable to mark vehicle OUT.');
-      }
-      alert('Vehicle marked as OUT successfully!');
-      setCnRows([]);
-      setExitData((previous) => ({ ...previous, vehicleNo: '', driverName: '', driverMobile: '' }));
-    } catch (err) {
-      alert(`Error: ${(err as Error).message}`);
+  const handleMarkVehicleOut = () => {
+    if (!exitData.plant || !exitData.vehicleNo || !exitData.exitDateTime) {
+      alert('Please select a plant and vehicle before marking it OUT.');
+      return;
     }
+    fetch('/api/vehicles/exit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...exitData, cnRows }),
+    }).then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Unable to mark vehicle OUT.');
+        }
+        alert('Vehicle marked as OUT successfully!');
+        setCnRows([]);
+        setExitData((previous) => ({ ...previous, vehicleNo: '', driverName: '', driverMobile: '' }));
+      })
+      .catch((err) => {
+        alert(`Error: ${(err as Error).message}`);
+      });
   };
 
   const handleCNNumberChange = async (id: number, cnNumber: string) => {
@@ -342,12 +343,21 @@ const VT01Page: NextPage = () => {
           throw new Error(errorData.message || 'CN Number is invalid/not found.');
         }
         const data = await response.json();
-        newRows[rowIndex] = { ...newRows[rowIndex], ...data };
+        newRows[rowIndex] = {
+          ...newRows[rowIndex],
+          shipToParty: data.shipToParty,
+          destination: data.destination,
+        };
         setError(null);
       } catch (err) {
         setError((err as Error).message);
         const { cnNumber } = newRows[rowIndex];
-        newRows[rowIndex] = { id, cnNumber, cnDate: '', shipToParty: '', destination: '', totalPackage: '', totalWeight: '' };
+        newRows[rowIndex] = {
+          ...newRows[rowIndex],
+          cnNumber,
+          shipToParty: '',
+          destination: '',
+        };
       }
     }
     setCnRows(newRows);
