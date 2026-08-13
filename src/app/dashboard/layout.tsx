@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 const MASTER_TCODES = [
+  // --- MASTER DATA ---
   { code: 'OX01', description: 'PLANT MASTER: CREATE', icon: Package, module: 'Master Data' },
   { code: 'OX02', description: 'PLANT MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'OX03', description: 'PLANT MASTER: DISPLAY', icon: Info, module: 'Master Data' },
@@ -35,6 +36,14 @@ const MASTER_TCODES = [
   { code: 'XD01', description: 'CUSTOMER MASTER: CREATE', icon: Users, module: 'Master Data' },
   { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY', icon: Info, module: 'Master Data' },
+
+  // --- LOGISTICS & VEHICLE MANAGEMENT ---
+  { code: 'VT01', description: 'VEHICLE ENTRY / CREATE', icon: Truck, module: 'Logistics' },
+  { code: 'VT02', description: 'VEHICLE ENTRY / EDIT', icon: Edit3, module: 'Logistics' },
+  { code: 'VT03', description: 'VEHICLE DISPLAY & AUDIT', icon: Info, module: 'Logistics' },
+  { code: 'VT04', description: 'VEHICLE DISPATCH / TRACKING', icon: Radar, module: 'Logistics' },
+  { code: 'VT11', description: 'FREIGHT COST REPORT', icon: FileText, module: 'Logistics' },
+
   { code: 'VA01', description: 'SALES ORDER: CREATE', icon: ShoppingBag, module: 'Logistics' },
   { code: 'VA02', description: 'SALES ORDER: CHANGE', icon: Edit3, module: 'Logistics' },
   { code: 'VA03', description: 'SALES ORDER: DISPLAY', icon: Info, module: 'Logistics' },
@@ -45,16 +54,16 @@ const MASTER_TCODES = [
   { code: 'VK11', description: 'PRIMARY FREIGHT RATES: CREATE', icon: ShoppingBag, module: 'Logistics' },
   { code: 'VK12', description: 'PRIMARY FREIGHT RATES: CHANGE', icon: Edit3, module: 'Logistics' },
   { code: 'VK13', description: 'PRIMARY FREIGHT RATES: DISPLAY', icon: Info, module: 'Logistics' },
-  { code: 'VT11', description: 'FREIGHT COST REPORT', icon: FileText, module: 'Logistics' },
+  { code: 'MK01', description: 'FORWARDING AGENT: CREATE', icon: Grid2X2, module: 'Logistics' },
+  { code: 'MK02', description: 'FORWARDING AGENT: CHANGE', icon: Edit3, module: 'Logistics' },
+  { code: 'MK03', description: 'FORWARDING AGENT: DISPLAY / HISTORY', icon: Info, module: 'Logistics' },
+
+  // --- SYSTEM MODULES ---
   { code: 'SE38', description: 'CUSTOM REPORT EXECUTION', icon: FileText, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
   { code: 'SU02', description: 'USER MANAGEMENT: CHANGE', icon: Edit3, module: 'System' },
   { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY', icon: Info, module: 'System' },
   { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES', icon: Grid2X2, module: 'System' },
-  // MK - Forwarding Agent (VA module)
-  { code: 'MK01', description: 'FORWARDING AGENT: CREATE', icon: Grid2X2, module: 'Logistics' },
-  { code: 'MK02', description: 'FORWARDING AGENT: CHANGE', icon: Edit3, module: 'Logistics' },
-  { code: 'MK03', description: 'FORWARDING AGENT: DISPLAY / HISTORY', icon: Info, module: 'Logistics' },
 ];
 
 const ALL_TCODES = MASTER_TCODES.map(t => t.code);
@@ -110,6 +119,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return JSON.parse(tcodeAccessStr);
   }, [isBootstrapAdmin, isAdmin, userProfile?.role, tcodeAccessStr]);
 
+  // Centralized Route Mapping for Navigation and Prefetching
+  const getRouteForTCode = React.useCallback((targetCode: string) => {
+    const code = targetCode.toUpperCase();
+    const routeMap: Record<string, string> = {
+      // Vehicle Management Exact Routes
+      VT01: '/dashboard/vt01',
+      VT02: '/dashboard/vt02',
+      VT03: '/dashboard/vt03',
+      VT04: '/dashboard/vt04',
+      VT11: '/dashboard/vt11',
+
+      // Freight Rates
+      VK11: '/dashboard/vk11',
+      VK12: '/dashboard/vk12',
+      VK13: '/dashboard/vk13',
+
+      // Forwarding Agent
+      MK01: '/dashboard/mk01',
+      MK02: '/dashboard/mk02',
+      MK03: '/dashboard/mk03',
+
+      // Base Code Mappings
+      OX: '/dashboard/ox',
+      FM: '/dashboard/fm',
+      XK: '/dashboard/xk',
+      XD: '/dashboard/xd',
+      VA: '/dashboard/va',
+      SU: '/dashboard/su',
+      TR21: '/dashboard/tr21',
+      TR24: '/dashboard/tr24',
+      WGPS24: '/dashboard/wgsp24',
+      SE38: '/dashboard/se38',
+      ZCODE: '/dashboard/zcode'
+    };
+
+    if (routeMap[code]) return routeMap[code];
+
+    const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(code)
+      ? code
+      : code.substring(0, 2);
+
+    return routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
+  }, []);
+
   React.useEffect(() => {
     if (!mounted || isProfileLoading) return;
 
@@ -123,6 +176,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { code: 'FM03', description: 'COMPANY' },
         { code: 'XK03', description: 'VENDOR' },
         { code: 'XD03', description: 'CUSTOMER' },
+        { code: 'VT01', description: 'VEHICLE ENTRY' },
         { code: 'VA01', description: 'CREATE SALE ORDER' },
         { code: 'TR21', description: 'TRIP BOARD CONTROL' },
         { code: 'WGPS24', description: 'GPS MONITORING' },
@@ -137,8 +191,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return { ...fav, icon: master?.icon || Grid2X2 };
       });
 
-    // Ensure we don't get stuck with old/invalid favorites routes after code changes.
-    // (Especially relevant when we fix VK/VT routing.)
     try {
       localStorage.removeItem('sap_user_favorites');
     } catch (e) {
@@ -147,33 +199,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     setUserFavorites(filtered);
     
-    // Prefetch all favorites routes immediately
+    // Prefetch all favorites routes using updated route resolution
     filtered.forEach((fav: { code: string }) => {
-      const routeMap: any = {
-        // Full T-code mapping for correct route resolution
-        VK11: '/dashboard/vk11',
-        VK12: '/dashboard/vk12',
-        VK13: '/dashboard/vk13',
-        VT11: '/dashboard/vt11',
-
-        // MK - Forwarding Agent
-        MK01: '/dashboard/mk01',
-        MK02: '/dashboard/mk02',
-        MK03: '/dashboard/mk03',
-
-        // Existing base-code mappings
-        'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
-        'XD': '/dashboard/xd', 'VA': '/dashboard/va', 'SU': '/dashboard/su',
-        'TR21': '/dashboard/tr21', 'TR24': '/dashboard/tr24', 'WGPS24': '/dashboard/wgsp24',
-        'SE38': '/dashboard/se38', 'ZCODE': '/dashboard/zcode'
-      };
-      const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(fav.code) ? fav.code : fav.code.substring(0, 2);
-      const targetRoute = routeMap[baseCode];
+      const targetRoute = getRouteForTCode(fav.code);
       if (targetRoute) {
         router.prefetch(`${targetRoute}?tcode=${fav.code}`);
       }
     });
-  }, [mounted, isProfileLoading, authorizedTcodes, router]);
+  }, [mounted, isProfileLoading, authorizedTcodes, router, getRouteForTCode]);
 
   const executeTCode = React.useCallback((cmd: string) => {
     const input = cmd.toUpperCase().trim();
@@ -201,28 +234,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         alert(`ACCESS DENIED: Authorization failure for command ${target}.`);
         return;
       }
-      const routeMap: any = {
-        // Full T-code mapping for correct route resolution
-        VK11: '/dashboard/vk11',
-        VK12: '/dashboard/vk12',
-        VK13: '/dashboard/vk13',
-        VT11: '/dashboard/vt11',
 
-        // MK - Forwarding Agent
-        MK01: '/dashboard/mk01',
-        MK02: '/dashboard/mk02',
-        MK03: '/dashboard/mk03',
-
-        // Existing base-code mappings
-        'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
-        'XD': '/dashboard/xd', 'VA': '/dashboard/va', 'SU': '/dashboard/su',
-        'TR21': '/dashboard/tr21', 'TR24': '/dashboard/tr24', 'WGPS24': '/dashboard/wgsp24',
-        'SE38': '/dashboard/se38', 'ZCODE': '/dashboard/zcode'
-      };
-      const targetRoute = routeMap[target] || (() => {
-        const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(target) ? target : target.substring(0, 2);
-        return routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
-      })();
+      const targetRoute = getRouteForTCode(target);
       React.startTransition(() => {
         window.open(`${window.location.origin}${targetRoute}?tcode=${target}`, '_blank');
       });
@@ -241,24 +254,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return; 
     }
 
-    const routeMap: any = {
-      // Full T-code mapping for correct route resolution
-      VK11: '/dashboard/vk11',
-      VK12: '/dashboard/vk12',
-      VK13: '/dashboard/vk13',
-      VT11: '/dashboard/vt11',
-
-      // Existing base-code mappings
-      'OX': '/dashboard/ox', 'FM': '/dashboard/fm', 'XK': '/dashboard/xk',
-      'XD': '/dashboard/xd', 'VA': '/dashboard/va', 'SU': '/dashboard/su',
-      'TR21': '/dashboard/tr21', 'TR24': '/dashboard/tr24', 'WGPS24': '/dashboard/wgsp24',
-      'SE38': '/dashboard/se38', 'ZCODE': '/dashboard/zcode'
-    };
-
-    const targetRoute = routeMap[code] || (() => {
-      const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(code) ? code : code.substring(0, 2);
-      return routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
-    })();
+    const targetRoute = getRouteForTCode(code);
     
     React.startTransition(() => {
       router.push(`${targetRoute}?tcode=${code}`);
@@ -266,7 +262,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setTCode('');
     setShowHistory(false);
     setHistory(prev => [input, ...prev.filter(h => h !== input)].slice(0, 10));
-  }, [authorizedTcodes, router]);
+  }, [authorizedTcodes, router, getRouteForTCode]);
 
   const handleAddFavorite = () => {
     const code = newFavCode.toUpperCase().trim();
@@ -308,8 +304,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex-col h-screen w-full bg-background text-foreground font-mono overflow-hidden flex print:h-auto print:overflow-visible">
-
-
+      {/* Top Navigation Bar */}
       <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden">
         <div className="flex items-center px-2 py-1 gap-4 h-10">
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300 h-full">
@@ -325,7 +320,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               onKeyDown={(e) => { if (e.key === 'Enter') executeTCode(tCode); }}
               onClick={() => history.length > 0 && setShowHistory(true)}
               onBlur={() => setTimeout(() => setShowHistory(false), 200)}
-              className="w-48 outline-none text-xs px-1 font-bold tracking-wider" 
+              className="w-48 outline-none text-xs px-1 font-bold tracking-wider uppercase" 
               placeholder="T-CODE..." 
             />
             {showHistory && (
@@ -336,7 +331,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-full">
             <button onClick={triggerGlobalSave} className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700" title="Save (F8 / Ctrl+S)"><Save className="h-4 w-4" /></button>
-              <button
+            <button
               className="p-1.5 hover:bg-slate-200 rounded transition-all text-slate-700 disabled:opacity-30 disabled:pointer-events-none"
               title="Back (F3)"
               onClick={() => {
@@ -351,19 +346,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   stack = [];
                 }
 
-                // If stack is missing/empty, fall back to browser back.
                 if (!Array.isArray(stack) || stack.length <= 1) {
                   router.back();
                   return;
                 }
 
-                // Remove current from stack if present.
-                // If it doesn't match exactly (query params etc.), we still pop top.
                 const top = stack[stack.length - 1];
                 if (top === current) {
                   stack.pop();
                 } else {
-                  // current route not matching exactly the top; try to drop last anyway.
                   stack.pop();
                 }
 
@@ -395,6 +386,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       <div className="flex-1 flex overflow-hidden print:block print:overflow-visible">
+        {/* Quick Access Sidebar */}
         <aside className="w-80 bg-card border-r border-border lg:flex flex-col overflow-hidden shadow-sm shrink-0 flex hidden print:hidden">
           <div className="p-4 border-b border-border bg-secondary/30 flex items-center justify-between">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground flex items-center gap-2">
@@ -435,15 +427,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
 
-
-
       <Dialog open={showAddFav} onOpenChange={setShowAddFav}>
         <DialogContent className="max-w-md rounded-none border-[3px] border-[#0056d2] font-mono">
           <DialogHeader><DialogTitle className="text-sm font-black uppercase italic text-[#0056d2]">Add to Favorites</DialogTitle></DialogHeader>
           <div className="py-6 space-y-4">
              <div className="flex items-center gap-4">
                 <label className="text-[11px] font-black uppercase text-slate-600 w-24 text-right">T-Code:</label>
-                <input autoFocus value={newFavCode} onChange={e => setNewFavCode(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleAddFavorite()} className="flex-1 h-8 border border-slate-400 px-3 text-xs font-black uppercase outline-none focus:bg-yellow-50" placeholder="E.G. VA01" />
+                <input autoFocus value={newFavCode} onChange={e => setNewFavCode(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleAddFavorite()} className="flex-1 h-8 border border-slate-400 px-3 text-xs font-black uppercase outline-none focus:bg-yellow-50" placeholder="E.G. VT01" />
              </div>
           </div>
           <DialogFooter className="gap-2">

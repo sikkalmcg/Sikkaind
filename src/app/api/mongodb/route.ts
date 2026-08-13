@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { getMongoDb } from '@/lib/mongodb';
+import { connectDB } from '@/lib/mongodb';
+import { isValidMobileNumber, validateAndFormatVehicleNumber } from '@/lib/validation';
+import { VehicleEntry } from '@/types/vehicle';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,7 +109,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Permission denied.' }, { status: 403 });
     }
 
-    const db = await getMongoDb();
+    const db = await connectDB();
 
     if (body.operation === 'list') {
       const docs = await db
@@ -140,15 +142,62 @@ export async function POST(request: Request) {
 
     if (body.operation === 'add') {
       const id = randomUUID();
-      await db.collection<any>(collectionName(body.path)).insertOne({ _id: id, ...serializeData(body.data) });
+      const collection = db.collection<any>(collectionName(body.path));
+      const data: Partial<VehicleEntry> = body.data;
+
+      // Vehicle specific validations for 'add'
+      if (body.path.startsWith('plant_')) {
+        // 1. Vehicle Number Validation
+        const formattedVehicleNo = validateAndFormatVehicleNumber(data.vehicleNo || '');
+        if (!formattedVehicleNo) {
+          return NextResponse.json({ error: 'Please enter a valid Vehicle Number.' }, { status: 400 });
+        }
+        data.vehicleNo = formattedVehicleNo;
+
+        // 2. Mobile Number Validation
+        if (data.driverMobile && !isValidMobileNumber(data.driverMobile)) {
+          return NextResponse.json({ error: 'Mobile number must be exactly 10 digits.' }, { status: 400 });
+        }
+
+        // 3. Global Rule: Check if vehicle is already IN
+        const existingEntry = await collection.findOne({
+          vehicleNo: formattedVehicleNo,
+          currentStatus: 'IN',
+        });
+
+        if (existingEntry) {
+          return NextResponse.json({ error: `Vehicle ${formattedVehicleNo} is already IN at this plant. It must be marked OUT before a new entry.` }, { status: 409 });
+        }
+      }
+
+      await collection.insertOne({ _id: id, ...serializeData(data) });
       return NextResponse.json({ id });
     }
 
     if (body.operation === 'update') {
       const { collectionPath, id } = splitDocumentPath(body.path);
+      const data: Partial<VehicleEntry> = body.data;
+
+      // Vehicle specific validations for 'update'
+      if (collectionPath.startsWith('plant_')) {
+        // 1. Vehicle Number Validation
+        if (data.vehicleNo) {
+          const formattedVehicleNo = validateAndFormatVehicleNumber(data.vehicleNo);
+          if (!formattedVehicleNo) {
+            return NextResponse.json({ error: 'Please enter a valid Vehicle Number.' }, { status: 400 });
+          }
+          data.vehicleNo = formattedVehicleNo;
+        }
+
+        // 2. Mobile Number Validation
+        if (data.driverMobile && !isValidMobileNumber(data.driverMobile)) {
+          return NextResponse.json({ error: 'Mobile number must be exactly 10 digits.' }, { status: 400 });
+        }
+      }
+
       await db
         .collection<any>(collectionName(collectionPath))
-        .updateOne({ _id: id }, { $set: serializeData(body.data) }, { upsert: false });
+        .updateOne({ _id: id }, { $set: serializeData(data) }, { upsert: false });
       return NextResponse.json({ ok: true });
     }
 

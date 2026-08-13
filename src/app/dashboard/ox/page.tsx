@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Save, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/mongodb';
+import { useMongoStore, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/mongodb';
 import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,6 @@ export default function OXPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const db = useMongoStore();
-  const { user, isUserLoading: isAuthLoading } = useUser();
   const activeTCode = searchParams.get('tcode') || 'OX03';
   const isReadOnly = activeTCode === 'OX03';
   
@@ -25,11 +24,22 @@ export default function OXPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [errors, setErrors] = React.useState<string[]>([]);
 
-  const plantsQuery = useMemoMongo(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'plants');
-  }, [db, user, isAuthLoading]);
-  const { data: plants } = useCollectionOptimized(plantsQuery);
+  const [plants, setPlants] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const loadPlants = async () => {
+      try {
+        const response = await fetch('/api/plants?includeInactive=true', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Unable to load plants (${response.status})`);
+        setPlants(await response.json());
+      } catch (error) {
+        console.error('Unable to load OX03 plant master data:', error);
+        setPlants([]);
+      }
+    };
+
+    loadPlants();
+  }, []);
 
   const handleSave = React.useCallback(() => {
     if (isReadOnly) return;
@@ -183,4 +193,3 @@ export default function OXPage() {
     </div>
   );
 }
-

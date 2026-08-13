@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   ChevronLeft,
   ChevronRight,
@@ -40,6 +40,7 @@ function StatCard({ label, count, className }: { label: string; count: number | 
 
 export default function DashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const db = useMongoStore();
   const { user } = useUser();
   const [mounted, setMounted] = React.useState(false);
@@ -59,6 +60,50 @@ export default function DashboardPage() {
     setRegistryId(localStorage.getItem('sap_registry_id'));
     setMounted(true);
   }, []);
+
+  // --- T-CODE REDIRECTION LISTENER ---
+  React.useEffect(() => {
+    const tcodeParam = searchParams.get('tcode');
+    if (tcodeParam) {
+      const code = tcodeParam.toUpperCase().trim();
+      const routeMap: Record<string, string> = {
+        VT01: '/dashboard/vt01',
+        VT02: '/dashboard/vt02',
+        VT03: '/dashboard/vt03',
+        VT04: '/dashboard/vt04',
+        VT11: '/dashboard/vt11',
+        VK11: '/dashboard/vk11',
+        VK12: '/dashboard/vk12',
+        VK13: '/dashboard/vk13',
+        MK01: '/dashboard/mk01',
+        MK02: '/dashboard/mk02',
+        MK03: '/dashboard/mk03',
+        OX: '/dashboard/ox',
+        FM: '/dashboard/fm',
+        XK: '/dashboard/xk',
+        XD: '/dashboard/xd',
+        VA: '/dashboard/va',
+        SU: '/dashboard/su',
+        TR21: '/dashboard/tr21',
+        TR24: '/dashboard/tr24',
+        WGPS24: '/dashboard/wgsp24',
+        SE38: '/dashboard/se38',
+        ZCODE: '/dashboard/zcode'
+      };
+
+      let targetRoute = routeMap[code];
+      if (!targetRoute) {
+        const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(code)
+          ? code
+          : code.substring(0, 2);
+        targetRoute = routeMap[baseCode] || `/dashboard/${baseCode.toLowerCase()}`;
+      }
+
+      if (targetRoute && targetRoute !== '/dashboard') {
+        router.replace(`${targetRoute}?tcode=${code}`);
+      }
+    }
+  }, [searchParams, router]);
 
   const handleMonthSelect = (monthIndex: number) => {
     setCurrentDate(new Date(currentDate.getFullYear(), monthIndex, 1));
@@ -82,23 +127,20 @@ export default function DashboardPage() {
 
     setIsChartLoading(true);
 
-    // Safeguard: Dispose absolute pre-existing root contexts instantly
     if (chartRootRef.current) {
       chartRootRef.current.dispose();
     }
 
     const chartData = [
-        { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 1).getTime(), openOrder: 10, loading: 5, inTransit: 8, arrived: 4, podVerify: 2, closed: 15 },
-        { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 5).getTime(), openOrder: 12, loading: 8, inTransit: 10, arrived: 6, podVerify: 4, closed: 18 },
-        { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 10).getTime(), openOrder: 8, loading: 4, inTransit: 6, arrived: 10, podVerify: 8, closed: 20 },
-        { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 15).getTime(), openOrder: 15, loading: 10, inTransit: 12, arrived: 8, podVerify: 6, closed: 25 },
-        { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 20).getTime(), openOrder: 11, loading: 7, inTransit: 9, arrived: 11, podVerify: 9, closed: 22 },
-        { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 25).getTime(), openOrder: 9, loading: 6, inTransit: 7, arrived: 13, podVerify: 11, closed: 28 },
+      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 1).getTime(), openOrder: 10, loading: 5, inTransit: 8, arrived: 4, podVerify: 2, closed: 15 },
+      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 5).getTime(), openOrder: 12, loading: 8, inTransit: 10, arrived: 6, podVerify: 4, closed: 18 },
+      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 10).getTime(), openOrder: 8, loading: 4, inTransit: 6, arrived: 10, podVerify: 8, closed: 20 },
+      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 15).getTime(), openOrder: 15, loading: 10, inTransit: 12, arrived: 8, podVerify: 6, closed: 25 },
+      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 20).getTime(), openOrder: 11, loading: 7, inTransit: 9, arrived: 11, podVerify: 9, closed: 22 },
+      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 25).getTime(), openOrder: 9, loading: 6, inTransit: 7, arrived: 13, podVerify: 11, closed: 28 },
     ];
 
     let root = am5.Root.new("performanceChartDiv");
-    
-    // Smooth rendering animation engine attach karein
     root.setThemes([am5themes_Animated.new(root)]);
     chartRootRef.current = root;
 
@@ -127,8 +169,6 @@ export default function DashboardPage() {
       }));
       series.data.setAll(chartData);
       series.strokes.template.setAll({ strokeWidth: 2 });
-      
-      // Load animations smooth execute krega
       series.appear(1000);
     }
 
@@ -146,7 +186,6 @@ export default function DashboardPage() {
     legend.data.setAll(chart.series.values);
 
     chart.set("cursor", am5xy.XYCursor.new(root, {}));
-    
     chart.appear(1000, 100);
     setIsChartLoading(false);
 

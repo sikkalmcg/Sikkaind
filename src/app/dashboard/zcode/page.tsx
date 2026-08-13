@@ -4,12 +4,14 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Grid2X2, Search, Layers } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 /**
  * @fileOverview ZCODE - Comprehensive System Transaction Registry.
  * Lists all active T-Codes with their full descriptions and internal functional tabs.
  */
 const MASTER_TCODES = [
+  // --- MASTER DATA ---
   { 
     code: 'OX01', 
     description: 'PLANT MASTER: CREATE', 
@@ -82,6 +84,38 @@ const MASTER_TCODES = [
     module: 'Master Data', 
     tabs: ['View'] 
   },
+
+  // --- LOGISTICS & VEHICLE MANAGEMENT ---
+  { 
+    code: 'VT01', 
+    description: 'VEHICLE MANAGEMENT: ENTRY / CREATE', 
+    module: 'Logistics', 
+    tabs: ['Entry', 'Vehicle Status', 'Vehicle Exit'] 
+  },
+  { 
+    code: 'VT02', 
+    description: 'VEHICLE MANAGEMENT: EDIT', 
+    module: 'Logistics', 
+    tabs: ['Modify Movement', 'Status Override'] 
+  },
+  { 
+    code: 'VT03', 
+    description: 'VEHICLE MANAGEMENT: DISPLAY & AUDIT REPORT', 
+    module: 'Logistics', 
+    tabs: ['History', 'Stay Hours Analytics', 'Export'] 
+  },
+  { 
+    code: 'VT04', 
+    description: 'VEHICLE TRACKING / DISPATCH', 
+    module: 'Logistics', 
+    tabs: ['Live Tracking', 'Dispatch Queue'] 
+  },
+  { 
+    code: 'VT11', 
+    description: 'VEHICLE MASTER REPORT', 
+    module: 'Logistics', 
+    tabs: ['Fleet Overview', 'Consolidated Log'] 
+  },
   { 
     code: 'VA01', 
     description: 'SALES ORDER: CREATE', 
@@ -124,6 +158,8 @@ const MASTER_TCODES = [
     module: 'Logistics', 
     tabs: ['Satellite Map', 'Gateway Settings'] 
   },
+
+  // --- SYSTEM MODULES ---
   { 
     code: 'SE38', 
     description: 'CUSTOM REPORT EXECUTION', 
@@ -169,11 +205,15 @@ export default function ZCodePage() {
   const handleNavigate = (code: string) => {
     const c = code.toUpperCase();
     
-    // Standardized routing logic
-    const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(c) ? c : c.substring(0, 2);
-    let target = baseCode.toLowerCase();
+    // Exact mapping for Multi-digit codes (e.g. VT01, VT02, VT03, VT04, VT11, TR21, TR24)
+    let target = c.toLowerCase();
     
-    // Special handling for GPS route
+    // Grouped 2-letter base codes (e.g. OX01 -> ox, XK01 -> xk, XD01 -> xd, VA01 -> va, SU01 -> su)
+    if (!['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24', 'VT01', 'VT02', 'VT03', 'VT04', 'VT11'].includes(c)) {
+      target = c.substring(0, 2).toLowerCase();
+    }
+    
+    // GPS route name alignment
     if (target === 'wgps24') target = 'wgsp24';
 
     router.push(`/dashboard/${target}?tcode=${c}`);
@@ -207,7 +247,7 @@ export default function ZCodePage() {
                 <th className="p-4 border-r border-slate-200 w-[120px]">T-Code</th>
                 <th className="p-4 border-r border-slate-200 w-[300px]">Description</th>
                 <th className="p-4 border-r border-slate-200">Active / Functionality</th>
-                <th className="p-4 w-[150px]">Module</th>
+                <th className="p-4 w-[150px] text-center">Module</th>
               </tr>
             </thead>
             <tbody>
@@ -237,7 +277,7 @@ export default function ZCodePage() {
                     <Badge 
                       variant="outline" 
                       className={cn(
-                        "text-[8px] font-black uppercase rounded-none border-none px-3",
+                        "text-[8px] font-black uppercase rounded-none border-none px-3 py-1",
                         t.module === 'Master Data' ? "bg-blue-100 text-blue-800" : 
                         t.module === 'Logistics' ? "bg-emerald-100 text-emerald-800" : 
                         "bg-slate-800 text-white"
@@ -261,9 +301,4 @@ export default function ZCodePage() {
       </div>
     </div>
   );
-}
-
-/** Helper function for class merging */
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
 }
