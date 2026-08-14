@@ -1,14 +1,23 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, FC } from 'react';
 import type { NextPage } from 'next';
 import styles from '../../../../VT01.module.css';
 import { useSearchParams } from 'next/navigation';
 import { isValidMobileNumber, validateAndFormatVehicleNumber } from '../../../lib/validation';
+import toast, { Toaster } from 'react-hot-toast';
 
 // Custom Hooks for MongoDB Store Integration
 import { useMongoStore, useCollectionOptimized, useMemoMongo, useUser } from '@/mongodb';
 import { collection } from '@/lib/mongo-store';
+import NonPlantVehicleTab from './NonPlantVehicleTab';
+
+enum Tab {
+  Entry = 'Entry',
+  VehicleStatus = 'Vehicle Status',
+  VehicleExit = 'Vehicle Exit',
+  NonPlantVehicle = 'Non-Plant Vehicle',
+}
 
 const SHARED_HUB_ID = 'Sikkaind';
 
@@ -61,6 +70,7 @@ interface StatusHistoryRow {
   id: number;
   currentStatus: string;
   statusDateTime: string;
+  toDateTime: string;
   remark: string;
 }
 
@@ -76,7 +86,7 @@ const formatDateTimeForInput = (date: Date): string => {
 
 const VT01Page: NextPage = () => {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'Entry' | 'Vehicle Status' | 'Vehicle Exit'>('Entry');
+  const [activeTab, setActiveTab] = useState<Tab>(Tab.Entry);
   const [cnRows, setCnRows] = useState<CNRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,25 +94,8 @@ const VT01Page: NextPage = () => {
   const db = useMongoStore();
   const { user, isUserLoading: isAuthLoading } = useUser();
 
-  const plantsQuery = useMemoMongo(() => {
-    if (isAuthLoading || !user) return null;
-    return collection(db, 'users', SHARED_HUB_ID, 'plants');
-  }, [db, user, isAuthLoading]);
-
-  const { data: rawPlants, isLoading: plantsLoading } = useCollectionOptimized(plantsQuery);
-
-  // Filter Active Plants and format list
-  const plantsList: PlantOption[] = useMemo(() => {
-    if (!rawPlants) return [];
-    return rawPlants
-      .filter((p: any) => p.status === 'Active')
-      .map((p: any) => ({
-        plantCode: p.plantCode,
-        plantName: p.plantName,
-      }));
-  }, [rawPlants]);
-
   const [inYardVehicles, setInYardVehicles] = useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [entryData, setEntryData] = useState<VehicleEntryData>({
     plant: '',
@@ -141,9 +134,32 @@ const VT01Page: NextPage = () => {
 
   const [showUpdatePopup, setShowUpdatePopup] = useState(false);
   const [statusHistory, setStatusHistory] = useState<StatusHistoryRow[]>([]);
-  const [newStatusRow, setNewStatusRow] = useState({ currentStatus: '', statusDateTime: formatDateTimeForInput(new Date()), remark: '' });
+  const [newStatusRow, setNewStatusRow] = useState({ currentStatus: '', statusDateTime: formatDateTimeForInput(new Date()), toDateTime: '', remark: '' });
 
   const tcode = useMemo(() => searchParams.get('tcode'), [searchParams]);
+  const [plantsList, setPlantsList] = useState<PlantOption[]>([]);
+  const [plantsLoading, setPlantsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPlants = async () => {
+      setPlantsLoading(true);
+      try {
+        const response = await fetch('/api/plants');
+        if (!response.ok) throw new Error('Unable to fetch Plant Master data.');
+        const data = await response.json();
+        const activePlants = data
+          .filter((p: any) => p.status === 'Active')
+          .map((p: any) => ({ plantCode: p.plantCode, plantName: p.plantName }));
+        setPlantsList(activePlants);
+      } catch (error) {
+        console.error('Failed to fetch plants:', error);
+        toast.error((error as Error).message || 'Failed to load plants.');
+      } finally {
+        setPlantsLoading(false);
+      }
+    };
+    fetchPlants();
+  }, []);
 
   // Set default selected Plant whenever plant list updates
   useEffect(() => {
@@ -162,7 +178,7 @@ const VT01Page: NextPage = () => {
 
   // Fetch in-yard vehicles when plant changes in Status or Exit tab
   useEffect(() => {
-    const plant = activeTab === 'Vehicle Status' ? statusData.plant : exitData.plant;
+    const plant = activeTab === Tab.VehicleStatus ? statusData.plant : exitData.plant;
 
     if (!plant) {
       setInYardVehicles([]);
@@ -184,25 +200,25 @@ const VT01Page: NextPage = () => {
       }
     };
 
-    if (activeTab === 'Vehicle Status' || activeTab === 'Vehicle Exit') {
+    if (activeTab === Tab.VehicleStatus || activeTab === Tab.VehicleExit) {
       fetchInYardVehicles();
     }
   }, [activeTab, statusData.plant, exitData.plant]);
 
   // Auto-fetch vehicle details when selected in Status or Exit tab
   useEffect(() => {
-    const vehicleNo = activeTab === 'Vehicle Status' ? statusData.vehicleNo : exitData.vehicleNo;
+    const vehicleNo = activeTab === Tab.VehicleStatus ? statusData.vehicleNo : exitData.vehicleNo;
     if (!vehicleNo) return;
 
     const vehicleDetails = inYardVehicles.find(v => v.vehicleNo === vehicleNo);
     if (vehicleDetails) {
-      if (activeTab === 'Vehicle Status') {
+      if (activeTab === Tab.VehicleStatus) {
         setStatusData(prev => ({
           ...prev,
           driverName: vehicleDetails.driverName,
           driverMobile: vehicleDetails.driverMobile,
         }));
-      } else if (activeTab === 'Vehicle Exit') {
+      } else if (activeTab === Tab.VehicleExit) {
         setExitData(prev => ({
           ...prev,
           driverName: vehicleDetails.driverName,
@@ -221,13 +237,16 @@ const VT01Page: NextPage = () => {
 
   const handleSaveEntry = async () => {
     if (!entryData.plant || !entryData.vehicleNo || !entryData.driverName || !entryData.driverMobile) {
-      alert('Please fill all fields in the Entry form.');
+      toast.error('Please fill all fields in the Entry form.');
       return;
     }
     if (validationErrors.vehicleNo || validationErrors.driverMobile) {
-      alert('Please fix the validation errors before saving.');
+      toast.error('Please fix the validation errors before saving.');
       return;
     }
+
+    setIsSubmitting(true);
+    const toastId = toast.loading('Saving vehicle entry...');
 
     try {
       const response = await fetch('/api/vehicles/entry', {
@@ -235,14 +254,16 @@ const VT01Page: NextPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entryData),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to save vehicle entry.');
       }
-      alert('Vehicle Entry Saved Successfully!');
+      toast.success('Vehicle Entry Saved Successfully!', { id: toastId });
     } catch (err) {
-      alert(`Error: ${(err as Error).message}`);
+      toast.error(`Error: ${(err as Error).message}`, { id: toastId });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -270,16 +291,93 @@ const VT01Page: NextPage = () => {
     setStatusData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleAddNewStatusRow = () => {
+    const newRow: StatusHistoryRow = {
+      id: Date.now(), // Temporary ID for local state
+      currentStatus: '',
+      statusDateTime: statusHistory.length > 0 ? statusHistory[statusHistory.length - 1].toDateTime : formatDateTimeForInput(new Date()),
+      toDateTime: '',
+      remark: '',
+    };
+    setStatusHistory(prev => [...prev, newRow]);
+  };
+
+  const handleAddStatusRow = () => {
+    if (!newStatusRow.currentStatus || !newStatusRow.statusDateTime || !newStatusRow.toDateTime) {
+      toast.error('Please provide Status, From Date Time, and To Date Time.');
+      return;
+    }
+
+    const fromDate = new Date(newStatusRow.statusDateTime);
+    const toDate = new Date(newStatusRow.toDateTime);
+
+    // Rule: to date time not should be lower from date time
+    if (toDate < fromDate) {
+      toast.error('"To Date Time" cannot be earlier than "From Date Time".');
+      return;
+    }
+
+    // Rule: from/to date time not should be lower from previous to date and time
+    if (statusHistory.length > 0) {
+      const lastStatus = statusHistory[statusHistory.length - 1];
+      if (lastStatus.toDateTime) {
+        const lastToDate = new Date(lastStatus.toDateTime);
+        if (fromDate < lastToDate) {
+          toast.error('"From Date Time" cannot be earlier than the previous status\'s "To Date Time".');
+          return;
+        }
+      }
+    }
+
+    setStatusHistory(prev => [...prev, { id: Date.now(), ...newStatusRow }]);
+    setNewStatusRow({
+      currentStatus: '',
+      statusDateTime: newStatusRow.toDateTime, // Pre-fill next 'from' with previous 'to'
+      toDateTime: '',
+      remark: ''
+    });
+    toast.success('Status row added locally.');
+  };
+
+  const handleDeleteStatusRow = (id: number) => {
+    setStatusHistory(prev => prev.filter(row => row.id !== id));
+    toast.success('Row removed locally.');
+  };
   const handleExitChange = (field: keyof VehicleExitData, value: string) => {
     setExitData(prev => ({ ...prev, [field]: value }));
   };
 
   const handlePostStatusUpdate = async () => {
-    if (!newStatusRow.currentStatus || !newStatusRow.remark) {
-      alert('Please select a status and provide a remark.');
+    if (!newStatusRow.currentStatus || !newStatusRow.statusDateTime || !newStatusRow.toDateTime) {
+      toast.error('Please provide Status, From Date Time, and To Date Time.');
       return;
     }
 
+    const fromDate = new Date(newStatusRow.statusDateTime);
+    const toDate = new Date(newStatusRow.toDateTime);
+
+    // Rule: to date time not should be lower from date time
+    if (toDate < fromDate) {
+      toast.error('"To Date Time" cannot be earlier than "From Date Time".');
+      return;
+    }
+
+    // Rule: from/to date time not should be lower from previous to date and time
+    if (statusHistory.length > 0) {
+      const lastStatus = statusHistory[statusHistory.length - 1];
+      if (lastStatus.toDateTime) {
+        const lastToDate = new Date(lastStatus.toDateTime);
+        if (fromDate < lastToDate) {
+          toast.error('"From Date Time" cannot be earlier than the previous status\'s "To Date Time".');
+          return;
+        }
+      }
+    }
+
+
+    setIsSubmitting(true);
+    const toastId = toast.loading('Updating status...');
+    
     try {
       const response = await fetch('/api/vehicles/status', {
         method: 'POST',
@@ -299,33 +397,42 @@ const VT01Page: NextPage = () => {
       const updatedHistory = await response.json();
       setStatusHistory(updatedHistory);
       setShowUpdatePopup(false);
-      alert('Status updated successfully!');
+      toast.success('Status updated successfully!', { id: toastId });
     } catch (err) {
-      alert(`Error: ${(err as Error).message}`);
+      toast.error(`Error: ${(err as Error).message}`, { id: toastId });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleMarkVehicleOut = () => {
+  const handleMarkVehicleOut = async () => {
     if (!exitData.plant || !exitData.vehicleNo || !exitData.exitDateTime) {
-      alert('Please select a plant and vehicle before marking it OUT.');
+      toast.error('Please select a plant and vehicle before marking it OUT.');
       return;
     }
-    fetch('/api/vehicles/exit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...exitData, cnRows }),
-    }).then(async (response) => {
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Unable to mark vehicle OUT.');
-        }
-        alert('Vehicle marked as OUT successfully!');
-        setCnRows([]);
-        setExitData((previous) => ({ ...previous, vehicleNo: '', driverName: '', driverMobile: '' }));
-      })
-      .catch((err) => {
-        alert(`Error: ${(err as Error).message}`);
+
+    setIsSubmitting(true);
+    const toastId = toast.loading('Marking vehicle out...');
+
+    try {
+      const response = await fetch('/api/vehicles/exit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...exitData, cnRows }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Unable to mark vehicle OUT.');
+      }
+      toast.success('Vehicle marked as OUT successfully!', { id: toastId });
+      setCnRows([]);
+      setExitData((previous) => ({ ...previous, vehicleNo: '', driverName: '', driverMobile: '' }));
+    } catch (err) {
+      toast.error(`Error: ${(err as Error).message}`, { id: toastId });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCNNumberChange = async (id: number, cnNumber: string) => {
@@ -365,7 +472,9 @@ const VT01Page: NextPage = () => {
 
   const renderActiveTab = () => {
     switch (activeTab) {
-      case 'Vehicle Status':
+      case Tab.NonPlantVehicle:
+        return <NonPlantVehicleTab />;
+      case Tab.VehicleStatus:
         return (
           <div className={styles.formContainer}>
             <div className={styles.formGroup}>
@@ -406,7 +515,89 @@ const VT01Page: NextPage = () => {
               <label>Driver Mobile:</label>
               <input type="text" value={statusData.driverMobile} disabled className={styles.formInput} placeholder="Auto-fetch"/>
             </div>
-            <div className={styles.formGroup}>
+            <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 className={styles.header}>Status History</h3>
+                <button onClick={handleAddNewStatusRow} className={styles.button} style={{ marginBottom: '1rem' }}>
+                  Add Row
+                </button>
+              </div>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>From Date Time</th>
+                    <th>To Date Time</th>
+                    <th>Remark</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {statusHistory.map((row, i) => (
+                    <tr key={row.id}>
+                      <td>
+                        <select
+                          value={row.currentStatus}
+                          onChange={(e) => {
+                            const newHistory = [...statusHistory];
+                            newHistory[i].currentStatus = e.target.value;
+                            setStatusHistory(newHistory);
+                          }}
+                          className={styles.formInput}
+                        >
+                          <option value="">Select Status</option>
+                          <option value="Empty Stay">Empty Stay</option>
+                          <option value="Load Stay">Load Stay</option>
+                          <option value="Under Maintenance">Under Maintenance</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          type="datetime-local"
+                          value={row.statusDateTime}
+                          onChange={(e) => {
+                            const newHistory = [...statusHistory];
+                            newHistory[i].statusDateTime = e.target.value;
+                            setStatusHistory(newHistory);
+                          }}
+                          className={styles.formInput}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="datetime-local"
+                          value={row.toDateTime}
+                          onChange={(e) => {
+                            const newHistory = [...statusHistory];
+                            newHistory[i].toDateTime = e.target.value;
+                            setStatusHistory(newHistory);
+                          }}
+                          className={styles.formInput}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          value={row.remark}
+                          onChange={(e) => {
+                            const newHistory = [...statusHistory];
+                            newHistory[i].remark = e.target.value;
+                            setStatusHistory(newHistory);
+                          }}
+                          placeholder="Remarks"
+                          className={styles.formInput}
+                        />
+                      </td>
+                      <td>
+                        <button onClick={() => handlePostStatusUpdate()} className={`${styles.button} ${styles.actionButton}`}>Add Status</button>
+                        <button onClick={() => handleDeleteStatusRow(row.id)} className={`${styles.button} ${styles.deleteButton} ${styles.actionButton}`} style={{ marginLeft: '8px' }}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* 
               <label>Current Status:</label>
               <select value={statusData.currentStatus} onChange={(e) => handleStatusChange('currentStatus', e.target.value as any)} className={styles.formInput}>
                 <option value="">Select Status</option>
@@ -418,23 +609,14 @@ const VT01Page: NextPage = () => {
             <div className={styles.formGroup}>
               <label>Status Update Date Time:</label>
               <input type="datetime-local" value={statusData.statusUpdateDateTime} onChange={(e) => handleStatusChange('statusUpdateDateTime', e.target.value)} className={styles.formInput} />
+            </div> */}
+
+            {/*
+            <div className={styles.formGroup} style={{ gridColumn: 'span 2' }}>
+                <button onClick={handlePostStatusUpdate} disabled={isSubmitting || statusHistory.length === 0} className={styles.button}>
+                    {isSubmitting ? 'Saving...' : 'Save All Statuses'}
+                </button>
             </div>
-            {statusData.currentStatus === 'Load Stay' && (
-              <>
-                <div className={styles.formGroup}>
-                  <label>Customer:</label>
-                  <input type="text" value={statusData.customer} onChange={(e) => handleStatusChange('customer', e.target.value)} className={styles.formInput} />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Ship to Party:</label>
-                  <input type="text" value={statusData.shipToParty} onChange={(e) => handleStatusChange('shipToParty', e.target.value)} className={styles.formInput} />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Destination:</label>
-                  <input type="text" value={statusData.destination} onChange={(e) => handleStatusChange('destination', e.target.value)} className={styles.formInput} />
-                </div>
-              </>
-            )}
             <div className={styles.formGroup}>
               <label>Remark:</label>
               <textarea value={statusData.remark} onChange={(e) => handleStatusChange('remark', e.target.value)} className={styles.formInput} />
@@ -442,7 +624,7 @@ const VT01Page: NextPage = () => {
             {statusData.currentStatus && (
               <button onClick={() => setShowUpdatePopup(true)} className={styles.button}>Update Status</button>
             )}
-
+            
             {showUpdatePopup && (
               <div className={styles.popup}>
                 <div className={styles.popupContent}>
@@ -473,10 +655,10 @@ const VT01Page: NextPage = () => {
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
           </div>
         );
-      case 'Vehicle Exit':
+      case Tab.VehicleExit:
         return (
           <div className={styles.formContainer}>
             <div className={styles.formGroup}>
@@ -610,13 +792,13 @@ const VT01Page: NextPage = () => {
             )}
 
             <div style={{ marginTop: '20px', gridColumn: 'span 2' }}>
-              <button onClick={handleMarkVehicleOut} className={styles.button} style={{ backgroundColor: '#dc2626' }}>
-                Mark Vehicle OUT
+              <button onClick={handleMarkVehicleOut} disabled={isSubmitting} className={styles.button} style={{ backgroundColor: '#dc2626' }}>
+                {isSubmitting ? 'Processing...' : 'Mark Vehicle OUT'}
               </button>
             </div>
           </div>
         );
-      case 'Entry':
+      case Tab.Entry:
       default:
         return (
           <div className={styles.formContainer}>
@@ -688,23 +870,29 @@ const VT01Page: NextPage = () => {
             </div>
             
             <div className={styles.formGroup} style={{ gridColumn: 'span 2' }}>
-                <button onClick={handleSaveEntry} className={styles.button}>
-                    Save Entry
+                <button onClick={handleSaveEntry} disabled={isSubmitting} className={styles.button}>
+                    {isSubmitting ? 'Saving...' : 'Save Entry'}
                 </button>
             </div>
           </div>
         );
+
+
     }
   };
 
   return (
     <div className={styles.container}>
+      <Toaster position="top-center" reverseOrder={false} />
       <h1 className={styles.headerTitle}>VT01 - Vehicle Entry / Create</h1>
       <div className={styles.tabContainer}>
-        <button onClick={() => setActiveTab('Entry')} disabled={activeTab === 'Entry'} className={styles.tabButton}>Entry</button>
-        <button onClick={() => setActiveTab('Vehicle Status')} disabled={activeTab === 'Vehicle Status'} className={styles.tabButton}>Vehicle Status</button>
-        <button onClick={() => setActiveTab('Vehicle Exit')} disabled={activeTab === 'Vehicle Exit'} className={styles.tabButton}>
+        <button onClick={() => setActiveTab(Tab.Entry)} disabled={activeTab === Tab.Entry} className={styles.tabButton}>Entry</button>
+        <button onClick={() => setActiveTab(Tab.VehicleStatus)} disabled={activeTab === Tab.VehicleStatus} className={styles.tabButton}>Vehicle Status</button>
+        <button onClick={() => setActiveTab(Tab.VehicleExit)} disabled={activeTab === Tab.VehicleExit} className={styles.tabButton}>
           Vehicle Exit
+        </button>
+        <button onClick={() => setActiveTab(Tab.NonPlantVehicle)} disabled={activeTab === Tab.NonPlantVehicle} className={styles.tabButton}>
+          Non-Plant Vehicle
         </button>
       </div>
       <div className={styles.tabContent}>

@@ -17,7 +17,7 @@ interface PlantOption {
 
 const VT02Page: NextPage = () => {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'Vehicle Entry' | 'Vehicle Status' | 'Vehicle Exit'>('Vehicle Entry');
+  const [activeTab, setActiveTab] = useState<'Vehicle Entry' | 'Vehicle Status' | 'Vehicle Exit' | 'Non-Plant Vehicle'>('Vehicle Entry');
   const [plants, setPlants] = useState<PlantOption[]>([]);
   const [plantFilter, setPlantFilter] = useState('');
   const db = useMongoStore();
@@ -30,9 +30,10 @@ const VT02Page: NextPage = () => {
   const vehicleData = useMemo(() => {
     const rows = vehicleMovements || [];
     return {
-      entry: rows.filter((row: any) => (row.currentStatus === 'IN' || !row.currentStatus) && !row.outDateTime),
-      status: rows.filter((row: any) => !!row.currentStatus && row.currentStatus !== 'IN' && !row.outDateTime),
-      exit: rows.filter((row: any) => !!row.outDateTime),
+      entry: rows.filter((row: any) => row.plant !== 'Outside' && (row.currentStatus === 'IN' || !row.currentStatus) && !row.outDateTime),
+      status: rows.filter((row: any) => row.plant !== 'Outside' && !!row.currentStatus && row.currentStatus !== 'IN' && !row.outDateTime),
+      exit: rows.filter((row: any) => row.plant !== 'Outside' && !!row.outDateTime),
+      nonPlant: rows.filter((row: any) => row.plant === 'Outside'),
     };
   }, [vehicleMovements]);
 
@@ -81,7 +82,7 @@ const VT02Page: NextPage = () => {
               </tr>
             </thead>
             <tbody>
-              {vehicleData.entry.filter((row) => !plantFilter || row.plant === plantFilter).map((row) => (
+              {vehicleData.entry.filter((row) => !plantFilter || row.plant?.startsWith(plantFilter)).map((row) => (
                 <tr key={row.id}>
                   <td>{row.plant}</td>
                   <td>{row.vehicleNo}</td>
@@ -108,7 +109,7 @@ const VT02Page: NextPage = () => {
               </tr>
             </thead>
             <tbody>
-              {vehicleData.status.filter((row) => !plantFilter || row.plant === plantFilter).map((row) => (
+              {vehicleData.status.filter((row) => !plantFilter || row.plant?.startsWith(plantFilter)).map((row) => (
                 <tr key={row.id}>
                   <td>{row.plant}</td>
                   <td>{row.vehicleNo}</td>
@@ -140,7 +141,7 @@ const VT02Page: NextPage = () => {
               </tr>
             </thead>
             <tbody>
-              {vehicleData.exit.filter((row) => !plantFilter || row.plant === plantFilter).map((row) => (
+              {vehicleData.exit.filter((row) => !plantFilter || row.plant?.startsWith(plantFilter)).map((row) => (
                 <tr key={row.id}>
                   <td>{row.plant}</td>
                   <td>{row.vehicleNo}</td>
@@ -164,28 +165,58 @@ const VT02Page: NextPage = () => {
             </tbody>
           </table>
         );
+      case 'Non-Plant Vehicle':
+        return (
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Vehicle Number</th>
+                  <th>Station</th>
+                  <th>Current Status</th>
+                  <th>Last Status Time</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vehicleData.nonPlant.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.vehicleNo}</td>
+                    <td>{row.station}</td>
+                    <td>{row.currentStatus}</td>
+                    <td>{row.statusDateTime ? new Date(row.statusDateTime).toLocaleString() : new Date(row.inDateTime).toLocaleString()}</td>
+                    <td>
+                      <button onClick={() => handleEdit(row.id, 'nonPlant')} className={`${styles.button} ${styles.editButton}`}>Edit</button>
+                      <button onClick={() => handleDelete(row.id, 'nonPlant')} className={`${styles.button} ${styles.deleteButton}`}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+        );
     }
   };
 
   return (
     <div className={styles.container}>
       <h1 className={styles.headerTitle}>{pageTitle}</h1>
-      <div className={styles.formGroup}>
-        <label htmlFor="plant-filter">Plant:</label>
-        <select
-          id="plant-filter"
-          value={plantFilter}
-          onChange={(event) => setPlantFilter(event.target.value)}
-          className={styles.formInput}
-        >
-          <option value="">All Plants</option>
-          {plants.map((plant) => (
-            <option key={plant.id} value={plant.plantCode}>
-              {plant.plantCode} - {plant.plantName}
-            </option>
-          ))}
-        </select>
-      </div>
+      {activeTab !== 'Non-Plant Vehicle' && (
+        <div className={styles.formGroup}>
+          <label htmlFor="plant-filter">Plant:</label>
+          <select
+            id="plant-filter"
+            value={plantFilter}
+            onChange={(event) => setPlantFilter(event.target.value)}
+            className={styles.formInput}
+          >
+            <option value="">All Plants</option>
+            {plants.map((plant) => (
+              <option key={plant.id} value={plant.plantCode}>
+                {plant.plantCode} - {plant.plantName}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className={styles.tabContainer}>
         <button onClick={() => setActiveTab('Vehicle Entry')} disabled={activeTab === 'Vehicle Entry'} className={styles.tabButton}>
           Vehicle Entry
@@ -195,6 +226,9 @@ const VT02Page: NextPage = () => {
         </button>
         <button onClick={() => setActiveTab('Vehicle Exit')} disabled={activeTab === 'Vehicle Exit'} className={styles.tabButton}>
           Vehicle Exit
+        </button>
+        <button onClick={() => setActiveTab('Non-Plant Vehicle')} disabled={activeTab === 'Non-Plant Vehicle'} className={styles.tabButton}>
+          Non-Plant Vehicle
         </button>
       </div>
       <div className={styles.tabContent}>

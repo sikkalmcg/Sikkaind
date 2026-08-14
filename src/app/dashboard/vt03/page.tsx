@@ -59,13 +59,8 @@ const VT03Content: NextPage = () => {
   }, [allPlants, userProfile, isBootstrapAdmin]);
 
   const vehicleMovementsQuery = useMemoMongo(() => {
-    if (!db) return null;
-    const constraints = [];
-    if (plantFilter) {
-      constraints.push(where('plant', '==', plantFilter));
-    }
-    return query(collection(db, 'users', SHARED_HUB_ID, 'vehicle_movements'), ...constraints);
-  }, [db, plantFilter]);
+    return collection(db, 'users', SHARED_HUB_ID, 'vehicle_movements');
+  }, [db]);
 
   const { data: vehicleData, isLoading } = useCollectionOptimized(vehicleMovementsQuery);
 
@@ -89,14 +84,20 @@ const VT03Content: NextPage = () => {
         record.driverName?.toLowerCase().includes(q) ||
         record.customer?.toLowerCase().includes(q);
       
+      const plantMatch = !plantFilter || 
+        (plantFilter === 'Outside' 
+          ? record.plant === 'Outside' 
+          : record.plant?.startsWith(plantFilter)
+        );
+
       const statusMatch = !statusFilter || record.currentStatus === statusFilter;
       const inOutMatch = !inOutFilter || (inOutFilter === 'IN' && !record.outDateTime) || (inOutFilter === 'OUT' && !!record.outDateTime);
       
       const dateMatch = !dateFilter || (record.inDateTime && new Date(record.inDateTime.seconds ? record.inDateTime.seconds * 1000 : record.inDateTime).toISOString().startsWith(dateFilter));
 
-      return searchMatch && statusMatch && inOutMatch && dateMatch;
+      return searchMatch && plantMatch && statusMatch && inOutMatch && dateMatch;
     });
-  }, [searchQuery, statusFilter, inOutFilter, dateFilter, vehicleData]);
+  }, [searchQuery, plantFilter, statusFilter, inOutFilter, dateFilter, vehicleData]);
 
   const handleExport = () => {
     // Now exports the currently filtered data
@@ -132,9 +133,12 @@ const VT03Content: NextPage = () => {
           <select value={plantFilter} onChange={(e) => setPlantFilter(e.target.value)} className={styles.formInput}>
             <option value="">Filter by Plant</option>
             {authorizedPlants.length === 0 && <option value="">No Plants Available</option>}
-            {authorizedPlants.map(p => (
+            {authorizedPlants.map((p) => (
               <option key={p.id} value={p.plantCode}>{p.plantCode}</option>
             ))}
+            <option key="outside" value="Outside">
+              Outside
+            </option>
           </select>
           <select value={inOutFilter} onChange={(e) => setInOutFilter(e.target.value)} className={styles.formInput}>
             <option value="">Filter by IN/OUT</option>
