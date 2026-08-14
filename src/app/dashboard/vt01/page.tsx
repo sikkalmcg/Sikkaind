@@ -10,7 +10,7 @@ import toast, { Toaster } from 'react-hot-toast';
 // Custom Hooks for MongoDB Store Integration
 import { useMongoStore, useCollectionOptimized, useMemoMongo, useUser } from '@/mongodb';
 import { collection } from '@/lib/mongo-store';
-import NonPlantVehicleTab from './NonPlantVehicleTab';
+import NonPlantVehicleTab from './NonPlantVehicleTab.tsx';
 
 enum Tab {
   Entry = 'Entry',
