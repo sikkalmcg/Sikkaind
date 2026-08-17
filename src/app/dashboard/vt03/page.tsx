@@ -1,216 +1,465 @@
 'use client';
 import type { NextPage } from 'next';
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import styles from '../../../../VT01.module.css';
-import { utils, writeFile } from 'xlsx';
-import { useSearchParams } from 'next/navigation'; // Import useSearchParams
-import { useUser, useMongoStore, useDoc, useMemoMongo, useCollectionOptimized } from '@/mongodb';
-import { collection, doc, where, query } from '@/lib/mongo-store';
-import { differenceInHours } from 'date-fns';
+import { useSearchParams } from 'next/navigation';
+import { useMongoStore, useCollectionOptimized, useMemoMongo, useUser } from '@/mongodb';
+import { collection } from '@/lib/mongo-store';
+import { Toaster } from 'react-hot-toast';
+import { Download } from 'lucide-react';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
-const calculateStayHours = (inTime: any, outTime: any) => {
-  if (!inTime) return '-';
-  const start = new Date(inTime.seconds ? inTime.seconds * 1000 : inTime);
-  const end = outTime ? new Date(outTime.seconds ? outTime.seconds * 1000 : outTime) : new Date();
-  return differenceInHours(end, start);
+interface PlantOption {
+  id: string;
+  plantCode: string;
+  plantName: string;
+  status: string;
+}
+
+interface ReportRow {
+  id: string;
+  plant: string;
+  vehicleNo: string;
+  driverName: string;
+  driverMobile: string;
+  inDateTime: string; // Entry Date Time
+  status?: string;
+  statusDateTime?: string; // From Date Time
+  toDateTime?: string; // To Date Time
+  duration?: string;
+  outDateTime?: string; // Exit Date Time
+  updatedAt?: string; // Updated Date Time
+  updatedBy?: string; // User
+}
+
+// --- Helper Functions ---
+const formatDateTime = (dateTimeString: string): string => {
+  if (!dateTimeString) return '-';
+  try {
+    return new Date(dateTimeString).toLocaleString();
+  } catch (e) {
+    return '-';
+  }
 };
 
-const formatDateTime = (value: any) => {
-  if (!value) return '-';
-  const date = new Date(value.seconds ? value.seconds * 1000 : value);
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
+const calculateDuration = (start: string, end: string): string => {
+  if (!start) return '-';
+  const now = new Date().getTime();
+  const endDate = end ? new Date(end).getTime() : now; // Use current time if end is not provided
+  try {
+    const startDate = new Date(start).getTime();
+    if (isNaN(startDate) || isNaN(endDate) || endDate < startDate) return '-';
+    const diffMs = endDate - startDate;
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  } catch (e) {
+    return '-';
+  }
 };
 
-const VT03Content: NextPage = () => {
+const VT03Page: NextPage = () => {
   const searchParams = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'Report' | 'Dashboard'>('Report');
+  const [plants, setPlants] = useState<PlantOption[]>([]);
   const [plantFilter, setPlantFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState(''); // e.g., 'Load Stay', 'Empty Stay'
-  const [inOutFilter, setInOutFilter] = useState(''); // 'IN' or 'OUT'
-  const [dateFilter, setDateFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [monthYear, setMonthYear] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+  });
 
-  // Plant fetching logic
-  const { user } = useUser();
   const db = useMongoStore();
-  const [isBootstrapAdmin, setIsBootstrapAdmin] = useState(false);
-  const [registryId, setRegistryId] = useState<string | null>(null);
+  const { user } = useUser();
 
+  const vehicleMovementsQuery = useMemoMongo(
+    () => collection(db, 'users', SHARED_HUB_ID, 'vehicle_movements'),
+    [db],
+  );
+  const { data: allVehicleMovements } = useCollectionOptimized(vehicleMovementsQuery);
+
+  const statusHistoryQuery = useMemoMongo(
+    () => collection(db, 'users', SHARED_HUB_ID, 'vehicle_status_history'),
+    [db],
+  );
+  const { data: allStatusHistory } = useCollectionOptimized(statusHistoryQuery);
+
+  const usersMasterQuery = useMemoMongo(
+    () => collection(db, 'users', SHARED_HUB_ID, 'users_master'),
+    [db],
+  );
+  const { data: allUsers } = useCollectionOptimized(usersMasterQuery);
+
+  // OX03 Plant Master is the single source for plant selections in VT01/02/03.
   useEffect(() => {
-    setIsBootstrapAdmin(localStorage.getItem('sap_bootstrap_session') === 'true');
-    setRegistryId(localStorage.getItem('sap_registry_id'));
+    const fetchPlants = async () => {
+      try {
+        const response = await fetch('/api/plants');
+        if (!response.ok) {
+          throw new Error('Unable to fetch Plant Master data.');
+        }
+
+        const data: PlantOption[] = await response.json();
+        setPlants(data.filter((plant) => plant.status === 'Active'));
+      } catch (error) {
+        console.error('Failed to fetch plants:', error);
+      }
+    };
+
+    fetchPlants();
   }, []);
 
-  const profileRef = useMemoMongo(() => {
-    if (!registryId || isBootstrapAdmin) return null;
-    return doc(db, 'users', 'Sikkaind', 'users_master', registryId);
-  }, [db, registryId, isBootstrapAdmin]);
+  const reportData = useMemo(() => {
+    if (!allVehicleMovements || !allStatusHistory || !allUsers) return [];
 
-  const { data: userProfile } = useDoc(profileRef);
+    const userMap = new Map(allUsers.map(u => [u.email, u.name]));
+    const getUserName = (email: string) => {
+      if (!email) return '-';
+      return userMap.get(email) || email;
+    };
 
-  const plantsQuery = useMemoMongo(() => collection(db, 'users', 'Sikkaind', 'plants'), [db]);
-  const { data: allPlants } = useCollectionOptimized(plantsQuery);
+    const [year, month] = monthYear.split('-').map(Number);
 
-  const authorizedPlants = useMemo(() => {
-    if (isBootstrapAdmin) return allPlants || [];
-    const codes = userProfile?.plantAccess || [];
-    return (allPlants || []).filter(p => codes.includes(p.plantCode));
-  }, [allPlants, userProfile, isBootstrapAdmin]);
+    const filteredMovements = allVehicleMovements.filter(m => {
+      const inDate = new Date(m.inDateTime);
+      const matchesMonthYear = inDate.getFullYear() === year && (inDate.getMonth() + 1) === month;
+      const matchesPlant = !plantFilter || m.plant === plantFilter;
+      const matchesSearch = !searchQuery ||
+        m.vehicleNo?.toUpperCase().includes(searchQuery.toUpperCase()) ||
+        m.driverName?.toUpperCase().includes(searchQuery.toUpperCase()) ||
+        m.driverMobile?.includes(searchQuery);
 
-  const vehicleMovementsQuery = useMemoMongo(() => {
-    return collection(db, 'users', SHARED_HUB_ID, 'vehicle_movements');
-  }, [db]);
-
-  const { data: vehicleData, isLoading } = useCollectionOptimized(vehicleMovementsQuery);
-
-  const uniqueStatuses = useMemo(() => {
-    if (!vehicleData) return [];
-    return [...new Set(vehicleData.map(item => item.currentStatus).filter(Boolean))];
-  }, [vehicleData]);
-
-  const tcode = useMemo(() => searchParams.get('tcode'), [searchParams]);
-  const pageTitle = useMemo(() => {
-    return tcode === 'VT03' ? 'VT03 - Vehicle Entry / Display' : 'Vehicle Entry / Display';
-  }, [tcode]);
-
-
-  const filteredData = useMemo(() => {
-    if (!vehicleData) return [];
-    return vehicleData.filter(record => {
-      const q = searchQuery.toLowerCase();
-      const searchMatch = !q ||
-        record.vehicleNo?.toLowerCase().includes(q) ||
-        record.driverName?.toLowerCase().includes(q) ||
-        record.customer?.toLowerCase().includes(q);
-      
-      const plantMatch = !plantFilter || 
-        (plantFilter === 'Outside' 
-          ? record.plant === 'Outside' 
-          : record.plant?.startsWith(plantFilter)
-        );
-
-      const statusMatch = !statusFilter || record.currentStatus === statusFilter;
-      const inOutMatch = !inOutFilter || (inOutFilter === 'IN' && !record.outDateTime) || (inOutFilter === 'OUT' && !!record.outDateTime);
-      
-      const dateMatch = !dateFilter || (record.inDateTime && new Date(record.inDateTime.seconds ? record.inDateTime.seconds * 1000 : record.inDateTime).toISOString().startsWith(dateFilter));
-
-      return searchMatch && plantMatch && statusMatch && inOutMatch && dateMatch;
+      return matchesMonthYear && matchesPlant && matchesSearch;
     });
-  }, [searchQuery, plantFilter, statusFilter, inOutFilter, dateFilter, vehicleData]);
 
-  const handleExport = () => {
-    // Now exports the currently filtered data
-    const dataToExport = filteredData.length > 0 ? filteredData : (vehicleData || []);
-    if (dataToExport.length === 0) {
-      alert("No data to export.");
+    const finalReport: ReportRow[] = [];
+
+    filteredMovements.forEach(m => {
+      const vehicleStatuses = allStatusHistory
+        .filter(s => s.vehicleNo === m.vehicleNo && s.plant === m.plant)
+        .sort((a, b) => new Date(a.statusDateTime).getTime() - new Date(b.statusDateTime).getTime());
+
+      if (vehicleStatuses.length > 0) {
+        vehicleStatuses.forEach((status, index) => {
+          finalReport.push({
+            id: `${m.id}-${status.id}`,
+            plant: m.plant === 'Outside' ? 'N/A' : m.plant,
+            vehicleNo: m.vehicleNo,
+            driverName: index === 0 ? m.driverName : '',
+            driverMobile: index === 0 ? m.driverMobile : '',
+            inDateTime: index === 0 ? m.inDateTime : '',
+            status: status.currentStatus,
+            statusDateTime: status.statusDateTime,
+            toDateTime: status.toDateTime,
+            duration: calculateDuration(status.statusDateTime, status.toDateTime),
+            outDateTime: '', // Exit time is shown on the last row
+            updatedAt: status.updatedAt || m.updatedAt, // Fallback to movement's updatedAt if status's is missing
+            updatedBy: getUserName(status.updatedBy || m.updatedBy),
+          });
+        });
+        // Add exit row if applicable
+        if (m.outDateTime) {
+          const lastRow = finalReport[finalReport.length - 1];
+          if (lastRow && lastRow.vehicleNo === m.vehicleNo) {
+            lastRow.outDateTime = m.outDateTime;
+          } else { // If no status history, but has exit time
+            finalReport.push({
+              id: `${m.id}-exit`,
+              plant: m.plant === 'Outside' ? 'N/A' : m.plant,
+              vehicleNo: m.vehicleNo,
+              driverName: m.driverName,
+              driverMobile: m.driverMobile,
+              inDateTime: m.inDateTime,
+              outDateTime: m.outDateTime,
+              updatedAt: m.updatedAt,
+              updatedBy: getUserName(m.updatedBy),
+            });
+          }
+        }
+      } else {
+        // Vehicle with no status history
+        finalReport.push({
+          id: m.id,
+          plant: m.plant === 'Outside' ? 'N/A' : m.plant,
+          vehicleNo: m.vehicleNo,
+          driverName: m.driverName,
+          driverMobile: m.driverMobile,
+          inDateTime: m.inDateTime,
+          status: m.currentStatus || 'IN',
+          statusDateTime: m.inDateTime,
+          toDateTime: m.outDateTime,
+          duration: calculateDuration(m.inDateTime, m.outDateTime),
+          outDateTime: m.outDateTime,
+          updatedAt: m.updatedAt, // Use movement's updatedAt
+          updatedBy: getUserName(m.updatedBy),
+        });
+      }
+    });
+
+    return finalReport;
+  }, [allVehicleMovements, allStatusHistory, allUsers, monthYear, plantFilter, searchQuery]);
+
+  const dashboardData = useMemo(() => {
+    if (!allVehicleMovements || !allStatusHistory || !allUsers) return [];
+
+    const userMap = new Map(allUsers.map(u => [u.email, u.name]));
+    const getUserName = (email: string) => {
+      if (!email) return '-';
+      return userMap.get(email) || email;
+    };
+
+    // Get all vehicles that are either in-plant (not exited) or are designated as non-plant vehicles.
+    const activeVehicles = allVehicleMovements.filter(m =>
+      (m.plant !== 'Outside' && !m.outDateTime) || m.plant === 'Outside'
+    );
+    return activeVehicles.map(vehicle => {
+      // Find the last status update for this vehicle
+      const vehicleStatuses = allStatusHistory
+        .filter(s => s.vehicleNo === vehicle.vehicleNo && s.plant === vehicle.plant)
+        .sort((a, b) => new Date(b.statusDateTime).getTime() - new Date(a.statusDateTime).getTime());
+
+      const lastStatus = vehicleStatuses[0];
+
+      if (lastStatus) {
+        return {
+          id: vehicle.id,
+          plant: vehicle.plant === 'Outside' ? 'Non-Plant' : vehicle.plant,
+          vehicleNo: vehicle.vehicleNo,
+          currentStatus: lastStatus.currentStatus,
+          duration: calculateDuration(lastStatus.statusDateTime, lastStatus.toDateTime),
+          remark: lastStatus.remark,
+          user: getUserName(lastStatus.updatedBy || vehicle.updatedBy),
+        };
+      }
+
+      // If no status history, use the entry record itself
+      return {
+        id: vehicle.id,
+        plant: vehicle.plant === 'Outside' ? 'Non-Plant' : vehicle.plant,
+        vehicleNo: vehicle.vehicleNo,
+        currentStatus: vehicle.currentStatus || 'IN',
+        duration: calculateDuration(vehicle.inDateTime, ''),
+        remark: vehicle.remark, 
+        user: getUserName(vehicle.updatedBy)
+      };
+    }).filter(Boolean); // Filter out any null/undefined entries
+  }, [allVehicleMovements, allStatusHistory, allUsers]);
+
+  const handleMonthChange = (increment: number) => {
+    const [year, month] = monthYear.split('-').map(Number);
+    // Use UTC to avoid timezone issues
+    const currentDate = new Date(Date.UTC(year, month - 1, 1));
+    currentDate.setUTCMonth(currentDate.getUTCMonth() + increment);
+    const newYear = currentDate.getUTCFullYear();
+    const newMonth = (currentDate.getUTCMonth() + 1).toString().padStart(2, '0');
+    setMonthYear(`${newYear}-${newMonth}`);
+  };
+
+  const handleDownloadCsv = () => {
+    if (reportData.length === 0) {
+      alert("No data available to download.");
       return;
     }
-    const worksheet = utils.json_to_sheet(dataToExport);
-    const workbook = utils.book_new();
-    utils.book_append_sheet(workbook, worksheet, 'VehicleRecords');
-    writeFile(workbook, 'VehicleRecords.xlsx');
+
+    const headers = [
+      "Plant", "Vehicle Number", "Driver Name", "Mobile", "Entry Date Time",
+      "Status", "From Date Time", "To Date Time", "Duration", "Exit Date Time",
+      "Updated Date Time", "User"
+    ];
+
+    // A helper to format values for CSV, handling commas and quotes
+    const formatCsvValue = (value: any) => {
+      if (value === null || value === undefined) {
+        return '""';
+      }
+      const stringValue = String(value).replace(/"/g, '""'); // Escape double quotes
+      return `"${stringValue}"`;
+    };
+
+    const csvRows = [
+      headers.join(','), // Header row
+      ...reportData.map(row => [
+        formatCsvValue(row.plant),
+        formatCsvValue(row.vehicleNo),
+        formatCsvValue(row.driverName),
+        formatCsvValue(row.driverMobile),
+        formatCsvValue(row.inDateTime ? formatDateTime(row.inDateTime) : ''),
+        formatCsvValue(row.status),
+        formatCsvValue(row.statusDateTime ? formatDateTime(row.statusDateTime) : ''),
+        formatCsvValue(row.toDateTime ? formatDateTime(row.toDateTime) : ''),
+        formatCsvValue(row.duration),
+        formatCsvValue(row.outDateTime ? formatDateTime(row.outDateTime) : ''),
+        formatCsvValue(row.updatedAt ? formatDateTime(row.updatedAt) : ''),
+        formatCsvValue(row.updatedBy),
+      ].join(','))
+    ];
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `VT03_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'Report':
+        return (
+          <div className={styles.tableWrapper || ''}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Plant</th>
+                  <th>Vehicle Number</th>
+                  <th>Driver Name</th>
+                  <th>Mobile</th>
+                  <th>Entry Date Time</th>
+                  <th>Status</th>
+                  <th>From Date Time</th>
+                  <th>To Date Time</th>
+                  <th>Duration</th>
+                  <th>Exit Date Time</th>
+                  <th>Updated Date Time</th>
+                  <th>User</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportData.length > 0 ? (
+                  reportData.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.plant}</td>
+                      <td>{row.vehicleNo}</td>
+                      <td>{row.driverName}</td>
+                      <td>{row.driverMobile}</td>
+                      <td>{row.inDateTime ? formatDateTime(row.inDateTime) : ''}</td>
+                      <td>{row.status || '-'}</td>
+                      <td>{row.statusDateTime ? formatDateTime(row.statusDateTime) : '-'}</td>
+                      <td>{row.toDateTime ? formatDateTime(row.toDateTime) : '-'}</td>
+                      <td>{row.duration || '-'}</td>
+                      <td>{row.outDateTime ? formatDateTime(row.outDateTime) : ''}</td>
+                      <td>{row.updatedAt ? formatDateTime(row.updatedAt) : '-'}</td>
+                      <td>{row.updatedBy || '-'}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={12} style={{ textAlign: 'center' }}>No records found for the selected criteria.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        );
+      case 'Dashboard':
+        return (
+            <div className={styles.tableWrapper || ''}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Plant</th>
+                    <th>Vehicle Number</th>
+                    <th>Current Status</th>
+                    <th>Duration</th>
+                    <th>Remarks</th>
+                    <th>User</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboardData.length > 0 ? (
+                    dashboardData.map((row) => (
+                      <tr key={row.id}>
+                        <td>{row.plant}</td>
+                        <td>{row.vehicleNo}</td>
+                        <td>{row.currentStatus || '-'}</td>
+                        <td>{row.duration || '-'}</td>
+                        <td>{row.remark || '-'}</td>
+                        <td>{row.user || '-'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center' }}>
+                        No vehicles currently in any plant.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.headerTitle}>{pageTitle}</h1>
-        {tcode && <span className="text-xs font-bold text-slate-500">T-CODE: {tcode}</span>}
-      </header>
-
-      <div className={styles.tabContent}>
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', alignItems: 'center' }}>
-          <input
-            type="search"
-            placeholder="Search Vehicle Number, Driver Name, Customer..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className={styles.formInput}
-            style={{width: '300px'}}
-          />
-          <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className={styles.formInput} />
-          <select value={plantFilter} onChange={(e) => setPlantFilter(e.target.value)} className={styles.formInput}>
-            <option value="">Filter by Plant</option>
-            {authorizedPlants.length === 0 && <option value="">No Plants Available</option>}
-            {authorizedPlants.map((p) => (
-              <option key={p.id} value={p.plantCode}>{p.plantCode}</option>
-            ))}
-            <option key="outside" value="Outside">
-              Outside
-            </option>
-          </select>
-          <select value={inOutFilter} onChange={(e) => setInOutFilter(e.target.value)} className={styles.formInput}>
-            <option value="">Filter by IN/OUT</option>
-            <option value="IN">IN</option>
-            <option value="OUT">OUT</option>
-          </select>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={styles.formInput}>
-            <option value="">Filter by Status</option>
-            {uniqueStatuses.map(status => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-          <button onClick={handleExport} className={styles.button}>
-            Export to Excel
-          </button>
+      <Toaster position="top-center" reverseOrder={false} />
+      <h1 className={styles.headerTitle}>VT03 - Vehicle Report</h1>
+      {activeTab === 'Report' && (
+        <div className={styles.formContainer} style={{ marginBottom: '1rem', gridTemplateColumns: '1fr 1fr 2fr auto' }}>
+          <div className={styles.formGroup}>
+            <label>Month-Year:</label>
+            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #ccc', borderRadius: '4px' }}>
+              <button onClick={() => handleMonthChange(-1)} className={styles.button} style={{ border: 'none', background: 'transparent' }}>&lt;</button>
+              <div style={{ textAlign: 'center', flexGrow: 1, padding: '0 10px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                {new Date(monthYear + '-02').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })}
+              </div>
+              <button onClick={() => handleMonthChange(1)} className={styles.button} style={{ border: 'none', background: 'transparent' }}>&gt;</button>
+            </div>
+          </div>
+          <div className={styles.formGroup}>
+            <label htmlFor="plant-filter">Plant:</label>
+            <select
+              id="plant-filter"
+              value={plantFilter}
+              onChange={(event) => setPlantFilter(event.target.value)}
+              className={styles.formInput}
+            >
+              <option value="">All Plants</option>
+              {plants.map((plant) => (
+                <option key={plant.id} value={plant.plantCode}>
+                  {plant.plantCode} - {plant.plantName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={styles.formGroup}>
+            <label htmlFor="search-filter">Search:</label>
+            <input
+              id="search-filter"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={styles.formInput}
+              placeholder="Search by Vehicle No, Driver Name, Mobile..."
+            />
+          </div>
+          <div className={styles.formGroup} style={{ alignSelf: 'flex-end', display: 'flex', gap: '0.5rem' }}>
+            <button onClick={() => { /* Search is real-time */ }} className={styles.button}>Search</button>
+            <button onClick={handleDownloadCsv} className={styles.button} title="Download Report as CSV">
+              <Download size={16} />
+            </button>
+          </div>
         </div>
-
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Plant</th>
-              <th>Vehicle Number</th>
-              <th>Driver Name</th>
-              <th>Driver Mobile</th>
-              <th>In Date Time</th>
-              <th>Current Status</th>
-              <th>Status Time</th>
-              <th>Customer</th>
-              <th>Ship to Party</th>
-              <th>Destination</th>
-              <th>Remark</th>
-              <th>Out Type</th>
-              <th>CN Numbers</th>
-              <th>Out Date Time</th>
-              <th>Stay Hour</th>
-              <th>Loaded Stay Hour</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && <tr><td colSpan={16} style={{textAlign: 'center', padding: '20px'}}>Loading...</td></tr>}
-            {!isLoading && filteredData.map((record: any) => (
-              <tr key={record.id}>
-                <td>{record.plant}</td>
-                <td>{record.vehicleNo}</td>
-                <td>{record.driverName}</td>
-                <td>{record.driverMobile}</td>
-                <td>{formatDateTime(record.inDateTime)}</td>
-                <td>{record.currentStatus}</td>
-                <td>{formatDateTime(record.statusDateTime)}</td>
-                <td>{record.customer}</td>
-                <td>{record.shipToParty}</td>
-                <td>{record.destination}</td>
-                <td>{record.remark}</td>
-                <td>{record.outType}</td>
-                <td>{record.cnRows?.map((row: any) => row.cnNumber).filter(Boolean).join(', ') || '-'}</td>
-                <td>{formatDateTime(record.outDateTime)}</td>
-                <td>{calculateStayHours(record.inDateTime, record.outDateTime)}</td>
-                <td>{calculateStayHours(record.loadDateTime, record.outDateTime)}</td>
-              </tr>
-            ))}
-            {!isLoading && filteredData.length === 0 && <tr><td colSpan={16} style={{textAlign: 'center', padding: '20px'}}>No records found.</td></tr>}
-          </tbody>
-        </table>
+      )}
+      <div className={styles.tabContainer}>
+        <button onClick={() => setActiveTab('Report')} disabled={activeTab === 'Report'} className={styles.tabButton}>
+          Report
+        </button>
+        <button onClick={() => setActiveTab('Dashboard')} disabled={activeTab === 'Dashboard'} className={styles.tabButton}>
+          Dashboard
+        </button>
+      </div>
+      <div className={styles.tabContent}>
+        {renderActiveTab()}
       </div>
     </div>
   );
 };
 
-export default function VT03Page() {
-  return (
-    <Suspense fallback={<div className={styles.container}>Loading...</div>}>
-      <VT03Content />
-    </Suspense>
-  );
-}
+export default VT03Page;

@@ -10,7 +10,7 @@ import toast, { Toaster } from 'react-hot-toast';
 // Custom Hooks for MongoDB Store Integration
 import { useMongoStore, useCollectionOptimized, useMemoMongo, useUser } from '@/mongodb';
 import { collection } from '@/lib/mongo-store';
-import NonPlantVehicleTab from './NonPlantVehicleTab.tsx';
+import NonPlantVehicleTab from './NonPlantVehicleTab';
 
 enum Tab {
   Entry = 'Entry',
@@ -84,6 +84,22 @@ const formatDateTimeForInput = (date: Date): string => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+const calculateDuration = (from: string, to: string): string => {
+  if (!from || !to) return '--:--';
+
+  const fromDate = new Date(from);
+  const toDate = new Date(to);
+
+  if (toDate.getTime() < fromDate.getTime()) return 'Invalid';
+
+  const diffMs = toDate.getTime() - fromDate.getTime();
+  const totalMinutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
+
 const VT01Page: NextPage = () => {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>(Tab.Entry);
@@ -134,6 +150,7 @@ const VT01Page: NextPage = () => {
 
   const [showUpdatePopup, setShowUpdatePopup] = useState(false);
   const [statusHistory, setStatusHistory] = useState<StatusHistoryRow[]>([]);
+  const [vehicleStatusHistory, setVehicleStatusHistory] = useState<StatusHistoryRow[]>([]);
   const [newStatusRow, setNewStatusRow] = useState({ currentStatus: '', statusDateTime: formatDateTimeForInput(new Date()), toDateTime: '', remark: '' });
 
   const tcode = useMemo(() => searchParams.get('tcode'), [searchParams]);
@@ -141,6 +158,8 @@ const VT01Page: NextPage = () => {
   const [plantsLoading, setPlantsLoading] = useState(true);
 
   useEffect(() => {
+    if (isAuthLoading) return; // Wait for user authentication to complete
+
     const fetchPlants = async () => {
       setPlantsLoading(true);
       try {
@@ -159,7 +178,7 @@ const VT01Page: NextPage = () => {
       }
     };
     fetchPlants();
-  }, []);
+  }, [isAuthLoading]);
 
   // Set default selected Plant whenever plant list updates
   useEffect(() => {
@@ -210,6 +229,11 @@ const VT01Page: NextPage = () => {
     const vehicleNo = activeTab === Tab.VehicleStatus ? statusData.vehicleNo : exitData.vehicleNo;
     if (!vehicleNo) return;
 
+    if (activeTab === Tab.VehicleStatus) {
+      setStatusHistory([]); // Clear form for new entries
+      setVehicleStatusHistory([]); // Clear displayed history
+    }
+
     const vehicleDetails = inYardVehicles.find(v => v.vehicleNo === vehicleNo);
     if (vehicleDetails) {
       if (activeTab === Tab.VehicleStatus) {
@@ -218,6 +242,21 @@ const VT01Page: NextPage = () => {
           driverName: vehicleDetails.driverName,
           driverMobile: vehicleDetails.driverMobile,
         }));
+        // Fetch status history for the selected vehicle
+        const fetchStatusHistory = async () => {
+          try {
+            const response = await fetch(`/api/vehicles/status-history?vehicleNo=${vehicleNo}`);
+            if (response.ok) {
+              const history = await response.json();
+              setVehicleStatusHistory(history);
+            } else {
+              toast.error('Could not fetch status history for the selected vehicle.');
+            }
+          } catch (error) {
+            console.error('Failed to fetch status history:', error);
+          }
+        };
+        fetchStatusHistory();
       } else if (activeTab === Tab.VehicleExit) {
         setExitData(prev => ({
           ...prev,
@@ -252,7 +291,10 @@ const VT01Page: NextPage = () => {
       const response = await fetch('/api/vehicles/entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entryData),
+        body: JSON.stringify({
+          ...entryData,
+          updatedBy: user?.email,
+        }),
       });
   
       if (!response.ok) {
@@ -347,38 +389,36 @@ const VT01Page: NextPage = () => {
     setExitData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handlePostStatusUpdate = async () => {
-    if (!newStatusRow.currentStatus || !newStatusRow.statusDateTime || !newStatusRow.toDateTime) {
+  const handlePostStatusUpdate = async (rowToSave: StatusHistoryRow) => {
+    if (!rowToSave.currentStatus || !rowToSave.statusDateTime || !rowToSave.toDateTime) {
       toast.error('Please provide Status, From Date Time, and To Date Time.');
       return;
     }
 
-    const fromDate = new Date(newStatusRow.statusDateTime);
-    const toDate = new Date(newStatusRow.toDateTime);
+    const fromDate = new Date(rowToSave.statusDateTime);
+    const toDate = new Date(rowToSave.toDateTime);
 
     // Rule: to date time not should be lower from date time
     if (toDate < fromDate) {
       toast.error('"To Date Time" cannot be earlier than "From Date Time".');
       return;
     }
-
-    // Rule: from/to date time not should be lower from previous to date and time
-    if (statusHistory.length > 0) {
-      const lastStatus = statusHistory[statusHistory.length - 1];
-      if (lastStatus.toDateTime) {
-        const lastToDate = new Date(lastStatus.toDateTime);
-        if (fromDate < lastToDate) {
-          toast.error('"From Date Time" cannot be earlier than the previous status\'s "To Date Time".');
-          return;
-        }
+  
+    const rowIndex = statusHistory.findIndex(r => r.id === rowToSave.id);
+    if (rowIndex > 0) {
+      const prevRow = statusHistory[rowIndex - 1];
+      const prevToDate = new Date(prevRow.toDateTime);
+      if (fromDate < prevToDate) {
+        toast.error(`"From Date Time" cannot be earlier than the previous row's "To Date Time" (${prevRow.toDateTime}).`);
+        return;
       }
     }
-
 
     setIsSubmitting(true);
     const toastId = toast.loading('Updating status...');
     
     try {
+      // Assuming the API can handle adding a new status history entry
       const response = await fetch('/api/vehicles/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -386,15 +426,17 @@ const VT01Page: NextPage = () => {
           plant: statusData.plant,
           vehicleNo: statusData.vehicleNo,
           customer: statusData.customer,
+          updatedBy: user?.email,
           shipToParty: statusData.shipToParty,
           destination: statusData.destination,
-          ...newStatusRow,
+          ...rowToSave,
         }),
       });
 
       if (!response.ok) throw new Error('Failed to update status.');
 
-      const updatedHistory = await response.json();
+      // Assuming API returns the full updated history for the vehicle
+      const updatedHistory = await response.json(); 
       setStatusHistory(updatedHistory);
       setShowUpdatePopup(false);
       toast.success('Status updated successfully!', { id: toastId });
@@ -418,7 +460,11 @@ const VT01Page: NextPage = () => {
       const response = await fetch('/api/vehicles/exit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...exitData, cnRows }),
+        body: JSON.stringify({
+          ...exitData,
+          cnRows,
+          updatedBy: user?.email,
+        }),
       });
 
       if (!response.ok) {
@@ -528,6 +574,7 @@ const VT01Page: NextPage = () => {
                     <th>Status</th>
                     <th>From Date Time</th>
                     <th>To Date Time</th>
+                    <th>Duration</th>
                     <th>Remark</th>
                     <th>Action</th>
                   </tr>
@@ -549,12 +596,16 @@ const VT01Page: NextPage = () => {
                           <option value="Empty Stay">Empty Stay</option>
                           <option value="Load Stay">Load Stay</option>
                           <option value="Under Maintenance">Under Maintenance</option>
+                          <option value="In-Transit">In-Transit</option>
+                          <option value="Stay at Customer">Stay at Customer</option>
+                          <option value="Under Loading">Under Loading</option>
+                          <option value="Under Unloading">Under Unloading</option>
                         </select>
                       </td>
                       <td>
                         <input
                           type="datetime-local"
-                          value={row.statusDateTime}
+                          value={row.statusDateTime || ''}
                           onChange={(e) => {
                             const newHistory = [...statusHistory];
                             newHistory[i].statusDateTime = e.target.value;
@@ -566,7 +617,7 @@ const VT01Page: NextPage = () => {
                       <td>
                         <input
                           type="datetime-local"
-                          value={row.toDateTime}
+                          value={row.toDateTime || ''}
                           onChange={(e) => {
                             const newHistory = [...statusHistory];
                             newHistory[i].toDateTime = e.target.value;
@@ -576,9 +627,12 @@ const VT01Page: NextPage = () => {
                         />
                       </td>
                       <td>
+                        <span className={styles.durationText}>{calculateDuration(row.statusDateTime, row.toDateTime)}</span>
+                      </td>
+                      <td>
                         <input
                           type="text"
-                          value={row.remark}
+                          value={row.remark || ''}
                           onChange={(e) => {
                             const newHistory = [...statusHistory];
                             newHistory[i].remark = e.target.value;
@@ -589,7 +643,7 @@ const VT01Page: NextPage = () => {
                         />
                       </td>
                       <td>
-                        <button onClick={() => handlePostStatusUpdate()} className={`${styles.button} ${styles.actionButton}`}>Add Status</button>
+                        <button onClick={() => handlePostStatusUpdate(row)} className={`${styles.button} ${styles.actionButton}`}>Save</button>
                         <button onClick={() => handleDeleteStatusRow(row.id)} className={`${styles.button} ${styles.deleteButton} ${styles.actionButton}`} style={{ marginLeft: '8px' }}>Delete</button>
                       </td>
                     </tr>
@@ -597,6 +651,40 @@ const VT01Page: NextPage = () => {
                 </tbody>
               </table>
             </div>
+            {statusData.vehicleNo && (
+              <div style={{ gridColumn: 'span 2', marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
+                <h3 className={styles.header}>Vehicle Updated Status</h3>
+                {vehicleStatusHistory.length > 0 ? (
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Status</th>
+                        <th>From Date Time</th>
+                        <th>To Date Time</th>
+                        <th>Duration</th>
+                        <th>Remark</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vehicleStatusHistory.map((row) => (
+                        <tr key={row.id}>
+                          <td>{row.currentStatus}</td>
+                          <td>{new Date(row.statusDateTime).toLocaleString()}</td>
+                          <td>{row.toDateTime ? new Date(row.toDateTime).toLocaleString() : 'N/A'}</td>
+                          <td>{calculateDuration(row.statusDateTime, row.toDateTime)}</td>
+                          <td>{row.remark}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p style={{ textAlign: 'center', padding: '1rem', color: '#888' }}>
+                    No status history found for this vehicle.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* 
               <label>Current Status:</label>
               <select value={statusData.currentStatus} onChange={(e) => handleStatusChange('currentStatus', e.target.value as any)} className={styles.formInput}>
@@ -743,7 +831,7 @@ const VT01Page: NextPage = () => {
 
             {exitData.outType === 'Load Vehicle' && (
               <div style={{ marginTop: '20px', gridColumn: 'span 2' }}>
-              <div style={{ marginTop: '20px' }}>
+              <div style={{ marginTop: '0px' }}>
                 <h4 className={styles.header}>Consignment Notes (CN Number, Destination, Customer fields removed)</h4>
                 {error && <p className={styles.errorText}>{error}</p>}
                 <table className={styles.table}>

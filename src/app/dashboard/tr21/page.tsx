@@ -585,7 +585,8 @@ export default function TR21Page() {
       };
       baseData = trips.filter(t => t.status === statusMap[activeTab]).map(trip => ({
         ...trip,
-        orderDate: getOrderForTrip(trip)?.orderDate
+        orderDate: getOrderForTrip(trip)?.orderDate,
+        materialName: getOrderForTrip(trip)?.materialName
       }));
     }
 
@@ -1180,6 +1181,7 @@ export default function TR21Page() {
                       <th className="p-3 border-r w-[200px]">Consignor</th>
                       <th className="p-3 border-r w-[200px]">Consignee</th>
                       <th className="p-3 border-r w-[200px]">Ship to Party</th>
+                      <th className="p-3 border-r w-[200px]">Product</th>
                       <th className="p-3 border-r w-[200px]">Route</th>
                       <th className="p-3 border-r w-[100px] text-right">Assign Qty</th>
                       <th className="p-3 border-r w-[100px] text-right">Order Qty</th>
@@ -1196,6 +1198,8 @@ export default function TR21Page() {
                       <th className="p-3 border-r w-[180px]">Consignee</th>
                       <th className="p-3 border-r w-[180px]">Ship to Party</th>
                       <th className="p-3 border-r w-[180px]">Route</th>
+                      <th className="p-3 border-r w-[200px]">Product</th>                       
+                      <th className="p-3 border-r w-[200px]">Product</th>
                       <th className="p-3 border-r w-[100px] text-right">Assign Qty</th>
                       <th className="p-3 border-r w-[180px]">Invoice / E-Way Bill</th>
                       <th className="p-3 border-r w-[100px] text-right">Total Pkg</th>
@@ -1241,6 +1245,15 @@ export default function TR21Page() {
                       <td className="p-3 border-r truncate max-w-[200px] font-normal">{item.consigneeName || item.consigneeCode}</td>
                       <td className="p-3 border-r truncate max-w-[200px] font-normal">{item.shipToParty || item.shipToPartyCode}</td>
                       <td className="p-3 border-r italic text-[10px] uppercase font-normal">{item.from} → {item.destination}</td>
+                      <td className="p-3 border-r text-left max-w-[200px] truncate">
+                        <div className="flex flex-col leading-tight">
+                          {Array.isArray(item.materialName) ? (
+                            item.materialName.map((product: string, index: number) => <span key={index} className="font-normal text-slate-800 truncate" title={product}>{product || '-'}</span>)
+                          ) : (
+                            <span className="font-normal text-slate-800 truncate" title={item.materialName}>{item.materialName || '-'}</span>
+                          )}
+                        </div>
+                      </td>
 
                       {activeTab === 'Open Orders' ? (
                         <>
@@ -1249,6 +1262,15 @@ export default function TR21Page() {
                           <td className="p-3 border-r text-right text-emerald-600 font-normal">{parseFloat(item.dispatched || 0).toFixed(3)}</td>
                           <td className="p-3 border-r text-right font-normal text-blue-600">{parseFloat(item.balance || 0).toFixed(3)}</td>
                           <td className="p-3 text-center">
+                            <div className="p-3 border-r text-left max-w-[200px] truncate">
+                              <div className="flex flex-col leading-tight">
+                                {Array.isArray(item.materialName) ? (
+                                  item.materialName.map((product: string, index: number) => <span key={index} className="font-normal text-slate-800 truncate" title={product}>{product || '-'}</span>)
+                                ) : (
+                                  <span className="font-normal text-slate-800 truncate" title={item.materialName}>{item.materialName || '-'}</span>
+                                )}
+                              </div>
+                            </div>
                             <Button onClick={() => {
                               setSelectedOrder(item);
                               setAssignData({
@@ -1264,6 +1286,15 @@ export default function TR21Page() {
                         </>
                       ) : (
                         <>
+                          <td className="p-3 border-r text-left max-w-[200px] truncate">
+                            <div className="flex flex-col leading-tight">
+                              {Array.isArray(item.materialName) ? (
+                                item.materialName.map((product: string, index: number) => <span key={index} className="font-normal text-slate-800 truncate" title={product}>{product || '-'}</span>)
+                              ) : (
+                                <span className="font-normal text-slate-800 truncate" title={item.materialName}>{item.materialName || '-'}</span>
+                              )}
+                            </div>
+                          </td>
                           <td className="p-3 border-r text-right font-normal text-slate-800 italic bg-blue-50/30">{parseFloat(item.assignWeight || 0).toFixed(3)}</td>
                           <td className="p-3 border-r text-left max-w-[180px] truncate">
                             <div className="flex flex-col leading-tight">

@@ -258,6 +258,13 @@ export default function VAPage() {
       return;
     }
 
+    // VA01 Duplicate Sale Order Number Validation
+    if (!formData.id && allOrders?.some(o => o.orderNo === normalizedOrderNo)) {
+      setErrors(prev => [...new Set([...prev, 'orderNo'])]);
+      alert('Duplicate Sale Order Number is not allowed. This Sale Order Number already exists.');
+      return;
+    }
+
     const docId = formData.id || crypto.randomUUID();
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { 
       ...formData,
