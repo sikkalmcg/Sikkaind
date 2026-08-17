@@ -153,81 +153,113 @@ export default function TrackPage() {
 
         {view === 'mapping' && selectedTrip && (
           <div className="bg-white border border-slate-300 p-10 shadow-xl space-y-12 animate-fade-in text-black">
-             <div className="flex justify-between items-start border-b border-slate-100 pb-8 text-left">
+             <div className="flex justify-between items-start border-b border-slate-200 pb-8 text-left">
                 <div className="space-y-1">
                    <h3 className="text-[16px] font-black uppercase text-[#1e3a8a] italic tracking-tighter">Live Movement Trace: {selectedTrip.tripNo}</h3>
                    <div className="flex gap-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
                       <span>{selectedTrip.vehicleNo}</span>
                       <span>•</span>
                       <span>{selectedTrip.mode}</span>
-                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <Badge className="bg-[#0056d2] rounded-none font-black text-[10px] px-8 py-1.5 uppercase shadow-lg tracking-widest">{selectedTrip.status}</Badge>
-                </div>
-             </div>
-
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 text-left">
-                <div className="space-y-8">
-                   <div className="relative pl-10 space-y-10 before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100">
-                      <div className="relative">
-                         <div className="absolute -left-[10px] top-1 w-5 h-5 rounded-full bg-emerald-500 border-[3px] border-white shadow-md z-10" />
-                         <div className="space-y-1">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Start Point Mark</span>
-                            <p className="text-sm font-black text-slate-800 uppercase italic">Postal Code: {getCustomerPincode(selectedTrip.consignorCode)} ({selectedTrip.from})</p>
-                            <span className="text-[8px] font-bold text-slate-300 italic uppercase">{selectedTrip.dispatchDate ? format(new Date(selectedTrip.dispatchDate), 'dd-MMM HH:mm') : 'Syncing...'}</span>
-                         </div>
-                      </div>
-
-                      <div className="relative">
-                         <div className="absolute -left-[10px] top-1 w-5 h-5 rounded-full bg-blue-500 border-[3px] border-white shadow-md z-10 animate-pulse" />
-                         <div className="space-y-1">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Current Execution</span>
-                            <p className="text-sm font-black text-slate-800 uppercase italic">Vehicle {selectedTrip.vehicleNo} in {selectedTrip.status}</p>
-                            <span className="text-[8px] font-bold text-slate-300 italic uppercase">Update Sync: ACTIVE</span>
-                         </div>
-                      </div>
-
-                      <div className="relative">
-                         <div className="absolute -left-[10px] top-1 w-5 h-5 rounded-full bg-red-500 border-[3px] border-white shadow-md z-10" />
-                         <div className="space-y-1">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Drop Point Mark</span>
-                            <p className="text-sm font-black text-slate-800 uppercase italic">Postal Code: {getCustomerPincode(selectedTrip.shipToPartyCode)} ({selectedTrip.destination})</p>
-                            <span className="text-[8px] font-bold text-slate-300 italic uppercase">EST. UNLOAD: {selectedTrip.unloadDate ? format(new Date(selectedTrip.unloadDate), 'dd-MMM HH:mm') : 'Pending Arrival'}</span>
-                         </div>
-                      </div>
-                   </div>
-                </div>
-
-                <div className="bg-slate-100 border-2 border-slate-200 rounded-sm relative flex flex-col items-center justify-center min-h-[350px] shadow-inner overflow-hidden group">
-                   <iframe
-                     width="100%"
-                     height="100%"
-                     frameBorder="0"
-                     scrolling="no"
-                     marginHeight={0}
-                     marginWidth={0}
-                     src={`https://maps.google.com/maps?q=${encodeURIComponent(selectedTrip.destination || getCustomerPincode(selectedTrip.shipToPartyCode))}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-                     title="Tracking Map"
-                     className="absolute inset-0 z-0"
-                   ></iframe>
-
-                   {/* Live Vehicle Marker Overlay */}
-                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center pointer-events-none">
-                      <div className="bg-[#0056d2] p-2.5 rounded-full shadow-2xl border-2 border-white animate-bounce relative">
-                         <Truck className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="w-3 h-1.5 bg-black/30 rounded-[100%] blur-[2px] mt-1 shadow-md"></div>
-                   </div>
-
-                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-4 py-2 border border-slate-200 shadow-lg z-10 pointer-events-none">
-                      <div className="flex items-center gap-2">
-                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                         <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Network Active</span>
-                      </div>
+                      <span>•</span>
+                      <span className="text-emerald-600">{selectedTrip.status}</span>
                    </div>
                 </div>
              </div>
+
+             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-8 text-[10px] uppercase font-black text-slate-600">
+                <div className="space-y-1"><p className="text-slate-400 text-[9px]">Consignor</p><p className="truncate">{selectedTrip.consignorName}</p></div>
+                <div className="space-y-1"><p className="text-slate-400 text-[9px]">Consignee</p><p className="truncate">{selectedTrip.consigneeName}</p></div>
+                <div className="space-y-1"><p className="text-slate-400 text-[9px]">Ship To Party</p><p className="truncate">{selectedTrip.shipToParty}</p></div>
+                <div className="space-y-1"><p className="text-slate-400 text-[9px]">CN Number</p><p className="truncate">{selectedTrip.cnNumber || '-'}</p></div>
+                <div className="space-y-1"><p className="text-slate-400 text-[9px]">CN Date</p><p className="truncate">{selectedTrip.cnDate ? format(new Date(selectedTrip.cnDate), 'dd-MMM-yyyy') : '-'}</p></div>
+                <div className="space-y-1"><p className="text-slate-400 text-[9px]">Vehicle</p><p className="truncate">{selectedTrip.vehicleNo}</p></div>
+                <div className="space-y-1"><p className="text-slate-400 text-[9px]">Total Pkg</p><p className="truncate">{(selectedTrip.invoices || []).reduce((acc: number, i: any) => acc + (Number(i.pkg) || 0), 0) || '-'}</p></div>
+                <div className="space-y-1"><p className="text-slate-400 text-[9px]">Total Weight</p><p className="truncate">{selectedTrip.assignWeight} MT</p></div>
+                <div className="space-y-1"><p className="text-slate-400 text-[9px]">Start Point</p><p className="truncate">{selectedTrip.from}</p></div>
+                <div className="space-y-1"><p className="text-slate-400 text-[9px]">Drop Point</p><p className="truncate">{selectedTrip.destination}</p></div>
+             </div>
+
+            <div className="bg-slate-50/50 border-2 border-dashed border-slate-200 p-10 rounded-lg shadow-inner">
+              <div className="flex items-center justify-between w-full relative">
+                {/* Start Point */}
+                <div className="flex flex-col items-center text-center w-48 shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-emerald-500 border-4 border-white shadow-lg flex items-center justify-center">
+                    <MapPin className="h-5 w-5 text-white" />
+                  </div>
+                  <p className="text-xs font-black text-slate-700 mt-2 uppercase">Start Point</p>
+                  <p className="text-[10px] text-slate-500 truncate">{selectedTrip.from}</p>
+                </div>
+
+                {/* Movement Track */}
+                <div className="flex-1 h-2 bg-slate-200 rounded-full relative mx-4">
+                  <div 
+                    className={cn(
+                      "absolute top-0 left-0 h-full rounded-full",
+                      selectedTrip.status === 'REJECTION' ? 'bg-red-400' : 'bg-blue-400'
+                    )}
+                    style={{ 
+                      width: 
+                        selectedTrip.status === 'IN-TRANSIT' ? '50%' :
+                        selectedTrip.status === 'ARRIVED' || selectedTrip.status === 'POD' || selectedTrip.status === 'CLOSED' ? '100%' :
+                        selectedTrip.status === 'REJECTION' ? '100%' : '0%'
+                    }}
+                  />
+                  {/* Vehicle Icon */}
+                  <div 
+                    className={cn(
+                      "absolute top-1/2 -translate-y-1/2 flex flex-col items-center transition-all duration-1000 ease-in-out",
+                      selectedTrip.status === 'IN-TRANSIT' && 'left-1/2 -translate-x-1/2',
+                      (selectedTrip.status === 'ARRIVED' || selectedTrip.status === 'POD' || selectedTrip.status === 'CLOSED') && 'left-full -translate-x-full',
+                      selectedTrip.status === 'REJECTION' && 'left-0',
+                      selectedTrip.status === 'LOADING' && 'left-0'
+                    )}
+                  >
+                    <div className={cn(
+                      "p-2.5 rounded-full shadow-2xl border-2 border-white relative",
+                      selectedTrip.status === 'REJECTION' ? 'bg-red-600' : 'bg-[#0056d2]',
+                      (selectedTrip.status === 'IN-TRANSIT' || selectedTrip.status === 'REJECTION') && 'animate-bounce'
+                    )}>
+                      <Truck className={cn("h-5 w-5 text-white", selectedTrip.status === 'REJECTION' && 'rotate-180')} />
+                    </div>
+                    <div className="w-3 h-1.5 bg-black/30 rounded-[100%] blur-[2px] mt-1 shadow-md"></div>
+                  </div>
+                </div>
+
+                {/* Drop Point */}
+                <div className="flex flex-col items-center text-center w-48 shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-red-500 border-4 border-white shadow-lg flex items-center justify-center">
+                    <MapPin className="h-5 w-5 text-white" />
+                  </div>
+                  <p className="text-xs font-black text-slate-700 mt-2 uppercase">Drop Point</p>
+                  <p className="text-[10px] text-slate-500 truncate">{selectedTrip.destination}</p>
+                </div>
+              </div>
+
+              {/* Milestones */}
+              <div className="mt-8 pt-8 border-t border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Out for Delivery</p>
+                  <p className="text-sm font-black text-slate-600">{selectedTrip.outDate ? format(new Date(selectedTrip.outDate), 'dd-MMM-yyyy HH:mm') : '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Arrived at Destination</p>
+                  <p className="text-sm font-black text-slate-600">{selectedTrip.arrivedDate ? format(new Date(selectedTrip.arrivedDate), 'dd-MMM-yyyy HH:mm') : '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  {selectedTrip.status === 'REJECTION' ? (
+                    <>
+                      <p className="text-[9px] font-black text-red-500 uppercase tracking-widest">Rejected / Returned</p>
+                      <p className="text-sm font-black text-red-600">{selectedTrip.rejectionDate ? format(new Date(selectedTrip.rejectionDate), 'dd-MMM-yyyy HH:mm') : '-'}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unloaded / Completed</p>
+                      <p className="text-sm font-black text-slate-600">{selectedTrip.unloadDate ? format(new Date(selectedTrip.unloadDate), 'dd-MMM-yyyy HH:mm') : '-'}</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
