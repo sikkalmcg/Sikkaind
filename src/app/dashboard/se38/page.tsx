@@ -17,10 +17,12 @@ export default function SE38Page() {
 
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const tripsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'trip_board'), [db]);
+  const ordersQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   
   const { data: plants } = useCollectionOptimized(plantsQuery);
   const { data: trips } = useCollectionOptimized(tripsQuery);
-
+  const { data: orders } = useCollectionOptimized(ordersQuery);
+  
   const isAnyRelevantDateInRange = (trip: any) => {
     const start = startOfDay(new Date(search.from));
     const end = endOfDay(new Date(search.to));
@@ -52,11 +54,16 @@ export default function SE38Page() {
     if (!search.plant || !search.from || !search.to) { alert('Criteria Mandatory'); return; }
     const normalizedPlant = String(search.plant || '').trim().toUpperCase();
 
+    const ordersMap = new Map((orders || []).map(o => [o.orderNo, o]));
+
     const filtered = (trips || []).filter(t => {
       const tripPlant = String(t?.plantCode || '').trim().toUpperCase();
       const matchPlant = tripPlant === normalizedPlant;
       const matchDate = isAnyRelevantDateInRange(t);
       return matchPlant && matchDate;
+    }).map(trip => {
+      const order = ordersMap.get(trip.orderNo);
+      return { ...trip, orderDate: order?.orderDate };
     });
 
     setResults(filtered);
@@ -95,6 +102,7 @@ export default function SE38Page() {
       'Plant',
       'Trip ID',
       'Sale Order',
+      'Order Date',
       'CN No',
       'CN Date',
       'Invoice No',
@@ -116,6 +124,7 @@ export default function SE38Page() {
       'Indent Time',
       'Assign Time',
       'Dispatch Time',
+      'Transit Hour (HH:MM)',
       'Arrived Date & Time',
       'Unload Date & Time',
       'Reject Date & Time',
@@ -135,6 +144,7 @@ export default function SE38Page() {
       const goodsDesc = (trip.invoices || []).map((i: any) => i.desc).filter(Boolean).join(' / ') || trip.materialName || '-';
       
       const saleOrderNo = trip.orderNo || trip.saleOrderNo || '-';
+      const orderDate = trip.orderDate;
       const cnNo = trip.cnNumber || '-';
       const cnDate = trip.cnDate || trip.createdAt;
       const vehicle = trip.vehicleNo || '-';
@@ -157,12 +167,14 @@ export default function SE38Page() {
       const arrivedTime = arrivedAt;
       const unloadTime = unloadAt;
       const rejectTime = rejectAt;
+      const transitHour = formatDurationHHMM(dispatchTime, arrivedTime);
       const detainHours = formatDurationHHMM(arrivedTime, unloadTime);
 
       return [
         trip.plantCode || '-',
         trip.tripNo || '-',
         saleOrderNo,
+        formatTime(orderDate),
         cnNo,
         formatTime(cnDate),
 
@@ -185,6 +197,7 @@ export default function SE38Page() {
         formatTime(indentTime),
         formatTime(assignTime),
         formatTime(dispatchTime),
+        transitHour,
         formatTime(arrivedTime),
         formatTime(unloadTime),
         formatTime(rejectTime),
@@ -223,10 +236,11 @@ export default function SE38Page() {
                   <th className="p-3 border-r border-slate-200">Plant</th>
                   <th className="p-3 border-r border-slate-200">Trip ID</th>
                   <th className="p-3 border-r border-slate-200">Sale Order</th>
-                  <th className="p-3 border-r border-slate-200">E-Way Bill No</th>
+                  <th className="p-3 border-r border-slate-200">Order Date</th>
                   <th className="p-3 border-r border-slate-200">CN No</th>
                   <th className="p-3 border-r border-slate-200">CN Date</th>
                   <th className="p-3 border-r border-slate-200">Invoice No</th>
+                  <th className="p-3 border-r border-slate-200">E-Way Bill No</th>
                   <th className="p-3 border-r border-slate-200">Vehicle</th>
                   <th className="p-3 border-r border-slate-200">Fleet Type</th>
                   <th className="p-3 border-r border-slate-200">Carrier</th>
@@ -244,6 +258,7 @@ export default function SE38Page() {
                   <th className="p-3 border-r border-slate-200">Indent Time</th>
                   <th className="p-3 border-r border-slate-200">Assign Time</th>
                   <th className="p-3 border-r border-slate-200">Dispatch Time</th>
+                  <th className="p-3 border-r border-slate-200">Transit Hour (HH:MM)</th>
                   <th className="p-3 border-r border-slate-200">Arrived Date &amp; Time</th>
                   <th className="p-3 border-r border-slate-200">Unload Date &amp; Time</th>
                   <th className="p-3 border-r border-slate-200">Reject Date &amp; Time</th>
@@ -255,12 +270,13 @@ export default function SE38Page() {
                   <td className="p-3 border-r border-slate-100 uppercase">{r.plantCode || '-'}</td>
                   <td className="p-3 border-r border-slate-100 font-black text-blue-700 uppercase">{r.tripNo || '-'}</td>
                   <td className="p-3 border-r border-slate-100 uppercase">{r.orderNo || r.saleOrderNo || '-'}</td>
-                  <td className="p-3 border-r border-slate-100 uppercase">{(r.invoices || []).map((inv: any) => inv.ewaybillNo).filter(Boolean).join(', ') || '-'}</td>
+                  <td className="p-3 border-r border-slate-100">{formatTime(r.orderDate)}</td>
                   <td className="p-3 border-r border-slate-100 uppercase">{r.cnNumber || '-'}</td>
                   <td className="p-3 border-r border-slate-100">{formatTime(r.cnDate || r.createdAt)}</td>
                   <td className="p-3 border-r border-slate-100 uppercase truncate max-w-[120px]" title={(r.invoices || []).map((inv: any) => inv.invNo).filter(Boolean).join(', ')}>
                     {(r.invoices || []).map((inv: any) => inv.invNo).filter(Boolean).join(', ') || '-'}
                   </td>
+                  <td className="p-3 border-r border-slate-100 uppercase">{(r.invoices || []).map((inv: any) => inv.ewaybillNo).filter(Boolean).join(', ') || '-'}</td>
                   <td className="p-3 border-r border-slate-100 uppercase">{r.vehicleNo || '-'}</td>
                   <td className="p-3 border-r border-slate-100 uppercase">{r.fleetType || '-'}</td>
                   <td className="p-3 border-r border-slate-100 uppercase text-[#0056d2]">{r.carrierName || 'PENDING'}</td>
@@ -282,6 +298,7 @@ export default function SE38Page() {
                   <td className="p-3 border-r border-slate-100">{formatTime(r.createdAt)}</td>
                   <td className="p-3 border-r border-slate-100">{formatTime(r.assignDate)}</td>
                   <td className="p-3 border-r border-slate-100">{formatTime(r.outDate)}</td>
+                  <td className="p-3 border-r border-slate-100">{formatDurationHHMM(r.outDate, r.arrivedDate)}</td>
                   <td className="p-3 border-r border-slate-100">{formatTime(r.arrivedDate)}</td>
                   <td className="p-3 border-r border-slate-100">{formatTime(r.unloadDate)}</td>
                   <td className="p-3 border-r border-slate-100">{formatTime(r.rejectionDate)}</td>

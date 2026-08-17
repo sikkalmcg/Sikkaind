@@ -241,8 +241,7 @@ const VT03Page: NextPage = () => {
         vehicleNo: vehicle.vehicleNo,
         currentStatus: vehicle.currentStatus || 'IN',
         duration: calculateDuration(vehicle.inDateTime, ''),
-        remark: vehicle.remark, 
-        user: getUserName(vehicle.updatedBy)
+        remark: vehicle.remark, user: getUserName(vehicle.updatedBy)
       };
     }).filter(Boolean); // Filter out any null/undefined entries
   }, [allVehicleMovements, allStatusHistory, allUsers]);
