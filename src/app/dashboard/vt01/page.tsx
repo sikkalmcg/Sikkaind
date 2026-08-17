@@ -756,8 +756,8 @@ const VT01Page: NextPage = () => {
                 onChange={(e) => handleExitChange('plant', e.target.value)} 
                 className={styles.formInput}
               >
-                <option value="">Select Plant...</option>
-                {plantsLoading && <option disabled>Loading plants...</option>}
+                <option value="">Select Plant.....</option>
+                {plantsLoading && <option disabled>Loading plants.....</option>}
                 {!plantsLoading && plantsList.length === 0 && (
                   <option disabled>No active plants found.</option>
                 )}
