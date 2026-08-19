@@ -178,6 +178,7 @@ export default function TrackPage() {
                 <div className="space-y-1"><p className="text-slate-400 text-[9px]">Start Point</p><p className="truncate">{selectedTrip.from}</p></div>
                 <div className="space-y-1"><p className="text-slate-400 text-[9px]">Drop Point</p><p className="truncate">{selectedTrip.destination}</p></div>
              </div>
+             <div className="space-y-1 text-left"><p className="text-slate-400 text-[9px] uppercase">Status By</p><p className="truncate text-[10px] uppercase font-black text-slate-600">{selectedTrip.statusBy || '-'}</p></div>
 
             <div className="bg-slate-50/50 border-2 border-dashed border-slate-200 p-10 rounded-lg shadow-inner">
               <div className="flex items-center justify-between w-full relative">
@@ -258,6 +259,32 @@ export default function TrackPage() {
                     </>
                   )}
                 </div>
+              </div>
+            </div>
+
+            <div className="mt-12">
+              <h4 className="text-[12px] font-black text-[#1e3a8a] italic uppercase tracking-tighter border-b-2 border-blue-50 w-fit pb-1 mb-4">
+                Status History
+              </h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[10px]">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      <th className="p-2 uppercase tracking-widest font-black">Status</th>
+                      <th className="p-2 uppercase tracking-widest font-black">Updated Date Time</th>
+                      <th className="p-2 uppercase tracking-widest font-black">Remark</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedTrip.statusHistory?.map((history: any, index: number) => (
+                      <tr key={index} className="border-b border-slate-100">
+                        <td className="p-2 font-semibold">{history.status}</td>
+                        <td className="p-2">{history.dateTime ? format(new Date(history.dateTime), 'dd-MMM-yyyy HH:mm') : '-'}</td>
+                        <td className="p-2">{history.remark || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

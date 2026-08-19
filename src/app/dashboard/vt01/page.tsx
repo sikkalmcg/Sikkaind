@@ -1,40 +1,30 @@
 'use client';
 
-import { useState, useEffect, useMemo, FC } from 'react';
+import { useState, useEffect, useMemo, FC, useCallback } from 'react';
 import type { NextPage } from 'next';
 import styles from '../../../../VT01.module.css';
 import { useSearchParams } from 'next/navigation';
 import { isValidMobileNumber, validateAndFormatVehicleNumber } from '../../../lib/validation';
-import toast, { Toaster } from 'react-hot-toast';
+import toast, { Toaster, Toast } from 'react-hot-toast';
 
 // Custom Hooks for MongoDB Store Integration
-import { useMongoStore, useCollectionOptimized, useMemoMongo, useUser } from '@/mongodb';
-import { collection } from '@/lib/mongo-store';
-import NonPlantVehicleTab from './NonPlantVehicleTab';
-
-enum Tab {
-  Entry = 'Entry',
-  VehicleStatus = 'Vehicle Status',
-  VehicleExit = 'Vehicle Exit',
-  NonPlantVehicle = 'Non-Plant Vehicle',
-}
-
-const SHARED_HUB_ID = 'Sikkaind';
-
-interface CNRow {
-  id: number;
-  cnNumber: string;
-  cnDate: string; 
-  shipToParty: string; 
-  destination: string;
-  totalPackage: number | string;
-  totalWeight: number | string;
-}
+import { useMongoStore, useUser, useMemoMongo, useCollectionOptimized } from '@/mongodb';
+import { collection, doc, setDoc, updateDoc } from '@/lib/mongo-store'; 
 
 interface PlantOption {
   plantCode: string;
   plantName: string;
 }
+
+const STATUS_OPTIONS = [
+  "Loading",
+  "Quality Check",
+  "Documentation",
+  "Waiting",
+  "Gate Out",
+  "Break-down",
+  "Under Maintenance",
+];
 
 interface VehicleEntryData {
   plant: string;
@@ -44,37 +34,33 @@ interface VehicleEntryData {
   driverMobile: string;
 }
 
-interface VehicleStatusData {
-  plant: string;
-  vehicleNo: string;
-  driverName: string;
-  driverMobile: string;
-  currentStatus: 'Empty Stay' | 'Load Stay' | 'Under Maintenance' | '';
-  statusUpdateDateTime: string;
-  customer: string;
-  shipToParty: string;
-  destination: string;
-  remark: string;
-}
-
-interface VehicleExitData {
-  plant: string;
-  vehicleNo: string;
-  driverName: string;
-  driverMobile: string;
-  outType: 'Empty Vehicle' | 'Load Vehicle';
-  exitDateTime: string;
-}
-
 interface StatusHistoryRow {
-  id: number;
+  id: number | string;
   currentStatus: string;
   statusDateTime: string;
   toDateTime: string;
   remark: string;
+  isNew?: boolean; 
+}
+
+interface VehicleRecord {
+  id: string | number;
+  plant: string;
+  vehicleNo: string;
+  driverName: string;
+  driverMobile: string;
+  inDateTime: string;
+  currentStatus?: string;
+  statusDateTime?: string;
+  toDateTime?: string;
+  exitDateTime?: string;
+  remark?: string;
+  statusHistory?: StatusHistoryRow[];
+  historyId?: number;
 }
 
 const formatDateTimeForInput = (date: Date): string => {
+  if (!date || isNaN(date.getTime())) return '';
   const pad = (num: number) => num.toString().padStart(2, '0');
   const year = date.getFullYear();
   const month = pad(date.getMonth() + 1);
@@ -85,81 +71,98 @@ const formatDateTimeForInput = (date: Date): string => {
 };
 
 const calculateDuration = (from: string, to: string): string => {
-  if (!from || !to) return '--:--';
-
+  if (!from) return '--:--';
   const fromDate = new Date(from);
-  const toDate = new Date(to);
+  let toDate = to ? new Date(to) : new Date(); // Use current system time dynamically for open statuses
 
-  if (toDate.getTime() < fromDate.getTime()) return 'Invalid';
+  if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime()) || toDate < fromDate) {
+    return '00:00';
+  }
 
   const diffMs = toDate.getTime() - fromDate.getTime();
   const totalMinutes = Math.floor(diffMs / (1000 * 60));
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  return `${hours.toString().padStart(2, '0')} Hours ${minutes.toString().padStart(2, '0')} Minutes`;
 };
 
 const VT01Page: NextPage = () => {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<Tab>(Tab.Entry);
-  const [cnRows, setCnRows] = useState<CNRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'entry' | 'status' | 'exit' | 'non-plant'>('entry');
 
-  // MongoDB Real-time Data Store Setup
   const db = useMongoStore();
   const { user, isUserLoading: isAuthLoading } = useUser();
 
-  const [inYardVehicles, setInYardVehicles] = useState<any[]>([]);
+  // Top Filter Bar State
+  const [selectedPlantFilter, setSelectedPlantFilter] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // --- Data Fetching ---
+  const vehicleMovementsQuery = useMemoMongo(
+    () => collection(db, 'users', 'Sikkaind', 'vehicle_movements'),
+    [db]
+  );
+  const { data, isLoading: isDataLoading } = useCollectionOptimized(vehicleMovementsQuery);
+  const allVehicleMovements = data || [];
+  
+  // Core Data Lists
+  const plantRecords = useMemo(() => (allVehicleMovements || []).filter(rec => rec.plant !== 'Outside'), [allVehicleMovements]);
+  const statusRecords = useMemo(() => plantRecords.filter(rec => !rec.exitDateTime), [plantRecords]);
+  const exitRecords = useMemo(() => plantRecords.filter(rec => !!rec.exitDateTime), [plantRecords]);
+  const nonPlantRecords = useMemo(() => (allVehicleMovements || []).filter(rec => rec.plant === 'Outside'), [allVehicleMovements]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Vehicle Entry Form State
   const [entryData, setEntryData] = useState<VehicleEntryData>({
     plant: '',
-    inDateTime: '',
+    inDateTime: formatDateTimeForInput(new Date()),
     vehicleNo: '',
     driverName: '',
     driverMobile: '',
   });
+
+  // Non-Plant Vehicle Form State
+  const [nonPlantVehicleNo, setNonPlantVehicleNo] = useState('');
+  const [nonPlantStation, setNonPlantStation] = useState('');
+  const [nonPlantValidationError, setNonPlantValidationError] = useState('');
+  const [isNonPlantSubmitting, setIsNonPlantSubmitting] = useState(false);
+  const [createdNonPlantVehicle, setCreatedNonPlantVehicle] = useState<VehicleRecord | null>(null);
+
+  // Non-Plant Status History
+  const [nonPlantStatusHistory, setNonPlantStatusHistory] = useState<StatusHistoryRow[]>([]);
 
   const [validationErrors, setValidationErrors] = useState({
     vehicleNo: '',
     driverMobile: '',
   });
 
-  const [statusData, setStatusData] = useState<VehicleStatusData>({
-    plant: '',
-    vehicleNo: '',
-    driverName: '',
-    driverMobile: '',
+  // Status Update / Add Modal State
+  const [selectedVehicleForStatus, setSelectedVehicleForStatus] = useState<VehicleRecord | null>(null);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false); // false = Add New Status, true = Update Open Status
+  
+  const [activeStatusForm, setActiveStatusForm] = useState({
+    historyId: null as number | string | null,
     currentStatus: '',
-    statusUpdateDateTime: formatDateTimeForInput(new Date()),
-    customer: '',
-    shipToParty: '',
-    destination: '',
-    remark: ''
+    fromDateTime: formatDateTimeForInput(new Date()),
+    toDateTime: '',
+    remark: '',
+    readOnlyPrevious: null as any,
   });
 
-  const [exitData, setExitData] = useState<VehicleExitData>({
-    plant: '',
-    vehicleNo: '',
-    driverName: '',
-    driverMobile: '',
-    outType: 'Empty Vehicle',
-    exitDateTime: formatDateTimeForInput(new Date())
-  });
+  // Exit Confirmation Modal State
+  const [selectedVehicleForExit, setSelectedVehicleForExit] = useState<VehicleRecord | null>(null);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  const [exitDateTimeInput, setExitDateTimeInput] = useState(formatDateTimeForInput(new Date()));
 
-  const [showUpdatePopup, setShowUpdatePopup] = useState(false);
-  const [statusHistory, setStatusHistory] = useState<StatusHistoryRow[]>([]);
-  const [vehicleStatusHistory, setVehicleStatusHistory] = useState<StatusHistoryRow[]>([]);
-  const [newStatusRow, setNewStatusRow] = useState({ currentStatus: '', statusDateTime: formatDateTimeForInput(new Date()), toDateTime: '', remark: '' });
-
-  const tcode = useMemo(() => searchParams.get('tcode'), [searchParams]);
   const [plantsList, setPlantsList] = useState<PlantOption[]>([]);
   const [plantsLoading, setPlantsLoading] = useState(true);
 
+  // Fetch Plants
   useEffect(() => {
-    if (isAuthLoading) return; // Wait for user authentication to complete
-
+    if (isAuthLoading) return;
     const fetchPlants = async () => {
       setPlantsLoading(true);
       try {
@@ -180,135 +183,15 @@ const VT01Page: NextPage = () => {
     fetchPlants();
   }, [isAuthLoading]);
 
-  // Set default selected Plant whenever plant list updates
+  // Set Default Plant
   useEffect(() => {
-    if (plantsList.length > 0) {
-      const defaultPlant = plantsList[0].plantCode;
-      setEntryData(prev => prev.plant ? prev : { ...prev, plant: defaultPlant });
-      setStatusData(prev => prev.plant ? prev : { ...prev, plant: defaultPlant });
-      setExitData(prev => prev.plant ? prev : { ...prev, plant: defaultPlant });
+    if (plantsList.length > 0 && !selectedPlantFilter) {
+      setSelectedPlantFilter(plantsList[0].plantCode);
+      setEntryData(prev => ({ ...prev, plant: plantsList[0].plantCode }));
     }
   }, [plantsList]);
 
-  // Set default IN Date Time on component mount
-  useEffect(() => {
-    setEntryData(prev => ({ ...prev, inDateTime: formatDateTimeForInput(new Date()) }));
-  }, []);
-
-  // Fetch in-yard vehicles when plant changes in Status or Exit tab
-  useEffect(() => {
-    const plant = activeTab === Tab.VehicleStatus ? statusData.plant : exitData.plant;
-
-    if (!plant) {
-      setInYardVehicles([]);
-      return;
-    }
-
-    const fetchInYardVehicles = async () => {
-      try {
-        const response = await fetch(`/api/vehicles/in-yard?plant=${plant}`);
-        if (response.ok) {
-          const data = await response.json();
-          setInYardVehicles(data);
-        } else {
-          setInYardVehicles([]);
-        }
-      } catch (err) {
-        console.error(`Failed to fetch in-yard vehicles for plant ${plant}:`, err);
-        setInYardVehicles([]);
-      }
-    };
-
-    if (activeTab === Tab.VehicleStatus || activeTab === Tab.VehicleExit) {
-      fetchInYardVehicles();
-    }
-  }, [activeTab, statusData.plant, exitData.plant]);
-
-  // Auto-fetch vehicle details when selected in Status or Exit tab
-  useEffect(() => {
-    const vehicleNo = activeTab === Tab.VehicleStatus ? statusData.vehicleNo : exitData.vehicleNo;
-    if (!vehicleNo) return;
-
-    if (activeTab === Tab.VehicleStatus) {
-      setStatusHistory([]); // Clear form for new entries
-      setVehicleStatusHistory([]); // Clear displayed history
-    }
-
-    const vehicleDetails = inYardVehicles.find(v => v.vehicleNo === vehicleNo);
-    if (vehicleDetails) {
-      if (activeTab === Tab.VehicleStatus) {
-        setStatusData(prev => ({
-          ...prev,
-          driverName: vehicleDetails.driverName,
-          driverMobile: vehicleDetails.driverMobile,
-        }));
-        // Fetch status history for the selected vehicle
-        const fetchStatusHistory = async () => {
-          try {
-            const response = await fetch(`/api/vehicles/status-history?vehicleNo=${vehicleNo}`);
-            if (response.ok) {
-              const history = await response.json();
-              setVehicleStatusHistory(history);
-            } else {
-              toast.error('Could not fetch status history for the selected vehicle.');
-            }
-          } catch (error) {
-            console.error('Failed to fetch status history:', error);
-          }
-        };
-        fetchStatusHistory();
-      } else if (activeTab === Tab.VehicleExit) {
-        setExitData(prev => ({
-          ...prev,
-          driverName: vehicleDetails.driverName,
-          driverMobile: vehicleDetails.driverMobile,
-        }));
-      }
-    }
-  }, [statusData.vehicleNo, exitData.vehicleNo, activeTab, inYardVehicles]);
-
-  const handleAddRow = () => {
-    setCnRows([...cnRows, {
-      id: Date.now(),
-      cnNumber: '', cnDate: '', shipToParty: '', destination: '', totalPackage: '', totalWeight: ''
-    }]);
-  };
-
-  const handleSaveEntry = async () => {
-    if (!entryData.plant || !entryData.vehicleNo || !entryData.driverName || !entryData.driverMobile) {
-      toast.error('Please fill all fields in the Entry form.');
-      return;
-    }
-    if (validationErrors.vehicleNo || validationErrors.driverMobile) {
-      toast.error('Please fix the validation errors before saving.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    const toastId = toast.loading('Saving vehicle entry...');
-
-    try {
-      const response = await fetch('/api/vehicles/entry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...entryData,
-          updatedBy: user?.email,
-        }),
-      });
-  
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save vehicle entry.');
-      }
-      toast.success('Vehicle Entry Saved Successfully!', { id: toastId });
-    } catch (err) {
-      toast.error(`Error: ${(err as Error).message}`, { id: toastId });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+  // Handle Input Changes for Entry Form
   const handleEntryChange = (field: keyof VehicleEntryData, value: string) => {
     setEntryData(prev => ({ ...prev, [field]: value }));
 
@@ -329,151 +212,139 @@ const VT01Page: NextPage = () => {
     }
   };
 
-  const handleStatusChange = (field: keyof VehicleStatusData, value: string) => {
-    setStatusData(prev => ({ ...prev, [field]: value }));
-  };
+  // Handle Non-Plant Vehicle Creation
+  const handleCreateNonPlantVehicle = async () => {
+    if (!nonPlantVehicleNo || !nonPlantStation) {
+      toast.error('Vehicle Number and Station are mandatory.');
+      return;
+    }
+    if (nonPlantValidationError) {
+      toast.error('Please fix the validation error for Vehicle Number.');
+      return;
+    }
 
-  const handleAddNewStatusRow = () => {
-    const newRow: StatusHistoryRow = {
-      id: Date.now(), // Temporary ID for local state
-      currentStatus: '',
-      statusDateTime: statusHistory.length > 0 ? statusHistory[statusHistory.length - 1].toDateTime : formatDateTimeForInput(new Date()),
-      toDateTime: '',
-      remark: '',
+    setIsNonPlantSubmitting(true);
+    const toastId = toast.loading('Creating Non-Plant Vehicle...');
+
+    const vehicleData = {
+      vehicleNo: nonPlantVehicleNo,
+      station: nonPlantStation,
+      plant: 'Outside',
+      inDateTime: new Date().toISOString(),
+      driverName: 'N/A',
+      driverMobile: '0000000000',
     };
-    setStatusHistory(prev => [...prev, newRow]);
-  };
-
-  const handleAddStatusRow = () => {
-    if (!newStatusRow.currentStatus || !newStatusRow.statusDateTime || !newStatusRow.toDateTime) {
-      toast.error('Please provide Status, From Date Time, and To Date Time.');
-      return;
-    }
-
-    const fromDate = new Date(newStatusRow.statusDateTime);
-    const toDate = new Date(newStatusRow.toDateTime);
-
-    // Rule: to date time not should be lower from date time
-    if (toDate < fromDate) {
-      toast.error('"To Date Time" cannot be earlier than "From Date Time".');
-      return;
-    }
-
-    // Rule: from/to date time not should be lower from previous to date and time
-    if (statusHistory.length > 0) {
-      const lastStatus = statusHistory[statusHistory.length - 1];
-      if (lastStatus.toDateTime) {
-        const lastToDate = new Date(lastStatus.toDateTime);
-        if (fromDate < lastToDate) {
-          toast.error('"From Date Time" cannot be earlier than the previous status\'s "To Date Time".');
-          return;
-        }
-      }
-    }
-
-    setStatusHistory(prev => [...prev, { id: Date.now(), ...newStatusRow }]);
-    setNewStatusRow({
-      currentStatus: '',
-      statusDateTime: newStatusRow.toDateTime, // Pre-fill next 'from' with previous 'to'
-      toDateTime: '',
-      remark: ''
-    });
-    toast.success('Status row added locally.');
-  };
-
-  const handleDeleteStatusRow = (id: number) => {
-    setStatusHistory(prev => prev.filter(row => row.id !== id));
-    toast.success('Row removed locally.');
-  };
-  const handleExitChange = (field: keyof VehicleExitData, value: string) => {
-    setExitData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handlePostStatusUpdate = async (rowToSave: StatusHistoryRow) => {
-    if (!rowToSave.currentStatus || !rowToSave.statusDateTime || !rowToSave.toDateTime) {
-      toast.error('Please provide Status, From Date Time, and To Date Time.');
-      return;
-    }
-
-    const fromDate = new Date(rowToSave.statusDateTime);
-    const toDate = new Date(rowToSave.toDateTime);
-
-    // Rule: to date time not should be lower from date time
-    if (toDate < fromDate) {
-      toast.error('"To Date Time" cannot be earlier than "From Date Time".');
-      return;
-    }
-  
-    const rowIndex = statusHistory.findIndex(r => r.id === rowToSave.id);
-    if (rowIndex > 0) {
-      const prevRow = statusHistory[rowIndex - 1];
-      const prevToDate = new Date(prevRow.toDateTime);
-      if (fromDate < prevToDate) {
-        toast.error(`"From Date Time" cannot be earlier than the previous row's "To Date Time" (${prevRow.toDateTime}).`);
-        return;
-      }
-    }
-
-    setIsSubmitting(true);
-    const toastId = toast.loading('Updating status...');
-    
-    try {
-      // Assuming the API can handle adding a new status history entry
-      const response = await fetch('/api/vehicles/status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plant: statusData.plant,
-          vehicleNo: statusData.vehicleNo,
-          customer: statusData.customer,
-          updatedBy: user?.email,
-          shipToParty: statusData.shipToParty,
-          destination: statusData.destination,
-          ...rowToSave,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to update status.');
-
-      // Assuming API returns the full updated history for the vehicle
-      const updatedHistory = await response.json(); 
-      setStatusHistory(updatedHistory);
-      setShowUpdatePopup(false);
-      toast.success('Status updated successfully!', { id: toastId });
-    } catch (err) {
-      toast.error(`Error: ${(err as Error).message}`, { id: toastId });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleMarkVehicleOut = async () => {
-    if (!exitData.plant || !exitData.vehicleNo || !exitData.exitDateTime) {
-      toast.error('Please select a plant and vehicle before marking it OUT.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    const toastId = toast.loading('Marking vehicle out...');
 
     try {
-      const response = await fetch('/api/vehicles/exit', {
+      const response = await fetch('/api/vehicles/entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...exitData,
-          cnRows,
-          updatedBy: user?.email,
-        }),
+        body: JSON.stringify(vehicleData),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Unable to mark vehicle OUT.');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create non-plant vehicle.');
       }
-      toast.success('Vehicle marked as OUT successfully!', { id: toastId });
-      setCnRows([]);
-      setExitData((previous) => ({ ...previous, vehicleNo: '', driverName: '', driverMobile: '' }));
+
+      const result = await response.json();
+      const newVehicle = { ...vehicleData, id: result.id, statusHistory: [] };
+      setCreatedNonPlantVehicle(newVehicle);
+      
+      toast.success('Non-Plant Vehicle created. You can now add status updates.', { id: toastId });
+    } catch (err) {
+      toast.error(`Error: ${(err as Error).message}`, { id: toastId });
+    } finally {
+      setIsNonPlantSubmitting(false);
+    }
+  };
+
+  const handleNonPlantStatusUpdate = async (rowToSave: StatusHistoryRow) => {
+    if (!createdNonPlantVehicle) return;
+
+    if (!rowToSave.currentStatus || !rowToSave.statusDateTime) {
+        toast.error('Please provide at least Status and From Date Time.');
+        return;
+    }
+
+    setIsSubmitting(true);
+    const toastId = toast.loading('Saving status update...');
+
+    try {
+        const vehicleDocRef = doc(db, 'users', 'Sikkaind', 'vehicle_movements', String(createdNonPlantVehicle.id));
+        const existingHistory = createdNonPlantVehicle.statusHistory || [];
+        const updatedHistory = rowToSave.isNew 
+            ? [...existingHistory, { ...rowToSave, id: Date.now(), isNew: false }]
+            : existingHistory.map(h => h.id === rowToSave.id ? rowToSave : h);
+
+        const updatePayload = {
+            currentStatus: rowToSave.currentStatus,
+            statusDateTime: rowToSave.statusDateTime,
+            toDateTime: rowToSave.toDateTime || '',
+            remark: rowToSave.remark || '',
+            statusHistory: updatedHistory,
+            updatedAt: new Date().toISOString()
+        };
+
+        await updateDoc(vehicleDocRef, updatePayload);
+
+        setCreatedNonPlantVehicle(prev => prev ? { ...prev, ...updatePayload } : null);
+        toast.success(`Status saved successfully.`, { id: toastId });
+    } catch (err) {
+        toast.error(`Error: ${(err as Error).message}`, { id: toastId });
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  // Save Vehicle Entry (Vehicle IN action)
+  const handleSaveEntry = async () => {
+    if (!entryData.plant || !entryData.vehicleNo || !entryData.inDateTime) {
+      toast.error('Please fill all mandatory fields: Plant, Vehicle Number, and IN Date Time.');
+      return;
+    }
+    if (validationErrors.vehicleNo || validationErrors.driverMobile) {
+      toast.error('Please fix validation errors before proceeding.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const toastId = toast.loading('Processing Vehicle IN...');
+
+    try {
+      const vehicleData = {
+        plant: entryData.plant,
+        vehicleNo: entryData.vehicleNo,
+        driverName: entryData.driverName || 'N/A',
+        driverMobile: entryData.driverMobile || 'N/A',
+        inDateTime: entryData.inDateTime,
+        currentStatus: 'Vehicle IN',
+        statusDateTime: entryData.inDateTime,
+        toDateTime: '',
+        statusHistory: []
+      };
+
+      const response = await fetch('/api/vehicles/entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vehicleData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create vehicle entry.');
+      }
+
+      toast.success('Vehicle successfully checked IN and moved to Status tab!', { id: toastId });
+
+      setEntryData({
+        plant: selectedPlantFilter || '',
+        inDateTime: formatDateTimeForInput(new Date()),
+        vehicleNo: '',
+        driverName: '',
+        driverMobile: '',
+      });
+      setActiveTab('status');
     } catch (err) {
       toast.error(`Error: ${(err as Error).message}`, { id: toastId });
     } finally {
@@ -481,448 +352,302 @@ const VT01Page: NextPage = () => {
     }
   };
 
-  const handleCNNumberChange = async (id: number, cnNumber: string) => {
-    const newRows = [...cnRows];
-    const rowIndex = newRows.findIndex(row => row.id === id);
-    if (rowIndex === -1) return;
+  // Open Status Update or Add Modal
+  const openStatusModal = (vehicle: VehicleRecord, mode: 'update' | 'add', historyItem?: StatusHistoryRow | null) => {
+    setSelectedVehicleForStatus(vehicle);
+    const statusHistory = vehicle.statusHistory || [];
 
-    newRows[rowIndex].cnNumber = cnNumber;
+    if (mode === 'update') {
+      setIsEditMode(true);
+      setActiveStatusForm({
+        historyId: historyItem?.id || vehicle.historyId || null,
+        currentStatus: historyItem?.currentStatus || vehicle.currentStatus || '',
+        fromDateTime: historyItem?.statusDateTime 
+          ? formatDateTimeForInput(new Date(historyItem.statusDateTime)) 
+          : formatDateTimeForInput(new Date(vehicle.statusDateTime || vehicle.inDateTime)),
+        toDateTime: formatDateTimeForInput(new Date()), 
+        remark: historyItem?.remark || vehicle.remark || '',
+        readOnlyPrevious: null,
+      });
+    } else {
+      setIsEditMode(false);
+      const latestCompleted = [...statusHistory].sort((a, b) => new Date(b.toDateTime || 0).getTime() - new Date(a.toDateTime || 0).getTime())[0];
+      const defaultFromTime = latestCompleted?.toDateTime 
+        ? formatDateTimeForInput(new Date(latestCompleted.toDateTime)) 
+        : (vehicle.toDateTime ? formatDateTimeForInput(new Date(vehicle.toDateTime)) : vehicle.inDateTime);
 
-    if (cnNumber) {
-      try {
-        const response = await fetch(`/api/cn-details?cn=${cnNumber}`);
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'CN Number is invalid/not found.');
-        }
-        const data = await response.json();
-        newRows[rowIndex] = {
-          ...newRows[rowIndex],
-          shipToParty: data.shipToParty,
-          destination: data.destination,
-        };
-        setError(null);
-      } catch (err) {
-        setError((err as Error).message);
-        const { cnNumber } = newRows[rowIndex];
-        newRows[rowIndex] = {
-          ...newRows[rowIndex],
-          cnNumber,
-          shipToParty: '',
-          destination: '',
-        };
-      }
+      setActiveStatusForm({
+        historyId: null,
+        currentStatus: '',
+        fromDateTime: defaultFromTime,
+        toDateTime: '',
+        remark: '',
+        readOnlyPrevious: latestCompleted || { currentStatus: vehicle.currentStatus || 'Vehicle IN', statusDateTime: vehicle.inDateTime, toDateTime: vehicle.toDateTime || '—' },
+      });
     }
-    setCnRows(newRows);
+    setIsStatusModalOpen(true);
   };
 
-  const renderActiveTab = () => {
-    switch (activeTab) {
-      case Tab.NonPlantVehicle:
-        return <NonPlantVehicleTab />;
-      case Tab.VehicleStatus:
-        return (
+  // DIRECT MONGODB STORE UPDATE
+  const handlePostStatus = async () => {
+    if (!activeStatusForm.currentStatus || !activeStatusForm.fromDateTime) {
+      toast.error('Please fill at least Status and From Date Time.');
+      return;
+    }
+
+    if (!selectedVehicleForStatus) return;
+
+    setIsSubmitting(true);
+    const toastId = toast.loading('Saving status update directly to database...');
+
+    try {
+      const vehicleId = String(selectedVehicleForStatus.id || (selectedVehicleForStatus as any)._id);
+      const vehicleDocRef = doc(db, 'users', 'Sikkaind', 'vehicle_movements', vehicleId);
+      
+      const existingHistory = [...(selectedVehicleForStatus.statusHistory || [])];
+      let updatedHistory = [...existingHistory];
+
+      const finalRemark = activeStatusForm.remark?.trim() 
+        ? activeStatusForm.remark.trim() 
+        : `Status: ${activeStatusForm.currentStatus}`;
+
+      const targetRowId = activeStatusForm.historyId || (existingHistory.length > 0 ? existingHistory[existingHistory.length - 1].id : Date.now());
+
+      const newRow: StatusHistoryRow = {
+        id: targetRowId,
+        currentStatus: activeStatusForm.currentStatus,
+        statusDateTime: activeStatusForm.fromDateTime,
+        toDateTime: activeStatusForm.toDateTime || '',
+        remark: finalRemark,
+      };
+
+      if (isEditMode && activeStatusForm.historyId) {
+        updatedHistory = updatedHistory.map(h => String(h.id) === String(activeStatusForm.historyId) ? newRow : h);
+      } else {
+        if (updatedHistory.length === 0) {
+          updatedHistory.push(newRow);
+        } else {
+          const lastIndex = updatedHistory.length - 1;
+          if (!updatedHistory[lastIndex].toDateTime && isEditMode) {
+            updatedHistory[lastIndex] = newRow;
+          } else {
+            updatedHistory.push(newRow);
+          }
+        }
+      }
+
+      const payload = {
+        currentStatus: activeStatusForm.currentStatus,
+        statusDateTime: activeStatusForm.fromDateTime,
+        toDateTime: activeStatusForm.toDateTime || '', 
+        remark: finalRemark,
+        statusHistory: updatedHistory,
+        updatedAt: new Date().toISOString()
+      };
+
+      await updateDoc(vehicleDocRef, payload);
+
+      toast.success('Status successfully updated in database!', { id: toastId });
+      setIsStatusModalOpen(false);
+    } catch (err) {
+      toast.error(`Error: ${(err as Error).message}`, { id: toastId });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const promptVehicleExit = (vehicle: VehicleRecord) => {
+    const hasOpenStatus = vehicle.statusHistory?.some(h => !h.toDateTime);
+    if (vehicle.statusHistory?.length === 0 && (!vehicle.toDateTime || vehicle.toDateTime.trim() === '')) {
+       // Allow exit
+    } else if (hasOpenStatus && (!vehicle.toDateTime || vehicle.toDateTime.trim() === '')) {
+      toast.error('Please complete all open statuses for this vehicle before exiting.');
+      return;
+    }
+    
+    setSelectedVehicleForExit(vehicle);
+    setExitDateTimeInput(formatDateTimeForInput(new Date()));
+    setIsExitModalOpen(true);
+  };
+
+  const confirmVehicleExit = async () => {
+    if (!selectedVehicleForExit) return;
+
+    setIsSubmitting(true);
+    const toastId = toast.loading('Processing vehicle exit...');
+
+    try {
+      const vehicleId = String(selectedVehicleForExit.id || (selectedVehicleForExit as any)._id);
+      const vehicleDocRef = doc(db, 'users', 'Sikkaind', 'vehicle_movements', vehicleId);
+
+      const exitPayload = {
+        exitDateTime: exitDateTimeInput,
+        outType: 'Normal Exit',
+        updatedAt: new Date().toISOString()
+      };
+
+      await updateDoc(vehicleDocRef, exitPayload);
+
+      toast.success(`Vehicle ${selectedVehicleForExit.vehicleNo} successfully exited!`, { id: toastId });
+      setIsExitModalOpen(false);
+      setSelectedVehicleForExit(null);
+    } catch (err) {
+      toast.error(`Error: ${(err as Error).message}`, { id: toastId });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const filterData = (list: any[]) => {
+    return list.filter(item => {
+      const matchesPlant = selectedPlantFilter ? item.plant === selectedPlantFilter : true;
+      const matchesSearch = searchQuery
+        ? [
+            item.plant,
+            item.vehicleNo,
+            item.driverName,
+            item.driverMobile,
+            item.inDateTime,
+            item.currentStatus,
+            item.statusDateTime,
+            item.toDateTime,
+            item.exitDateTime,
+            item.remark,
+          ].some(val => val && String(val).toLowerCase().includes(searchQuery.toLowerCase()))
+        : true;
+      return matchesPlant && matchesSearch;
+    });
+  };
+
+  const filteredStatusRecords = useMemo(() => filterData(statusRecords), [statusRecords, selectedPlantFilter, searchQuery]);
+  const filteredExitRecords = useMemo(() => filterData(exitRecords), [exitRecords, selectedPlantFilter, searchQuery]);
+  const filteredNonPlantRecords = useMemo(() => filterData(nonPlantRecords), [nonPlantRecords, selectedPlantFilter, searchQuery]);
+    
+  const getLatestStatusInfo = (vehicle: VehicleRecord) => {
+    const statusHistory = vehicle.statusHistory || [];
+    
+    const rootToTime = vehicle.toDateTime || (vehicle as any).toTime || '';
+    const rootStatus = vehicle.currentStatus || 'Vehicle IN';
+    const rootFromTime = vehicle.statusDateTime || vehicle.inDateTime;
+
+    if (statusHistory.length > 0) {
+      const sortedHistory = [...statusHistory].sort((a, b) => {
+        const timeA = new Date(a.statusDateTime || 0).getTime();
+        const timeB = new Date(b.statusDateTime || 0).getTime();
+        return timeB - timeA; 
+      });
+      
+      const latestHistory = sortedHistory[0];
+      const historyToTime = latestHistory.toDateTime || rootToTime;
+      const hasHistoryToDate = !!historyToTime && String(historyToTime).trim() !== '' && String(historyToTime).trim() !== '—';
+
+      return {
+        latestHistory,
+        currentStatusDisplay: latestHistory.currentStatus || rootStatus,
+        statusFromDisplay: latestHistory.statusDateTime || rootFromTime,
+        statusToDisplay: historyToTime,
+        isLatestCompleted: hasHistoryToDate,
+      };
+    }
+
+    const hasRootToDate = !!rootToTime && String(rootToTime).trim() !== '' && String(rootToTime).trim() !== '—';
+    return {
+      latestHistory: null,
+      currentStatusDisplay: rootStatus,
+      statusFromDisplay: rootFromTime,
+      statusToDisplay: rootToTime,
+      isLatestCompleted: rootStatus === 'Vehicle IN' || rootStatus === 'IN' ? true : hasRootToDate,
+    };
+  };
+
+  return (
+    <div className={styles.container}>
+      <Toaster position="top-center" reverseOrder={false} />
+      
+      {/* Page Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1 className={styles.headerTitle}>VT01 – Vehicle Entry & Tracking</h1>
+      </div> 
+
+      {/* Top Filter Bar */}
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', alignItems: 'center' }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Plant Filter</label>
+          <select 
+            value={selectedPlantFilter} 
+            onChange={(e) => setSelectedPlantFilter(e.target.value)} 
+            className={styles.formInput}
+          >
+            <option value="">All Plants</option>
+            {plantsList.map(p => (
+              <option key={p.plantCode} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ flex: 2 }}>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Search Active Tab</label>
+          <input 
+            type="text" 
+            placeholder="Search by text or digits..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={styles.formInput}
+          />
+        </div>
+      </div>
+
+      {/* Active Tabs Navigation */}
+      <div className={styles.tabs} style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
+        <button 
+          className={`${styles.tabButton} ${activeTab === 'entry' ? styles.activeTab : ''}`} 
+          style={{ background: activeTab === 'entry' ? '#e2e8f0' : '#f1f5f9', fontWeight: activeTab === 'entry' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
+          onClick={() => setActiveTab('entry')}>
+            1. Vehicle Entry
+        </button>
+        <button 
+          className={`${styles.tabButton} ${activeTab === 'status' ? styles.activeTab : ''}`} 
+          style={{ background: activeTab === 'status' ? '#e2e8f0' : '#f1f5f9', fontWeight: activeTab === 'status' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
+          onClick={() => setActiveTab('status')}>
+            2. Status ({statusRecords.length})
+        </button>
+        <button 
+          className={`${styles.tabButton} ${activeTab === 'exit' ? styles.activeTab : ''}`} 
+          style={{ background: activeTab === 'exit' ? '#e2e8f0' : '#f1f5f9', fontWeight: activeTab === 'exit' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
+          onClick={() => setActiveTab('exit')}>
+            3. Exit ({exitRecords.length})
+        </button>
+        <button 
+          className={`${styles.tabButton} ${activeTab === 'non-plant' ? styles.activeTab : ''}`} 
+          style={{ background: activeTab === 'non-plant' ? '#e2e8f0' : '#f1f5f9', fontWeight: activeTab === 'non-plant' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
+          onClick={() => setActiveTab('non-plant')}>
+            4. Non-Plant Vehicle
+        </button>
+      </div>
+
+      {/* Tab Content Panels */}
+      <div className={styles.tabContent}>
+        
+        {/* TAB 1: VEHICLE ENTRY */}
+        {activeTab === 'entry' && (
           <div className={styles.formContainer}>
+            <h3 className={styles.header}>New Vehicle Entry Form</h3>
             <div className={styles.formGroup}>
-              <label>Plant:</label>
-              <select 
-                value={statusData.plant} 
-                onChange={(e) => handleStatusChange('plant', e.target.value)} 
-                className={styles.formInput}
-              >
-                <option value="">Select Plant...</option>
-                {plantsLoading && <option disabled>Loading plants...</option>}
-                {!plantsLoading && plantsList.length === 0 && (
-                  <option disabled>No active plants found.</option>
-                )}
-                {plantsList.length > 0 &&
-                  plantsList.map((p) => (
-                  <option key={p.plantCode} value={p.plantCode}>
-                    {p.plantCode} - {p.plantName}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className={styles.formGroup}>
-              <label>Vehicle Number:</label>
-              <select value={statusData.vehicleNo} onChange={(e) => handleStatusChange('vehicleNo', e.target.value)} className={styles.formInput}>
-                <option value="">Select Vehicle...</option>
-                {inYardVehicles.length === 0 && <option disabled>No vehicles in yard for this plant</option>}
-                {inYardVehicles.map(v => (
-                  <option key={v.id} value={v.vehicleNo}>{v.vehicleNo}</option>
-                ))}
-              </select>
-            </div>
-            <div className={styles.formGroup}>
-              <label>Driver Name:</label>
-              <input type="text" value={statusData.driverName} disabled className={styles.formInput} placeholder="Auto-fetch"/>
-            </div>
-            <div className={styles.formGroup}>
-              <label>Driver Mobile:</label>
-              <input type="text" value={statusData.driverMobile} disabled className={styles.formInput} placeholder="Auto-fetch"/>
-            </div>
-            <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 className={styles.header}>Status History</h3>
-                <button onClick={handleAddNewStatusRow} className={styles.button} style={{ marginBottom: '1rem' }}>
-                  Add Row
-                </button>
-              </div>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Status</th>
-                    <th>From Date Time</th>
-                    <th>To Date Time</th>
-                    <th>Duration</th>
-                    <th>Remark</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statusHistory.map((row, i) => (
-                    <tr key={row.id}>
-                      <td>
-                        <select
-                          value={row.currentStatus}
-                          onChange={(e) => {
-                            const newHistory = [...statusHistory];
-                            newHistory[i].currentStatus = e.target.value;
-                            setStatusHistory(newHistory);
-                          }}
-                          className={styles.formInput}
-                        >
-                          <option value="">Select Status</option>
-                          <option value="Empty Stay">Empty Stay</option>
-                          <option value="Load Stay">Load Stay</option>
-                          <option value="Under Maintenance">Under Maintenance</option>
-                          <option value="In-Transit">In-Transit</option>
-                          <option value="Stay at Customer">Stay at Customer</option>
-                          <option value="Under Loading">Under Loading</option>
-                          <option value="Under Unloading">Under Unloading</option>
-                        </select>
-                      </td>
-                      <td>
-                        <input
-                          type="datetime-local"
-                          value={row.statusDateTime || ''}
-                          onChange={(e) => {
-                            const newHistory = [...statusHistory];
-                            newHistory[i].statusDateTime = e.target.value;
-                            setStatusHistory(newHistory);
-                          }}
-                          className={styles.formInput}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="datetime-local"
-                          value={row.toDateTime || ''}
-                          onChange={(e) => {
-                            const newHistory = [...statusHistory];
-                            newHistory[i].toDateTime = e.target.value;
-                            setStatusHistory(newHistory);
-                          }}
-                          className={styles.formInput}
-                        />
-                      </td>
-                      <td>
-                        <span className={styles.durationText}>{calculateDuration(row.statusDateTime, row.toDateTime)}</span>
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          value={row.remark || ''}
-                          onChange={(e) => {
-                            const newHistory = [...statusHistory];
-                            newHistory[i].remark = e.target.value;
-                            setStatusHistory(newHistory);
-                          }}
-                          placeholder="Remarks"
-                          className={styles.formInput}
-                        />
-                      </td>
-                      <td>
-                        <button onClick={() => handlePostStatusUpdate(row)} className={`${styles.button} ${styles.actionButton}`}>Save</button>
-                        <button onClick={() => handleDeleteStatusRow(row.id)} className={`${styles.button} ${styles.deleteButton} ${styles.actionButton}`} style={{ marginLeft: '8px' }}>Delete</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {statusData.vehicleNo && (
-              <div style={{ gridColumn: 'span 2', marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-                <h3 className={styles.header}>Vehicle Updated Status</h3>
-                {vehicleStatusHistory.length > 0 ? (
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>Status</th>
-                        <th>From Date Time</th>
-                        <th>To Date Time</th>
-                        <th>Duration</th>
-                        <th>Remark</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {vehicleStatusHistory.map((row) => (
-                        <tr key={row.id}>
-                          <td>{row.currentStatus}</td>
-                          <td>{new Date(row.statusDateTime).toLocaleString()}</td>
-                          <td>{row.toDateTime ? new Date(row.toDateTime).toLocaleString() : 'N/A'}</td>
-                          <td>{calculateDuration(row.statusDateTime, row.toDateTime)}</td>
-                          <td>{row.remark}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <p style={{ textAlign: 'center', padding: '1rem', color: '#888' }}>
-                    No status history found for this vehicle.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* 
-              <label>Current Status:</label>
-              <select value={statusData.currentStatus} onChange={(e) => handleStatusChange('currentStatus', e.target.value as any)} className={styles.formInput}>
-                <option value="">Select Status</option>
-                <option value="Empty Stay">Empty Stay</option>
-                <option value="Load Stay">Load Stay</option>
-                <option value="Under Maintenance">Under Maintenance</option>
-              </select>
-            </div>
-            <div className={styles.formGroup}>
-              <label>Status Update Date Time:</label>
-              <input type="datetime-local" value={statusData.statusUpdateDateTime} onChange={(e) => handleStatusChange('statusUpdateDateTime', e.target.value)} className={styles.formInput} />
-            </div> */}
-
-            {/*
-            <div className={styles.formGroup} style={{ gridColumn: 'span 2' }}>
-                <button onClick={handlePostStatusUpdate} disabled={isSubmitting || statusHistory.length === 0} className={styles.button}>
-                    {isSubmitting ? 'Saving...' : 'Save All Statuses'}
-                </button>
-            </div>
-            <div className={styles.formGroup}>
-              <label>Remark:</label>
-              <textarea value={statusData.remark} onChange={(e) => handleStatusChange('remark', e.target.value)} className={styles.formInput} />
-            </div>
-            {statusData.currentStatus && (
-              <button onClick={() => setShowUpdatePopup(true)} className={styles.button}>Update Status</button>
-            )}
-            
-            {showUpdatePopup && (
-              <div className={styles.popup}>
-                <div className={styles.popupContent}>
-                  <h3>Update Vehicle Status</h3>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>S.No</th><th>Plant</th><th>Vehicle No</th><th>Current Status</th><th>Status Date Time</th><th>Remark</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {statusHistory.map((row, i) => (
-                        <tr key={row.id}><td>{i+1}</td><td>{statusData.plant}</td><td>{statusData.vehicleNo}</td><td>{row.currentStatus}</td><td>{row.statusDateTime}</td><td>{row.remark}</td></tr>
-                      ))}
-                      <tr>
-                        <td>{statusHistory.length + 1}</td>
-                        <td>{statusData.plant}</td>
-                        <td>{statusData.vehicleNo}</td>
-                        <td><select value={newStatusRow.currentStatus} onChange={e => setNewStatusRow(p => ({...p, currentStatus: e.target.value}))}><option value="">Select</option><option>Empty Stay</option><option>Load Stay</option><option>Under Maintenance</option></select></td>
-                        <td><input type="datetime-local" value={newStatusRow.statusDateTime} onChange={e => setNewStatusRow(p => ({...p, statusDateTime: e.target.value}))} /></td>
-                        <td><input type="text" value={newStatusRow.remark} onChange={e => setNewStatusRow(p => ({...p, remark: e.target.value}))} /></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <div className={styles.buttonGroup}>
-                    <button onClick={handlePostStatusUpdate} className={styles.button}>Post</button>
-                    <button onClick={() => setShowUpdatePopup(false)} className={styles.buttonSecondary}>Cancel</button>
-                  </div>
-                </div>
-              </div>
-            )} */}
-          </div>
-        );
-      case Tab.VehicleExit:
-        return (
-          <div className={styles.formContainer}>
-            <div className={styles.formGroup}>
-              <label>Plant: </label>
-              <select 
-                value={exitData.plant} 
-                onChange={(e) => handleExitChange('plant', e.target.value)} 
-                className={styles.formInput}
-              >
-                <option value="">Select Plant.....</option>
-                {plantsLoading && <option disabled>Loading plants.....</option>}
-                {!plantsLoading && plantsList.length === 0 && (
-                  <option disabled>No active plants found.</option>
-                )}
-                {plantsList.length > 0 &&
-                  plantsList.map((p) => (
-                  <option key={p.plantCode} value={p.plantCode}>
-                    {p.plantCode} - {p.plantName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className={styles.formGroup}>
-              <label>Vehicle Number: </label>
-              <select 
-                value={exitData.vehicleNo} 
-                onChange={(e) => handleExitChange('vehicleNo', e.target.value)} 
-                className={styles.formInput}
-              >
-                <option value="">Select Active IN Vehicle...</option>
-                {inYardVehicles.length === 0 && <option disabled>No vehicles in yard for this plant</option>}
-                {inYardVehicles.map(v => (
-                  <option key={v.id} value={v.vehicleNo}>{v.vehicleNo}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className={styles.formGroup}>
-              <label>Driver Name: </label>
-              <input 
-                type="text" 
-                value={exitData.driverName} 
-                disabled 
-                className={styles.formInput} 
-                placeholder="Auto-fetch Driver Name" 
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label>Driver Mobile: </label>
-              <input 
-                type="text" 
-                value={exitData.driverMobile} 
-                disabled 
-                className={styles.formInput} 
-                placeholder="Auto-fetch Driver Mobile" 
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label>Out Type: </label>
-              <select 
-                value={exitData.outType} 
-                onChange={(e) => handleExitChange('outType', e.target.value as any)}
-                className={styles.formInput}
-              >
-                <option value="Empty Vehicle">Empty Vehicle</option>
-                <option value="Load Vehicle">Load Vehicle</option>
-              </select>
-            </div>
-
-            <div className={styles.formGroup}>
-              <label>Exit Date Time: </label>
-              <input 
-                type="datetime-local" 
-                value={exitData.exitDateTime} 
-                onChange={(e) => handleExitChange('exitDateTime', e.target.value)} 
-                className={styles.formInput} 
-              />
-            </div>
-
-            {exitData.outType === 'Load Vehicle' && (
-              <div style={{ marginTop: '20px', gridColumn: 'span 2' }}>
-              <div style={{ marginTop: '0px' }}>
-                <h4 className={styles.header}>Consignment Notes (CN Number, Destination, Customer fields removed)</h4>
-                {error && <p className={styles.errorText}>{error}</p>}
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>CN Number</th>
-                      <th>CN Date</th>
-                      <th>Ship to Party</th>
-                      <th>Destination</th>
-                      <th>Total Package</th>
-                      <th>Total Weight</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cnRows.map((row) => (
-                      <tr key={row.id}>
-                        <td>
-                          <input
-                            type="number"
-                            min="0"
-                            max="999999"
-                            step="1"
-                            value={row.cnNumber}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === '' || (/^\d{1,6}$/.test(value) && Number(value) <= 999999)) {
-                                handleCNNumberChange(row.id, value);
-                              }
-                            }}
-                            placeholder="Enter CN Number"
-                            className={styles.formInput}
-                          />
-                        </td>
-                        <td>{row.cnDate}</td>
-                        <td>{row.shipToParty}</td>
-                        <td>{row.destination}</td>
-                        <td>{row.totalPackage}</td>
-                        <td>{row.totalWeight}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <button onClick={handleAddRow} className={styles.button} style={{ marginTop: '10px' }}>Add Row</button>
-              </div>
-              </div>
-            )}
-
-            <div style={{ marginTop: '20px', gridColumn: 'span 2' }}>
-              <button onClick={handleMarkVehicleOut} disabled={isSubmitting} className={styles.button} style={{ backgroundColor: '#dc2626' }}>
-                {isSubmitting ? 'Processing...' : 'Mark Vehicle OUT'}
-              </button>
-            </div>
-          </div>
-        );
-      case Tab.Entry:
-      default:
-        return (
-          <div className={styles.formContainer}>
-            <div className={styles.formGroup}>
-              <label>Plant: </label>
+              <label>Plant (Mandatory):</label>
               <select
                 value={entryData.plant}
                 onChange={(e) => handleEntryChange('plant', e.target.value)}
                 className={styles.formInput}
               >
                 <option value="">Select Plant...</option>
-                {plantsLoading && <option disabled>Loading plants...</option>}
-                {!plantsLoading && plantsList.length === 0 && (
-                  <option disabled>No active plants found.</option>
-                )}
-                {plantsList.length > 0 &&
-                  plantsList.map((p) => (
-                  <option key={p.plantCode} value={p.plantCode}>
-                    {p.plantCode} - {p.plantName}
-                  </option>
+                {plantsList.map((p) => (
+                  <option key={p.plantCode} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>
                 ))}
               </select>
             </div>
 
             <div className={styles.formGroup}>
-              <label>IN Date Time: </label>
-              <input
-                type="datetime-local"
-                value={entryData.inDateTime}
-                onChange={(e) => handleEntryChange('inDateTime', e.target.value)}
-                className={styles.formInput}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label>Vehicle Number: </label>
+              <label>Vehicle Number (Mandatory):</label>
               <input
                 type="text"
                 value={entryData.vehicleNo}
@@ -934,7 +659,7 @@ const VT01Page: NextPage = () => {
             </div>
 
             <div className={styles.formGroup}>
-              <label>Driver Name: </label>
+              <label>Driver Name (Optional):</label>
               <input
                 type="text"
                 value={entryData.driverName}
@@ -945,7 +670,7 @@ const VT01Page: NextPage = () => {
             </div>
 
             <div className={styles.formGroup}>
-              <label>Driver Mobile: </label>
+              <label>Driver Mobile (Optional):</label>
               <input
                 type="tel"
                 value={entryData.driverMobile}
@@ -956,36 +681,398 @@ const VT01Page: NextPage = () => {
               />
               {validationErrors.driverMobile && <p className={styles.errorText}>{validationErrors.driverMobile}</p>}
             </div>
+
+            <div className={styles.formGroup}>
+              <label>IN Date Time (Mandatory):</label>
+              <input
+                type="datetime-local"
+                value={entryData.inDateTime}
+                onChange={(e) => handleEntryChange('inDateTime', e.target.value)}
+                className={styles.formInput}
+              />
+            </div>
             
-            <div className={styles.formGroup} style={{ gridColumn: 'span 2' }}>
-                <button onClick={handleSaveEntry} disabled={isSubmitting} className={styles.button}>
-                    {isSubmitting ? 'Saving...' : 'Save Entry'}
-                </button>
+            <div className={styles.formGroup} style={{ gridColumn: 'span 2', display: 'flex', gap: '1rem' }}>
+              <button type="button" onClick={handleSaveEntry} disabled={isSubmitting} className={styles.button}>
+                {isSubmitting ? 'Processing...' : 'Vehicle IN'}
+              </button>
             </div>
           </div>
-        );
+        )}
 
+        {/* TAB 2: STATUS */}
+        {activeTab === 'status' && (
+          <div className={styles.tableContainer}>
+            <h3 className={styles.header}>Active Yard Status</h3>
+            <table className={styles.table} style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th>Plant</th>
+                  <th>Vehicle Number</th>
+                  <th>Driver Name</th>
+                  <th>IN Date Time</th>
+                  <th>Current Status</th>
+                  <th>From Date Time</th>
+                  <th>To Date Time</th>
+                  <th>Duration</th>
+                  <th>Action</th>
+                  <th>Exit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isDataLoading && statusRecords.length === 0 ? ( 
+                  <tr><td colSpan={10} style={{ textAlign: 'center', padding: '2rem' }}>Loading active vehicles...</td></tr>
+                ) : filteredStatusRecords.length === 0 ? (
+                  <tr><td colSpan={10} style={{ textAlign: 'center', padding: '2rem' }}>No active vehicles in yard.</td></tr>
+                ) : (
+                  filteredStatusRecords.map((vehicle) => {
+                    const { latestHistory, currentStatusDisplay, statusFromDisplay, statusToDisplay, isLatestCompleted } = getLatestStatusInfo(vehicle);
 
-    }
-  };
+                    return (
+                      <tr key={vehicle.id}>
+                        <td>{vehicle.plant}</td>
+                        <td><strong>{vehicle.vehicleNo}</strong></td>
+                        <td>{vehicle.driverName}</td>
+                        <td>{vehicle.inDateTime?.replace('T', ' ') || '--'}</td>
+                        <td><span style={{ padding: '4px 8px', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', fontSize: '12px' }}>{currentStatusDisplay}</span></td>
+                        <td>{statusFromDisplay?.replace('T', ' ') || '--'}</td>
+                        <td>{statusToDisplay ? statusToDisplay.replace('T', ' ') : '— (Open)'}</td>
+                        <td>{calculateDuration(statusFromDisplay || '', statusToDisplay || '')}</td>
+                        <td>
+                          {isLatestCompleted ? ( 
+                             <button type="button" onClick={() => openStatusModal(vehicle, 'add')} disabled={isSubmitting} className={`${styles.button} ${styles.actionButton}`} style={{backgroundColor: '#16a34a', minWidth: '85px'}}>
+                              Add
+                             </button>
+                          ) : ( 
+                            <button type="button" onClick={() => openStatusModal(vehicle, 'update', latestHistory)} disabled={isSubmitting || !!vehicle.exitDateTime} className={`${styles.button} ${styles.actionButton}`} style={{backgroundColor: '#2563eb', minWidth: '85px'}}>
+                              Update
+                            </button>
+                          )}
+                        </td>
+                        <td>
+                          <button type="button" onClick={() => promptVehicleExit(vehicle)} disabled={isSubmitting} className={`${styles.button} ${styles.deleteButton}`} style={{ backgroundColor: '#dc2626' }}>
+                            Exit
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-  return (
-    <div className={styles.container}>
-      <Toaster position="top-center" reverseOrder={false} />
-      <h1 className={styles.headerTitle}>VT01 - Vehicle Entry / Create</h1>
-      <div className={styles.tabContainer}>
-        <button onClick={() => setActiveTab(Tab.Entry)} disabled={activeTab === Tab.Entry} className={styles.tabButton}>Entry</button>
-        <button onClick={() => setActiveTab(Tab.VehicleStatus)} disabled={activeTab === Tab.VehicleStatus} className={styles.tabButton}>Vehicle Status</button>
-        <button onClick={() => setActiveTab(Tab.VehicleExit)} disabled={activeTab === Tab.VehicleExit} className={styles.tabButton}>
-          Vehicle Exit
-        </button>
-        <button onClick={() => setActiveTab(Tab.NonPlantVehicle)} disabled={activeTab === Tab.NonPlantVehicle} className={styles.tabButton}>
-          Non-Plant Vehicle
-        </button>
+        {/* TAB 3: EXIT */}
+        {activeTab === 'exit' && (
+          <div className={styles.tableContainer}>
+            <h3 className={styles.header}>Exited Vehicle Records (Full History Retained)</h3>
+            <table className={styles.table} style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th>Plant</th>
+                  <th>Vehicle Number</th>
+                  <th>IN Date Time</th>
+                  <th>Status History Details</th>
+                  <th>Exit Date Time</th>
+                  <th>Total Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isDataLoading ? ( 
+                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>Loading exited vehicles...</td></tr>
+                ) : filteredExitRecords.length === 0 ? (
+                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>No exited vehicles found.</td></tr>
+                ) : (
+                  filteredExitRecords.map((veh) => (
+                    <tr key={veh.id}>
+                      <td>{veh.plant}</td>
+                      <td><strong>{veh.vehicleNo}</strong></td>
+                      <td>{veh.inDateTime?.replace('T', ' ') || '--'}</td>
+                      <td>
+                        <ul style={{ margin: 0, paddingLeft: '15px', fontSize: '12px' }}>
+                          <li><strong>Vehicle IN</strong>: {veh.inDateTime?.replace('T', ' ')}</li>
+                          {veh.statusHistory?.map((h: StatusHistoryRow, i: number) => (
+                            <li key={i}>
+                              {h.currentStatus} ({h.statusDateTime?.replace('T', ' ')} → {h.toDateTime ? h.toDateTime.replace('T', ' ') : 'Open'})
+                            </li>
+                          ))}
+                        </ul>
+                      </td>
+                      <td>{veh.exitDateTime?.replace('T', ' ') || '--'}</td>
+                      <td><strong>{calculateDuration(veh.inDateTime, veh.exitDateTime || '')}</strong></td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* TAB 4: NON-PLANT VEHICLE */}
+        {activeTab === 'non-plant' && (
+          <div>
+            <div className={styles.formContainer}>
+              <h3 className={styles.header}>Create Non-Plant Vehicle</h3>
+              <div className={styles.formGroup}>
+                <label>Vehicle Number (Mandatory):</label>
+                <input
+                  type="text"
+                  value={nonPlantVehicleNo}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setNonPlantVehicleNo(value);
+                    if (!validateAndFormatVehicleNumber(value) && value) {
+                      setNonPlantValidationError('Please enter a valid Vehicle Number.');
+                    } else {
+                      setNonPlantValidationError('');
+                    }
+                  }}
+                  placeholder="E.G. UP14GT0600"
+                  className={styles.formInput}
+                  disabled={!!createdNonPlantVehicle}
+                />
+                {nonPlantValidationError && <p className={styles.errorText}>{nonPlantValidationError}</p>}
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Station (Mandatory):</label>
+                <input
+                  type="text"
+                  value={nonPlantStation}
+                  onChange={(e) => setNonPlantStation(e.target.value)}
+                  placeholder="Enter Station Name"
+                  className={styles.formInput}
+                  disabled={!!createdNonPlantVehicle}
+                />
+              </div>
+
+              <div className={styles.formGroup} style={{ gridColumn: 'span 2' }}>
+                <button
+                  type="button"
+                  onClick={handleCreateNonPlantVehicle}
+                  disabled={isNonPlantSubmitting || !!createdNonPlantVehicle}
+                  className={styles.button}
+                >
+                  {isNonPlantSubmitting ? 'Creating...' : 'Create Vehicle'}
+                </button>
+              </div>
+            </div>
+
+            {createdNonPlantVehicle && (
+              <div className={styles.tableContainer} style={{ marginTop: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 className={styles.header}>Status History for {createdNonPlantVehicle.vehicleNo}</h3>
+                    <button 
+                        onClick={() => {
+                            const lastStatus = createdNonPlantVehicle.statusHistory?.[createdNonPlantVehicle.statusHistory.length - 1];
+                            if (lastStatus && !lastStatus.toDateTime) {
+                                toast.error('Complete the previous status before adding a new one.');
+                                return;
+                            }
+                            const newRow: StatusHistoryRow = {
+                                id: Date.now(),
+                                currentStatus: '',
+                                statusDateTime: lastStatus?.toDateTime ? formatDateTimeForInput(new Date(lastStatus.toDateTime)) : createdNonPlantVehicle.inDateTime,
+                                toDateTime: '',
+                                remark: '',
+                                isNew: true,
+                            };
+                            setCreatedNonPlantVehicle(prev => prev ? ({ ...prev, statusHistory: [...(prev.statusHistory || []), newRow] }) : null);
+                        }}
+                        className={styles.button}
+                    >
+                        Add Status Row
+                    </button>
+                </div>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>From Date Time</th>
+                      <th>To Date Time</th>
+                      <th>Remark</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(createdNonPlantVehicle.statusHistory || []).map((row, index) => (
+                      <tr key={row.id}>
+                        <td>
+                          <select
+                            value={row.currentStatus}
+                            onChange={(e) => {
+                                const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
+                                newHistory[index].currentStatus = e.target.value;
+                                setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
+                            }}
+                            className={styles.formInput}
+                          >
+                            <option value="">Select Status</option>
+                            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            type="datetime-local"
+                            value={formatDateTimeForInput(new Date(row.statusDateTime))}
+                            onChange={(e) => {
+                                const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
+                                newHistory[index].statusDateTime = e.target.value;
+                                setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
+                            }}
+                            className={styles.formInput}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="datetime-local"
+                            value={row.toDateTime ? formatDateTimeForInput(new Date(row.toDateTime)) : ''}
+                            onChange={(e) => {
+                                const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
+                                newHistory[index].toDateTime = e.target.value;
+                                setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
+                            }}
+                            className={styles.formInput}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            value={row.remark}
+                            onChange={(e) => {
+                                const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
+                                newHistory[index].remark = e.target.value;
+                                setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
+                            }}
+                            className={styles.formInput}
+                          />
+                        </td>
+                        <td>
+                          <button onClick={() => handleNonPlantStatusUpdate(row)} disabled={isSubmitting} className={`${styles.button} ${styles.actionButton}`}>Save</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
-      <div className={styles.tabContent}>
-        {renderActiveTab()}
-      </div>
+
+      {/* STATUS UPDATE / ADD POPUP MODAL */}
+      {isStatusModalOpen && selectedVehicleForStatus && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 50 }}>
+          <div style={{ background: '#fff', padding: '2rem', borderRadius: '8px', width: '600px', maxWidth: '90%' }}>
+            <h3 className={styles.header} style={{ marginBottom: '1rem' }}>
+              {isEditMode ? 'Update Open Status (Add To Date Time)' : 'Add New Status'}
+            </h3>
+            
+            {/* Reference Header for Add Mode */}
+            {!isEditMode && activeStatusForm.readOnlyPrevious && (
+              <div style={{ background: '#f1f5f9', padding: '10px', borderRadius: '6px', marginBottom: '1rem', fontSize: '13px', border: '1px solid #cbd5e1' }}>
+                <p><strong>Previous Status Reference:</strong> {activeStatusForm.readOnlyPrevious.currentStatus}</p>
+                <p><strong>From:</strong> {activeStatusForm.readOnlyPrevious.statusDateTime?.replace('T', ' ')} | <strong>To:</strong> {activeStatusForm.readOnlyPrevious.toDateTime && activeStatusForm.readOnlyPrevious.toDateTime !== '—' ? activeStatusForm.readOnlyPrevious.toDateTime.replace('T', ' ') : '—'}</p>
+              </div>
+            )}
+
+            <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', marginBottom: '1rem', fontSize: '13px' }}>
+              <p><strong>Vehicle:</strong> {selectedVehicleForStatus.vehicleNo} | <strong>Driver:</strong> {selectedVehicleForStatus.driverName}</p>
+              <p><strong>Vehicle IN Time:</strong> {selectedVehicleForStatus.inDateTime?.replace('T', ' ') || '--'}</p>
+            </div>
+
+            <div className={styles.formGroup} style={{ marginBottom: '1rem' }}>
+              <label>Status Dropdown:</label>
+              <select
+                value={activeStatusForm.currentStatus}
+                onChange={(e) => setActiveStatusForm(prev => ({ ...prev, currentStatus: e.target.value }))}
+                className={styles.formInput}
+              >
+                <option value="">Select Status...</option>
+                {STATUS_OPTIONS.map(status => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.formGroup} style={{ marginBottom: '1rem' }}>
+              <label>From Date Time (Mandatory):</label>
+              <input
+                type="datetime-local"
+                value={activeStatusForm.fromDateTime}
+                onChange={(e) => setActiveStatusForm(prev => ({ ...prev, fromDateTime: e.target.value }))}
+                className={styles.formInput}
+                readOnly={isEditMode} 
+              />
+            </div>
+
+            <div className={styles.formGroup} style={{ marginBottom: '1rem' }}>
+              <label>To Date Time (Optional - leave blank for open status):</label>
+              <input
+                type="datetime-local"
+                value={activeStatusForm.toDateTime}
+                onChange={(e) => setActiveStatusForm(prev => ({ ...prev, toDateTime: e.target.value }))}
+                className={styles.formInput}
+              />
+            </div>
+
+            <div className={styles.formGroup} style={{ marginBottom: '1.5rem' }}>
+              <label>Remark:</label>
+              <textarea
+                value={activeStatusForm.remark}
+                onChange={(e) => setActiveStatusForm(prev => ({ ...prev, remark: e.target.value }))}
+                maxLength={1000}
+                className={styles.formInput}
+                placeholder="Add remarks here..."
+                rows={3}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setIsStatusModalOpen(false)} className={`${styles.button} ${styles.deleteButton}`}>
+                Cancel
+              </button>
+              <button type="button" onClick={handlePostStatus} disabled={isSubmitting} className={styles.button} style={{ backgroundColor: '#2563eb' }}>
+                Post
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EXIT CONFIRMATION MODAL */}
+      {isExitModalOpen && selectedVehicleForExit && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 50 }}>
+          <div style={{ background: '#fff', padding: '2rem', borderRadius: '8px', width: '450px', maxWidth: '90%' }}>
+            <h3 className={styles.header} style={{ color: '#dc2626', marginBottom: '1rem' }}>Confirm Vehicle Exit</h3>
+            <p style={{ marginBottom: '1rem', fontSize: '14px' }}>
+              Are you sure you want to exit vehicle <strong>{selectedVehicleForExit.vehicleNo}</strong>? All historical statuses will be moved to Exit.
+            </p>
+
+            <div className={styles.formGroup} style={{ marginBottom: '1.5rem' }}>
+              <label>Exit Date Time:</label>
+              <input
+                type="datetime-local"
+                value={exitDateTimeInput}
+                onChange={(e) => setExitDateTimeInput(e.target.value)}
+                className={styles.formInput}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setIsExitModalOpen(false)} className={`${styles.button} ${styles.deleteButton}`}>
+                Cancel
+              </button>
+              <button type="button" onClick={confirmVehicleExit} disabled={isSubmitting} className={styles.button} style={{ backgroundColor: '#dc2626' }}>
+                Confirm Exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
