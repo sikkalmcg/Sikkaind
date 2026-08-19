@@ -106,11 +106,34 @@ const VT01Page: NextPage = () => {
   const { data, isLoading: isDataLoading } = useCollectionOptimized(vehicleMovementsQuery);
   const allVehicleMovements = data || [];
   
-  // Core Data Lists
-  const plantRecords = useMemo(() => (allVehicleMovements || []).filter(rec => rec.plant !== 'Outside'), [allVehicleMovements]);
-  const statusRecords = useMemo(() => plantRecords.filter(rec => !rec.exitDateTime), [plantRecords]);
-  const exitRecords = useMemo(() => plantRecords.filter(rec => !!rec.exitDateTime), [plantRecords]);
-  const nonPlantRecords = useMemo(() => (allVehicleMovements || []).filter(rec => rec.plant === 'Outside'), [allVehicleMovements]);
+  // Core Data Lists with foolproof exit detection
+  const plantRecords = useMemo(() => {
+    return (allVehicleMovements || []).filter(rec => {
+      const plantVal = rec.plant ? String(rec.plant).trim() : '';
+      return plantVal !== '' && plantVal !== 'Outside';
+    });
+  }, [allVehicleMovements]);
+
+  const statusRecords = useMemo(() => {
+    return plantRecords.filter(rec => {
+      const hasExit = !!rec.exitDateTime || !!(rec as any).outType || String((rec as any).status || '').toLowerCase() === 'exited';
+      return !hasExit;
+    });
+  }, [plantRecords]);
+
+  const exitRecords = useMemo(() => {
+    return plantRecords.filter(rec => {
+      const hasExit = !!rec.exitDateTime || !!(rec as any).outType || String((rec as any).status || '').toLowerCase() === 'exited';
+      return hasExit;
+    });
+  }, [plantRecords]);
+
+  const nonPlantRecords = useMemo(() => {
+    return (allVehicleMovements || []).filter(rec => {
+      const plantVal = rec.plant ? String(rec.plant).trim().toLowerCase() : '';
+      return plantVal === 'outside';
+    });
+  }, [allVehicleMovements]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -483,6 +506,8 @@ const VT01Page: NextPage = () => {
       const exitPayload = {
         exitDateTime: exitDateTimeInput,
         outType: 'Normal Exit',
+        status: 'Exited',
+        currentStatus: 'Exited',
         updatedAt: new Date().toISOString()
       };
 
@@ -779,13 +804,11 @@ const VT01Page: NextPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {isDataLoading ? ( 
-                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>Loading exited vehicles...</td></tr>
-                ) : filteredExitRecords.length === 0 ? (
+                {filteredExitRecords.length === 0 ? (
                   <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>No exited vehicles found.</td></tr>
                 ) : (
-                  filteredExitRecords.map((veh) => (
-                    <tr key={veh.id}>
+                  filteredExitRecords.map((veh, index) => (
+                    <tr key={veh.id || index}>
                       <td>{veh.plant}</td>
                       <td><strong>{veh.vehicleNo}</strong></td>
                       <td>{veh.inDateTime?.replace('T', ' ') || '--'}</td>
@@ -799,8 +822,8 @@ const VT01Page: NextPage = () => {
                           ))}
                         </ul>
                       </td>
-                      <td>{veh.exitDateTime?.replace('T', ' ') || '--'}</td>
-                      <td><strong>{calculateDuration(veh.inDateTime, veh.exitDateTime || '')}</strong></td>
+                      <td>{veh.exitDateTime ? veh.exitDateTime.replace('T', ' ') : ((veh as any).exitTime ? (veh as any).exitTime.replace('T', ' ') : '--')}</td>
+                      <td><strong>{calculateDuration(veh.inDateTime, veh.exitDateTime || (veh as any).exitTime || '')}</strong></td>
                     </tr>
                   ))
                 )}
