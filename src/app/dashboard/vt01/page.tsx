@@ -9,7 +9,7 @@ import toast, { Toaster, Toast } from 'react-hot-toast';
 
 // Custom Hooks for MongoDB Store Integration
 import { useMongoStore, useUser, useMemoMongo, useCollectionOptimized } from '@/mongodb';
-import { collection, doc, setDoc, updateDoc } from '@/lib/mongo-store'; 
+import { collection, doc, setDoc, updateDoc } from '@/lib/mongo-store';
 
 interface PlantOption {
   plantCode: string;
@@ -40,7 +40,7 @@ interface StatusHistoryRow {
   statusDateTime: string;
   toDateTime: string;
   remark: string;
-  isNew?: boolean; 
+  isNew?: boolean;
 }
 
 interface VehicleRecord {
@@ -105,7 +105,7 @@ const VT01Page: NextPage = () => {
   );
   const { data, isLoading: isDataLoading } = useCollectionOptimized(vehicleMovementsQuery);
   const allVehicleMovements = data || [];
-  
+
   // Core Data Lists with foolproof exit detection
   const plantRecords = useMemo(() => {
     return (allVehicleMovements || []).filter(rec => {
@@ -165,7 +165,7 @@ const VT01Page: NextPage = () => {
   const [selectedVehicleForStatus, setSelectedVehicleForStatus] = useState<VehicleRecord | null>(null);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false); // false = Add New Status, true = Update Open Status
-  
+
   const [activeStatusForm, setActiveStatusForm] = useState({
     historyId: null as number | string | null,
     currentStatus: '',
@@ -273,7 +273,7 @@ const VT01Page: NextPage = () => {
       const result = await response.json();
       const newVehicle = { ...vehicleData, id: result.id, statusHistory: [] };
       setCreatedNonPlantVehicle(newVehicle);
-      
+
       toast.success('Non-Plant Vehicle created. You can now add status updates.', { id: toastId });
     } catch (err) {
       toast.error(`Error: ${(err as Error).message}`, { id: toastId });
@@ -286,37 +286,37 @@ const VT01Page: NextPage = () => {
     if (!createdNonPlantVehicle) return;
 
     if (!rowToSave.currentStatus || !rowToSave.statusDateTime) {
-        toast.error('Please provide at least Status and From Date Time.');
-        return;
+      toast.error('Please provide at least Status and From Date Time.');
+      return;
     }
 
     setIsSubmitting(true);
     const toastId = toast.loading('Saving status update...');
 
     try {
-        const vehicleDocRef = doc(db, 'users', 'Sikkaind', 'vehicle_movements', String(createdNonPlantVehicle.id));
-        const existingHistory = createdNonPlantVehicle.statusHistory || [];
-        const updatedHistory = rowToSave.isNew 
-            ? [...existingHistory, { ...rowToSave, id: Date.now(), isNew: false }]
-            : existingHistory.map(h => h.id === rowToSave.id ? rowToSave : h);
+      const vehicleDocRef = doc(db, 'users', 'Sikkaind', 'vehicle_movements', String(createdNonPlantVehicle.id));
+      const existingHistory = createdNonPlantVehicle.statusHistory || [];
+      const updatedHistory = rowToSave.isNew
+        ? [...existingHistory, { ...rowToSave, id: Date.now(), isNew: false }]
+        : existingHistory.map(h => h.id === rowToSave.id ? rowToSave : h);
 
-        const updatePayload = {
-            currentStatus: rowToSave.currentStatus,
-            statusDateTime: rowToSave.statusDateTime,
-            toDateTime: rowToSave.toDateTime || '',
-            remark: rowToSave.remark || '',
-            statusHistory: updatedHistory,
-            updatedAt: new Date().toISOString()
-        };
+      const updatePayload = {
+        currentStatus: rowToSave.currentStatus,
+        statusDateTime: rowToSave.statusDateTime,
+        toDateTime: rowToSave.toDateTime || '',
+        remark: rowToSave.remark || '',
+        statusHistory: updatedHistory,
+        updatedAt: new Date().toISOString()
+      };
 
-        await updateDoc(vehicleDocRef, updatePayload);
+      await updateDoc(vehicleDocRef, updatePayload);
 
-        setCreatedNonPlantVehicle(prev => prev ? { ...prev, ...updatePayload } : null);
-        toast.success(`Status saved successfully.`, { id: toastId });
+      setCreatedNonPlantVehicle(prev => prev ? { ...prev, ...updatePayload } : null);
+      toast.success(`Status saved successfully.`, { id: toastId });
     } catch (err) {
-        toast.error(`Error: ${(err as Error).message}`, { id: toastId });
+      toast.error(`Error: ${(err as Error).message}`, { id: toastId });
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -385,18 +385,18 @@ const VT01Page: NextPage = () => {
       setActiveStatusForm({
         historyId: historyItem?.id || vehicle.historyId || null,
         currentStatus: historyItem?.currentStatus || vehicle.currentStatus || '',
-        fromDateTime: historyItem?.statusDateTime 
-          ? formatDateTimeForInput(new Date(historyItem.statusDateTime)) 
+        fromDateTime: historyItem?.statusDateTime
+          ? formatDateTimeForInput(new Date(historyItem.statusDateTime))
           : formatDateTimeForInput(new Date(vehicle.statusDateTime || vehicle.inDateTime)),
-        toDateTime: formatDateTimeForInput(new Date()), 
+        toDateTime: formatDateTimeForInput(new Date()),
         remark: historyItem?.remark || vehicle.remark || '',
         readOnlyPrevious: null,
       });
     } else {
       setIsEditMode(false);
       const latestCompleted = [...statusHistory].sort((a, b) => new Date(b.toDateTime || 0).getTime() - new Date(a.toDateTime || 0).getTime())[0];
-      const defaultFromTime = latestCompleted?.toDateTime 
-        ? formatDateTimeForInput(new Date(latestCompleted.toDateTime)) 
+      const defaultFromTime = latestCompleted?.toDateTime
+        ? formatDateTimeForInput(new Date(latestCompleted.toDateTime))
         : (vehicle.toDateTime ? formatDateTimeForInput(new Date(vehicle.toDateTime)) : vehicle.inDateTime);
 
       setActiveStatusForm({
@@ -426,12 +426,12 @@ const VT01Page: NextPage = () => {
     try {
       const vehicleId = String(selectedVehicleForStatus.id || (selectedVehicleForStatus as any)._id);
       const vehicleDocRef = doc(db, 'users', 'Sikkaind', 'vehicle_movements', vehicleId);
-      
+
       const existingHistory = [...(selectedVehicleForStatus.statusHistory || [])];
       let updatedHistory = [...existingHistory];
 
-      const finalRemark = activeStatusForm.remark?.trim() 
-        ? activeStatusForm.remark.trim() 
+      const finalRemark = activeStatusForm.remark?.trim()
+        ? activeStatusForm.remark.trim()
         : `Status: ${activeStatusForm.currentStatus}`;
 
       const targetRowId = activeStatusForm.historyId || (existingHistory.length > 0 ? existingHistory[existingHistory.length - 1].id : Date.now());
@@ -462,7 +462,7 @@ const VT01Page: NextPage = () => {
       const payload = {
         currentStatus: activeStatusForm.currentStatus,
         statusDateTime: activeStatusForm.fromDateTime,
-        toDateTime: activeStatusForm.toDateTime || '', 
+        toDateTime: activeStatusForm.toDateTime || '',
         remark: finalRemark,
         statusHistory: updatedHistory,
         updatedAt: new Date().toISOString()
@@ -482,12 +482,12 @@ const VT01Page: NextPage = () => {
   const promptVehicleExit = (vehicle: VehicleRecord) => {
     const hasOpenStatus = vehicle.statusHistory?.some(h => !h.toDateTime);
     if (vehicle.statusHistory?.length === 0 && (!vehicle.toDateTime || vehicle.toDateTime.trim() === '')) {
-       // Allow exit
+      // Allow exit
     } else if (hasOpenStatus && (!vehicle.toDateTime || vehicle.toDateTime.trim() === '')) {
       toast.error('Please complete all open statuses for this vehicle before exiting.');
       return;
     }
-    
+
     setSelectedVehicleForExit(vehicle);
     setExitDateTimeInput(formatDateTimeForInput(new Date()));
     setIsExitModalOpen(true);
@@ -528,17 +528,17 @@ const VT01Page: NextPage = () => {
       const matchesPlant = selectedPlantFilter ? item.plant === selectedPlantFilter : true;
       const matchesSearch = searchQuery
         ? [
-            item.plant,
-            item.vehicleNo,
-            item.driverName,
-            item.driverMobile,
-            item.inDateTime,
-            item.currentStatus,
-            item.statusDateTime,
-            item.toDateTime,
-            item.exitDateTime,
-            item.remark,
-          ].some(val => val && String(val).toLowerCase().includes(searchQuery.toLowerCase()))
+          item.plant,
+          item.vehicleNo,
+          item.driverName,
+          item.driverMobile,
+          item.inDateTime,
+          item.currentStatus,
+          item.statusDateTime,
+          item.toDateTime,
+          item.exitDateTime,
+          item.remark,
+        ].some(val => val && String(val).toLowerCase().includes(searchQuery.toLowerCase()))
         : true;
       return matchesPlant && matchesSearch;
     });
@@ -547,10 +547,10 @@ const VT01Page: NextPage = () => {
   const filteredStatusRecords = useMemo(() => filterData(statusRecords), [statusRecords, selectedPlantFilter, searchQuery]);
   const filteredExitRecords = useMemo(() => filterData(exitRecords), [exitRecords, selectedPlantFilter, searchQuery]);
   const filteredNonPlantRecords = useMemo(() => filterData(nonPlantRecords), [nonPlantRecords, selectedPlantFilter, searchQuery]);
-    
+
   const getLatestStatusInfo = (vehicle: VehicleRecord) => {
     const statusHistory = vehicle.statusHistory || [];
-    
+
     const rootToTime = vehicle.toDateTime || (vehicle as any).toTime || '';
     const rootStatus = vehicle.currentStatus || 'Vehicle IN';
     const rootFromTime = vehicle.statusDateTime || vehicle.inDateTime;
@@ -559,9 +559,9 @@ const VT01Page: NextPage = () => {
       const sortedHistory = [...statusHistory].sort((a, b) => {
         const timeA = new Date(a.statusDateTime || 0).getTime();
         const timeB = new Date(b.statusDateTime || 0).getTime();
-        return timeB - timeA; 
+        return timeB - timeA;
       });
-      
+
       const latestHistory = sortedHistory[0];
       const historyToTime = latestHistory.toDateTime || rootToTime;
       const hasHistoryToDate = !!historyToTime && String(historyToTime).trim() !== '' && String(historyToTime).trim() !== '—';
@@ -588,19 +588,19 @@ const VT01Page: NextPage = () => {
   return (
     <div className={styles.container}>
       <Toaster position="top-center" reverseOrder={false} />
-      
+
       {/* Page Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h1 className={styles.headerTitle}>VT01 – Vehicle Entry & Tracking</h1>
-      </div> 
+      </div>
 
       {/* Top Filter Bar */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', alignItems: 'center' }}>
         <div style={{ flex: 1 }}>
           <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Plant Filter</label>
-          <select 
-            value={selectedPlantFilter} 
-            onChange={(e) => setSelectedPlantFilter(e.target.value)} 
+          <select
+            value={selectedPlantFilter}
+            onChange={(e) => setSelectedPlantFilter(e.target.value)}
             className={styles.formInput}
           >
             <option value="">All Plants</option>
@@ -612,9 +612,9 @@ const VT01Page: NextPage = () => {
 
         <div style={{ flex: 2 }}>
           <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Search Active Tab</label>
-          <input 
-            type="text" 
-            placeholder="Search by text or digits..." 
+          <input
+            type="text"
+            placeholder="Search by text or digits..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className={styles.formInput}
@@ -624,35 +624,35 @@ const VT01Page: NextPage = () => {
 
       {/* Active Tabs Navigation */}
       <div className={styles.tabs} style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
-        <button 
-          className={`${styles.tabButton} ${activeTab === 'entry' ? styles.activeTab : ''}`} 
-          style={{ background: activeTab === 'entry' ? '#e2e8f0' : '#f1f5f9', fontWeight: activeTab === 'entry' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
+        <button
+          className={`${styles.tabButton} ${activeTab === 'entry' ? styles.activeTab : ''}`}
+          style={{ background: activeTab === 'entry' ? '#1e80ffff' : '#41474eff', fontWeight: activeTab === 'entry' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
           onClick={() => setActiveTab('entry')}>
-            1. Vehicle Entry
+          1. Vehicle Entry
         </button>
-        <button 
-          className={`${styles.tabButton} ${activeTab === 'status' ? styles.activeTab : ''}`} 
-          style={{ background: activeTab === 'status' ? '#e2e8f0' : '#f1f5f9', fontWeight: activeTab === 'status' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
+        <button
+          className={`${styles.tabButton} ${activeTab === 'status' ? styles.activeTab : ''}`}
+          style={{ background: activeTab === 'status' ? '#1e80ffff' : '#41474eff', fontWeight: activeTab === 'status' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
           onClick={() => setActiveTab('status')}>
-            2. Status ({statusRecords.length})
+          2. Status ({statusRecords.length})
         </button>
-        <button 
-          className={`${styles.tabButton} ${activeTab === 'exit' ? styles.activeTab : ''}`} 
-          style={{ background: activeTab === 'exit' ? '#e2e8f0' : '#f1f5f9', fontWeight: activeTab === 'exit' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
+        <button
+          className={`${styles.tabButton} ${activeTab === 'exit' ? styles.activeTab : ''}`}
+          style={{ background: activeTab === 'exit' ? '#1e80ffff' : '#41474eff', fontWeight: activeTab === 'exit' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
           onClick={() => setActiveTab('exit')}>
-            3. Exit ({exitRecords.length})
+          3. Exit ({exitRecords.length})
         </button>
-        <button 
-          className={`${styles.tabButton} ${activeTab === 'non-plant' ? styles.activeTab : ''}`} 
-          style={{ background: activeTab === 'non-plant' ? '#e2e8f0' : '#f1f5f9', fontWeight: activeTab === 'non-plant' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
+        <button
+          className={`${styles.tabButton} ${activeTab === 'non-plant' ? styles.activeTab : ''}`}
+          style={{ background: activeTab === 'non-plant' ? '#1e80ffff' : '#41474eff', fontWeight: activeTab === 'non-plant' ? 'bold' : 'normal', padding: '10px 20px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
           onClick={() => setActiveTab('non-plant')}>
-            4. Non-Plant Vehicle
+          4. Non-Plant Vehicle
         </button>
       </div>
 
       {/* Tab Content Panels */}
       <div className={styles.tabContent}>
-        
+
         {/* TAB 1: VEHICLE ENTRY */}
         {activeTab === 'entry' && (
           <div className={styles.formContainer}>
@@ -716,7 +716,7 @@ const VT01Page: NextPage = () => {
                 className={styles.formInput}
               />
             </div>
-            
+
             <div className={styles.formGroup} style={{ gridColumn: 'span 2', display: 'flex', gap: '1rem' }}>
               <button type="button" onClick={handleSaveEntry} disabled={isSubmitting} className={styles.button}>
                 {isSubmitting ? 'Processing...' : 'Vehicle IN'}
@@ -745,7 +745,7 @@ const VT01Page: NextPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {isDataLoading && statusRecords.length === 0 ? ( 
+                {isDataLoading && statusRecords.length === 0 ? (
                   <tr><td colSpan={10} style={{ textAlign: 'center', padding: '2rem' }}>Loading active vehicles...</td></tr>
                 ) : filteredStatusRecords.length === 0 ? (
                   <tr><td colSpan={10} style={{ textAlign: 'center', padding: '2rem' }}>No active vehicles in yard.</td></tr>
@@ -764,12 +764,12 @@ const VT01Page: NextPage = () => {
                         <td>{statusToDisplay ? statusToDisplay.replace('T', ' ') : '— (Open)'}</td>
                         <td>{calculateDuration(statusFromDisplay || '', statusToDisplay || '')}</td>
                         <td>
-                          {isLatestCompleted ? ( 
-                             <button type="button" onClick={() => openStatusModal(vehicle, 'add')} disabled={isSubmitting} className={`${styles.button} ${styles.actionButton}`} style={{backgroundColor: '#16a34a', minWidth: '85px'}}>
+                          {isLatestCompleted ? (
+                            <button type="button" onClick={() => openStatusModal(vehicle, 'add')} disabled={isSubmitting} className={`${styles.button} ${styles.actionButton}`} style={{ backgroundColor: '#16a34a', minWidth: '85px' }}>
                               Add
-                             </button>
-                          ) : ( 
-                            <button type="button" onClick={() => openStatusModal(vehicle, 'update', latestHistory)} disabled={isSubmitting || !!vehicle.exitDateTime} className={`${styles.button} ${styles.actionButton}`} style={{backgroundColor: '#2563eb', minWidth: '85px'}}>
+                            </button>
+                          ) : (
+                            <button type="button" onClick={() => openStatusModal(vehicle, 'update', latestHistory)} disabled={isSubmitting || !!vehicle.exitDateTime} className={`${styles.button} ${styles.actionButton}`} style={{ backgroundColor: '#2563eb', minWidth: '85px' }}>
                               Update
                             </button>
                           )}
@@ -885,28 +885,28 @@ const VT01Page: NextPage = () => {
             {createdNonPlantVehicle && (
               <div className={styles.tableContainer} style={{ marginTop: '2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h3 className={styles.header}>Status History for {createdNonPlantVehicle.vehicleNo}</h3>
-                    <button 
-                        onClick={() => {
-                            const lastStatus = createdNonPlantVehicle.statusHistory?.[createdNonPlantVehicle.statusHistory.length - 1];
-                            if (lastStatus && !lastStatus.toDateTime) {
-                                toast.error('Complete the previous status before adding a new one.');
-                                return;
-                            }
-                            const newRow: StatusHistoryRow = {
-                                id: Date.now(),
-                                currentStatus: '',
-                                statusDateTime: lastStatus?.toDateTime ? formatDateTimeForInput(new Date(lastStatus.toDateTime)) : createdNonPlantVehicle.inDateTime,
-                                toDateTime: '',
-                                remark: '',
-                                isNew: true,
-                            };
-                            setCreatedNonPlantVehicle(prev => prev ? ({ ...prev, statusHistory: [...(prev.statusHistory || []), newRow] }) : null);
-                        }}
-                        className={styles.button}
-                    >
-                        Add Status Row
-                    </button>
+                  <h3 className={styles.header}>Status History for {createdNonPlantVehicle.vehicleNo}</h3>
+                  <button
+                    onClick={() => {
+                      const lastStatus = createdNonPlantVehicle.statusHistory?.[createdNonPlantVehicle.statusHistory.length - 1];
+                      if (lastStatus && !lastStatus.toDateTime) {
+                        toast.error('Complete the previous status before adding a new one.');
+                        return;
+                      }
+                      const newRow: StatusHistoryRow = {
+                        id: Date.now(),
+                        currentStatus: '',
+                        statusDateTime: lastStatus?.toDateTime ? formatDateTimeForInput(new Date(lastStatus.toDateTime)) : createdNonPlantVehicle.inDateTime,
+                        toDateTime: '',
+                        remark: '',
+                        isNew: true,
+                      };
+                      setCreatedNonPlantVehicle(prev => prev ? ({ ...prev, statusHistory: [...(prev.statusHistory || []), newRow] }) : null);
+                    }}
+                    className={styles.button}
+                  >
+                    Add Status Row
+                  </button>
                 </div>
                 <table className={styles.table}>
                   <thead>
@@ -925,9 +925,9 @@ const VT01Page: NextPage = () => {
                           <select
                             value={row.currentStatus}
                             onChange={(e) => {
-                                const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
-                                newHistory[index].currentStatus = e.target.value;
-                                setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
+                              const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
+                              newHistory[index].currentStatus = e.target.value;
+                              setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
                             }}
                             className={styles.formInput}
                           >
@@ -940,9 +940,9 @@ const VT01Page: NextPage = () => {
                             type="datetime-local"
                             value={formatDateTimeForInput(new Date(row.statusDateTime))}
                             onChange={(e) => {
-                                const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
-                                newHistory[index].statusDateTime = e.target.value;
-                                setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
+                              const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
+                              newHistory[index].statusDateTime = e.target.value;
+                              setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
                             }}
                             className={styles.formInput}
                           />
@@ -952,9 +952,9 @@ const VT01Page: NextPage = () => {
                             type="datetime-local"
                             value={row.toDateTime ? formatDateTimeForInput(new Date(row.toDateTime)) : ''}
                             onChange={(e) => {
-                                const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
-                                newHistory[index].toDateTime = e.target.value;
-                                setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
+                              const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
+                              newHistory[index].toDateTime = e.target.value;
+                              setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
                             }}
                             className={styles.formInput}
                           />
@@ -964,9 +964,9 @@ const VT01Page: NextPage = () => {
                             type="text"
                             value={row.remark}
                             onChange={(e) => {
-                                const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
-                                newHistory[index].remark = e.target.value;
-                                setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
+                              const newHistory = [...(createdNonPlantVehicle.statusHistory || [])];
+                              newHistory[index].remark = e.target.value;
+                              setCreatedNonPlantVehicle(prev => prev ? { ...prev, statusHistory: newHistory } : null);
                             }}
                             className={styles.formInput}
                           />
@@ -992,7 +992,7 @@ const VT01Page: NextPage = () => {
             <h3 className={styles.header} style={{ marginBottom: '1rem' }}>
               {isEditMode ? 'Update Open Status (Add To Date Time)' : 'Add New Status'}
             </h3>
-            
+
             {/* Reference Header for Add Mode */}
             {!isEditMode && activeStatusForm.readOnlyPrevious && (
               <div style={{ background: '#f1f5f9', padding: '10px', borderRadius: '6px', marginBottom: '1rem', fontSize: '13px', border: '1px solid #cbd5e1' }}>
@@ -1027,7 +1027,7 @@ const VT01Page: NextPage = () => {
                 value={activeStatusForm.fromDateTime}
                 onChange={(e) => setActiveStatusForm(prev => ({ ...prev, fromDateTime: e.target.value }))}
                 className={styles.formInput}
-                readOnly={isEditMode} 
+                readOnly={isEditMode}
               />
             </div>
 
