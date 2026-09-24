@@ -88,17 +88,23 @@ export function useCollection<T = any>(
             ? (memoizedTargetRefOrQuery as CollectionReference).path
             : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
 
-        const contextualError = new MongoPermissionError({
-          operation: 'list',
-          path,
-        })
+        const isPermission = (error as any)?.status === 403 || error?.message?.includes('Permission denied');
+        const contextualError = isPermission
+          ? new MongoPermissionError({
+              operation: 'list',
+              path,
+            })
+          : error;
 
         setError(contextualError)
         setData(null)
         setIsLoading(false)
 
-        // trigger global error propagation
-        errorEmitter.emit('permission-error', contextualError);
+        if (isPermission) {
+          errorEmitter.emit('permission-error', contextualError as MongoPermissionError);
+        } else {
+          console.error(`MongoDB error at ${path}:`, error);
+        }
       }
     );
 

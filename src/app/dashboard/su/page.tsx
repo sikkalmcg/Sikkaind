@@ -30,7 +30,7 @@ const ALL_TCODES = [
   { code: 'VT_EXPORT', desc: 'Func: Export Excel' },
   { code: 'VT11', desc: 'Freight Cost Report' },
   { code: 'TR21', desc: 'Trip Board' }, { code: 'TR24', desc: 'Track Shipment' },
-  { code: 'WGPS24', desc: 'GPS Tracking' },
+  { code: 'WGPS24', desc: 'GPS Tracking' }, { code: 'SF22', desc: 'Fleet Registry & GPS' },
   { code: 'SE38', desc: 'Reports' }, { code: 'SU01', desc: 'User Create' }, { code: 'SU02', desc: 'User Change' }, { code: 'SU03', desc: 'User Display' },
   { code: 'ZCODE', desc: 'T-Code Map' }
 ];

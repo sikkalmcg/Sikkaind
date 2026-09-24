@@ -72,17 +72,23 @@ export function useDoc<T = any>(
         setIsLoading(false);
       },
       (error: MongoStoreError) => {
-        const contextualError = new MongoPermissionError({
-          operation: 'get',
-          path: memoizedDocRef.path,
-        })
+        const isPermission = (error as any)?.status === 403 || error?.message?.includes('Permission denied');
+        const contextualError = isPermission
+          ? new MongoPermissionError({
+              operation: 'get',
+              path: memoizedDocRef.path,
+            })
+          : error;
 
         setError(contextualError)
         setData(null)
         setIsLoading(false)
 
-        // trigger global error propagation
-        errorEmitter.emit('permission-error', contextualError);
+        if (isPermission) {
+          errorEmitter.emit('permission-error', contextualError as MongoPermissionError);
+        } else {
+          console.error(`MongoDB error at ${memoizedDocRef.path}:`, error);
+        }
       }
     );
 

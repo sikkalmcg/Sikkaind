@@ -1,24 +1,19 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   ChevronLeft,
-  ChevronRight,
-  Loader2
+  ChevronRight
 } from 'lucide-react';
 import { useMongoStore, useCollectionOptimized, useMemoMongo, useUser, useDoc } from '@/mongodb';
 import { collection, onSnapshot, doc } from '@/lib/mongo-store';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { GeofenceDetectionWidgets } from '@/components/dashboard/GeofenceDetectionWidgets';
 
-const SHARED_HUB_ID = 'Sikkaind'; 
-
-// amCharts 5 Imports
-import * as am5 from "@amcharts/amcharts5";
-import * as am5xy from "@amcharts/amcharts5/xy";
-import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
+const SHARED_HUB_ID = 'Sikkaind';
 
 // Stats card with skeleton
 function StatCard({ label, count, className }: { label: string; count: number | null; className: string }) {
@@ -44,12 +39,8 @@ export default function DashboardPage() {
   const db = useMongoStore();
   const { user } = useUser();
   const [mounted, setMounted] = React.useState(false);
-  const [isChartLoading, setIsChartLoading] = useState(true);
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
   const [registryId, setRegistryId] = React.useState<string | null>(null);
-
-  // Reference container for amCharts root registry protection
-  const chartRootRef = useRef<am5.Root | null>(null);
 
   // Month Picker State
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -121,81 +112,7 @@ export default function DashboardPage() {
     };
   }, [currentDate]);
 
-  // Performance Chart Logic
-  useEffect(() => {
-    if (!mounted) return;
 
-    setIsChartLoading(true);
-
-    if (chartRootRef.current) {
-      chartRootRef.current.dispose();
-    }
-
-    const chartData = [
-      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 1).getTime(), openOrder: 10, loading: 5, inTransit: 8, arrived: 4, podVerify: 2, closed: 15 },
-      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 5).getTime(), openOrder: 12, loading: 8, inTransit: 10, arrived: 6, podVerify: 4, closed: 18 },
-      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 10).getTime(), openOrder: 8, loading: 4, inTransit: 6, arrived: 10, podVerify: 8, closed: 20 },
-      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 15).getTime(), openOrder: 15, loading: 10, inTransit: 12, arrived: 8, podVerify: 6, closed: 25 },
-      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 20).getTime(), openOrder: 11, loading: 7, inTransit: 9, arrived: 11, podVerify: 9, closed: 22 },
-      { date: new Date(selectedMonthYear.year, selectedMonthYear.month, 25).getTime(), openOrder: 9, loading: 6, inTransit: 7, arrived: 13, podVerify: 11, closed: 28 },
-    ];
-
-    let root = am5.Root.new("performanceChartDiv");
-    root.setThemes([am5themes_Animated.new(root)]);
-    chartRootRef.current = root;
-
-    let chart = root.container.children.push(am5xy.XYChart.new(root, {
-      panX: false, panY: false, wheelX: "panX", wheelY: "zoomX", layout: root.verticalLayout
-    }));
-
-    let xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
-      baseInterval: { timeUnit: "day", count: 1 },
-      renderer: am5xy.AxisRendererX.new(root, {}),
-      tooltip: am5.Tooltip.new(root, {})
-    }));
-
-    let yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
-      renderer: am5xy.AxisRendererY.new(root, {})
-    }));
-
-    function createSeries(name: string, field: string) {
-      let series = chart.series.push(am5xy.LineSeries.new(root, {
-        name: name,
-        xAxis: xAxis,
-        yAxis: yAxis,
-        valueYField: field,
-        valueXField: "date",
-        tooltip: am5.Tooltip.new(root, { labelText: "{name}: {valueY}" })
-      }));
-      series.data.setAll(chartData);
-      series.strokes.template.setAll({ strokeWidth: 2 });
-      series.appear(1000);
-    }
-
-    createSeries("Open Order", "openOrder");
-    createSeries("Loading", "loading");
-    createSeries("In-Transit", "inTransit");
-    createSeries("Arrived", "arrived");
-    createSeries("POD Verify", "podVerify");
-    createSeries("Closed", "closed");
-
-    let legend = chart.children.push(am5.Legend.new(root, {
-      centerX: am5.p50,
-      x: am5.p50
-    }));
-    legend.data.setAll(chart.series.values);
-
-    chart.set("cursor", am5xy.XYCursor.new(root, {}));
-    chart.appear(1000, 100);
-    setIsChartLoading(false);
-
-    return () => {
-      if (chartRootRef.current) {
-        chartRootRef.current.dispose();
-        chartRootRef.current = null;
-      }
-    };
-  }, [mounted, selectedMonthYear]);
 
   const profileRef = useMemoMongo(() => {
     if (!registryId || isBootstrapAdmin) return null;
@@ -377,12 +294,7 @@ export default function DashboardPage() {
         <StatCard label="CLOSED" count={counts.closed} className="text-slate-800" />
       </div>
 
-      <div className="bg-white border border-slate-200 shadow-md p-6">
-        <h3 className="text-lg font-bold text-slate-700 mb-4">Performance Chart</h3>
-        <div id="performanceChartDiv" style={{ width: "100%", height: "400px", position: 'relative' }}>
-          {isChartLoading && <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10"><Loader2 className="h-8 w-8 animate-spin text-slate-400" /></div>}
-        </div>
-      </div>
+      <GeofenceDetectionWidgets />
     </div>
   );
 }

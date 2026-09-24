@@ -158,6 +158,12 @@ const MASTER_TCODES = [
     module: 'Logistics', 
     tabs: ['Satellite Map', 'Gateway Settings'] 
   },
+  { 
+    code: 'SF22', 
+    description: 'FLEET VEHICLE REGISTRY & REAL-TIME GPS', 
+    module: 'Logistics', 
+    tabs: ['Vehicle Registry', 'Wheelseye Live GPS', 'Add Vehicle'] 
+  },
 
   // --- SYSTEM MODULES ---
   { 
@@ -209,7 +215,7 @@ export default function ZCodePage() {
     let target = c.toLowerCase();
     
     // Grouped 2-letter base codes (e.g. OX01 -> ox, XK01 -> xk, XD01 -> xd, VA01 -> va, SU01 -> su)
-    if (!['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24', 'VT01', 'VT02', 'VT03', 'VT04', 'VT11'].includes(c)) {
+    if (!['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24', 'VT01', 'VT02', 'VT03', 'VT04', 'VT11', 'SF22'].includes(c)) {
       target = c.substring(0, 2).toLowerCase();
     }
     

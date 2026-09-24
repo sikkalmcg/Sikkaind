@@ -51,6 +51,7 @@ const MASTER_TCODES = [
   { code: 'TR21', description: 'TRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
   { code: 'TR24', description: 'TRACK SHIPMENT', icon: Radar, module: 'Logistics' },
   { code: 'WGPS24', description: 'GPS TRACKING', icon: Radar, module: 'Logistics' },
+  { code: 'SF22', description: 'FLEET VEHICLE REGISTRY & REAL-TIME GPS', icon: Truck, module: 'Logistics' },
   { code: 'VK11', description: 'PRIMARY FREIGHT RATES: CREATE', icon: ShoppingBag, module: 'Logistics' },
   { code: 'VK12', description: 'PRIMARY FREIGHT RATES: CHANGE', icon: Edit3, module: 'Logistics' },
   { code: 'VK13', description: 'PRIMARY FREIGHT RATES: DISPLAY', icon: Info, module: 'Logistics' },
@@ -150,13 +151,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       TR21: '/dashboard/tr21',
       TR24: '/dashboard/tr24',
       WGPS24: '/dashboard/wgsp24',
+      SF22: '/dashboard/sf22',
       SE38: '/dashboard/se38',
       ZCODE: '/dashboard/zcode'
     };
 
     if (routeMap[code]) return routeMap[code];
 
-    const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(code)
+    const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24', 'SF22'].includes(code)
       ? code
       : code.substring(0, 2);
 

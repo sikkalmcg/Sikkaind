@@ -111,15 +111,12 @@ export default function TR24Page() {
     const lng = liveNode ? parseFloat(liveNode.longitude) : 78.9629;
 
     const initMap = async () => {
-      const styleUrlEnv = process.env.NEXT_PUBLIC_MAPTILER_STYLE_URL as string | undefined;
-      const token = process.env.NEXT_PUBLIC_MAPTILER_API_KEY || process.env.MAPTILER_API_KEY || '';
+      const token = process.env.NEXT_PUBLIC_ARCGIS_API_KEY || process.env.ARCGIS_API_KEY || '';
 
       const maplibregl = await import('maplibre-gl');
       maplibreRef.current = maplibregl;
 
-      const styleUrl = styleUrlEnv
-        ? styleUrlEnv
-        : `https://api.maptiler.com/maps/streets/style.json?key=${encodeURIComponent(token)}`;
+      const styleUrl = `https://basemapstyles-api.arcgis.com/arcgis/rest/services/styles/v2/styles/arcgis/streets?token=${encodeURIComponent(token)}`;
 
       map = new maplibregl.Map({
         container: mapContainerRef.current!,
@@ -152,40 +149,27 @@ export default function TR24Page() {
     const onMapLoad = async () => {
       const startPin = getCustomerPincode(selectedTrip.consignorCode);
       const dropPin = getCustomerPincode(selectedTrip.shipToPartyCode);
-      const token = process.env.NEXT_PUBLIC_MAPTILER_API_KEY || process.env.MAPTILER_API_KEY || '';
+      const token = process.env.NEXT_PUBLIC_ARCGIS_API_KEY || process.env.ARCGIS_API_KEY || '';
 
       if (!startPin || !dropPin || startPin === '-' || dropPin === '-') {
         console.log('[tr24] route skipped: invalid pins', { startPin, dropPin });
         return;
       }
 
-      // GeoJSON Dataset से कोऑर्डिनेट्स निकालने का सही तरीका
+      // ArcGIS Geocoding Service से कोऑर्डिनेट्स निकालने का तरीका
       const geocode = async (qstr: string): Promise<LonLat | null> => {
         try {
           const res = await fetch(
-            `https://api.maptiler.com/data/019f4b53-c7db-74a8-b443-9fef0334f932/features.json?key=${encodeURIComponent(token)}`
+            `https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&singleLine=${encodeURIComponent(qstr)}&token=${encodeURIComponent(token)}`
           );
           const data = await res.json();
-          
-          const f = data?.features?.find((feat: any) => {
-            const props = feat?.properties || {};
-            const pin = props?.pincode?.toString?.();
-            const postal = props?.postalCode?.toString?.();
-            const q = qstr.toString();
-            return pin === q || postal === q;
-          });
-
-          if (!f) return null;
-
-          // अगर feature में center डायरेक्ट नहीं है, तो geometry coordinates का उपयोग करें
-          if (f.center) {
-            return { lon: f.center[0], lat: f.center[1] };
-          } else if (f.geometry && f.geometry.type === 'Point') {
-            return { lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] };
+          const candidate = data?.candidates?.[0];
+          if (candidate?.location) {
+            return { lon: candidate.location.x, lat: candidate.location.y };
           }
           return null;
         } catch (err) {
-          console.error('[tr24] Geocoding parsing error', err);
+          console.error('[tr24] ArcGIS Geocoding parsing error', err);
           return null;
         }
       };
@@ -199,20 +183,20 @@ export default function TR24Page() {
         return;
       }
 
-      // MapTiler Routing API Call using parsed coordinates
+      // ArcGIS Routing API Call using parsed coordinates
       let routeCoordinates: any[] = [[a.lon, a.lat], [b.lon, b.lat]];
       try {
-        const routingUrl = `https://api.maptiler.com/routing/v1/maps/truck/${a.lon},${a.lat};${b.lon},${b.lat}.json?key=${encodeURIComponent(token)}&alternatives=false&geometries=geojson&overview=full`;
+        const routingUrl = `https://route-api.arcgis.com/arcgis/rest/services/World/Route/NAServer/Route_World/solve?f=json&stops=${a.lon},${a.lat};${b.lon},${b.lat}&token=${encodeURIComponent(token)}`;
         const routingRes = await fetch(routingUrl);
         if (routingRes.ok) {
           const routingData = await routingRes.json();
-          const routeFeature = routingData?.routes?.[0]?.geometry;
-          if (routeFeature?.coordinates && routeFeature.coordinates.length > 0) {
-            routeCoordinates = routeFeature.coordinates;
+          const paths = routingData?.routes?.features?.[0]?.geometry?.paths?.[0];
+          if (paths && paths.length > 0) {
+            routeCoordinates = paths;
           }
         }
       } catch (err) {
-        console.error('[tr24] Route logic error, using fallback line', err);
+        console.error('[tr24] ArcGIS Route logic error, using fallback line', err);
       }
 
       if (map.getSource('route')) {

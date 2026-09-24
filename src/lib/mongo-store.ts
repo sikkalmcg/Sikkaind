@@ -96,7 +96,9 @@ async function request<T>(operation: string, payload: Record<string, any>): Prom
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.error || `MongoDB operation failed: ${operation}`);
+    const err: any = new Error(body.error || `MongoDB operation failed: ${operation}`);
+    err.status = response.status;
+    throw err;
   }
 
   return response.json();

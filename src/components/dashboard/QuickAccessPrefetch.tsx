@@ -39,6 +39,7 @@ export function QuickAccessPrefetch({ tcode }: QuickAccessPrefetchProps) {
       'TR21': '/dashboard/tr21',
       'TR24': '/dashboard/tr24',
       'WGPS24': '/dashboard/wgsp24',
+      'SF22': '/dashboard/sf22',
       'SE38': '/dashboard/se38',
       'ZCODE': '/dashboard/zcode'
     };
@@ -50,7 +51,7 @@ export function QuickAccessPrefetch({ tcode }: QuickAccessPrefetchProps) {
 
     // If not found in exact routes, fallback to base code mapping
     if (!targetRoute) {
-      const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24'].includes(c)
+      const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24', 'SF22'].includes(c)
         ? c
         : c.substring(0, 2);
 

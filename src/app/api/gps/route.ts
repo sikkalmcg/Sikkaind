@@ -4,8 +4,9 @@ import { NextResponse } from 'next/server';
  * @fileOverview GPS Proxy API Route.
  * Proxies requests to the Wheelseye API to bypass client-side CORS restrictions.
  */
-export async function GET() {
-  const token = process.env.WHEELSEYE_ACCESS_TOKEN;
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const token = searchParams.get('token') || process.env.WHEELSEYE_ACCESS_TOKEN || '53afc208-0981-48c7-b134-d85d2f33dc0c';
   const apiUrl = `https://api.wheelseye.com/currentLoc?accessToken=${token}`;
   
   try {

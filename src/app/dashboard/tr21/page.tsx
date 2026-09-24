@@ -6,10 +6,14 @@ import Image from 'next/image';
 import { 
   Filter, Search, MapPin, Truck, Radar, 
   X, Trash2, Plus, FileText, ChevronLeft, ChevronRight, Printer,
-  Loader2, CheckCircle, FileUp, ExternalLink, Calculator, History, Clock
-
-
+  Loader2, CheckCircle, FileUp, ExternalLink, Calculator, History, Clock,
+  ShieldCheck, AlertTriangle
 } from 'lucide-react';
+import { 
+  PlantLocation, 
+  KNOWN_PLANTS, 
+  evaluateGeofenceStatus 
+} from '@/lib/geofence';
 import { Button } from '@/components/ui/button';
 import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc, useUser, addDocumentNonBlocking } from '@/mongodb';
 import { collection, doc, serverTimestamp } from '@/lib/mongo-store';
@@ -290,6 +294,7 @@ export default function TR21Page() {
   const plantsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
   const companiesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
   const vendorsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
+  const fleetVehiclesQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'fleet_vehicles'), [db]);
   const forwardingAgentsQuery = useMemoMongo(() => collection(db, 'users', SHARED_HUB_ID, 'forwarding_agents'), [db]);
   
   const { data: orders, error: ordersError } = useCollectionOptimized(ordersQuery);
@@ -298,6 +303,171 @@ export default function TR21Page() {
   const { data: companies, error: companiesError } = useCollectionOptimized(companiesQuery);
   const { data: vendors, error: vendorsError } = useCollectionOptimized(vendorsQuery);
   const { data: forwardingAgents, error: forwardingAgentsError } = useCollectionOptimized(forwardingAgentsQuery);
+  const { data: fleetVehicles } = useCollectionOptimized<any>(fleetVehiclesQuery);
+
+  // Handle ?createTrip=1&vehicleNo=...&plant=... from Geofence Dashboard widget
+  const createTripConsumedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!mounted || !orders || !trips || createTripConsumedRef.current) return;
+    const createTrip = searchParams.get('createTrip');
+    const vehicleNoParam = searchParams.get('vehicleNo');
+    const plantParam = searchParams.get('plant');
+    if (createTrip !== '1' || !vehicleNoParam) return;
+
+    // Mark as consumed immediately to prevent double-fire
+    createTripConsumedRef.current = true;
+
+    // Switch to Open Orders tab
+    setActiveTab('Open Orders');
+
+    // Find first open order matching the plant (if plant param provided)
+    let matchingOrder: any = null;
+    if (plantParam) {
+      const plantUpper = plantParam.toUpperCase();
+      matchingOrder = orders.find((o: any) => {
+        if (o.status !== 'Open') return false;
+        const pc = (o.plantCode || '').toUpperCase();
+        const cn = (o.consignorName || '').toUpperCase();
+        return pc === plantUpper || pc.includes(plantUpper) || plantUpper.includes(pc) ||
+          cn.includes(plantUpper) || plantUpper.includes(cn);
+      });
+    }
+    if (!matchingOrder) {
+      matchingOrder = orders.find((o: any) => o.status === 'Open') || null;
+    }
+
+    if (matchingOrder) {
+      const dispatched = trips
+        .filter((t: any) => t.orderNo === matchingOrder.orderNo && t.status !== 'REJECTION')
+        .reduce((acc: number, t: any) => acc + (parseFloat(t.assignWeight) || 0), 0);
+      const balance = Math.max(0, (parseFloat(matchingOrder.quantity) || 0) - dispatched);
+
+      setSelectedOrder({ ...matchingOrder, balance });
+      setAssignData((prev: any) => ({
+        ...prev,
+        vehicleNo: vehicleNoParam.replace(/\s/g, '').toUpperCase(),
+        assignWeight: balance > 0 ? balance.toFixed(3) : (parseFloat(matchingOrder.quantity) || 0).toFixed(3),
+        mode: matchingOrder.mode || 'Road',
+        via: matchingOrder.via || '',
+      }));
+      setShowAssign(true);
+    }
+    // Clear params from URL after consuming
+    window.history.replaceState({}, '', '/dashboard/tr21');
+  }, [mounted, orders, trips, searchParams]);
+
+
+  // Wheelseye GPS telemetry state for live geofence verification
+  const [gpsLiveMap, setGpsLiveMap] = React.useState<Record<string, any>>({});
+  const [isGpsLoading, setIsGpsLoading] = React.useState(false);
+
+  const fetchGpsTelemetry = React.useCallback(async () => {
+    try {
+      setIsGpsLoading(true);
+      const res = await fetch('/api/gps');
+      if (res.ok) {
+        const json = await res.json();
+        const list = json?.data?.list || [];
+        const map: Record<string, any> = {};
+        list.forEach((v: any) => {
+          if (v.vehicleNumber) {
+            const norm = v.vehicleNumber.replace(/[^A-Za-z0-9]/g, '').toUpperCase().trim();
+            map[norm] = v;
+          }
+        });
+        setGpsLiveMap(map);
+      }
+    } catch (e) {
+      console.warn("GPS fetch error in TR21:", e);
+    } finally {
+      setIsGpsLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchGpsTelemetry();
+    const interval = setInterval(fetchGpsTelemetry, 30000);
+    return () => clearInterval(interval);
+  }, [fetchGpsTelemetry]);
+
+  // Combine dynamic plants from MongoDB with known plants
+  const activePlantsList: PlantLocation[] = React.useMemo(() => {
+    const list: PlantLocation[] = [...KNOWN_PLANTS];
+    (plants || []).forEach((p: any) => {
+      if (p.status !== 'Inactive' && typeof p.latitude === 'number' && typeof p.longitude === 'number') {
+        const idx = list.findIndex(item => item.plantCode === p.plantCode || item.plantName.toLowerCase() === (p.plantName || '').toLowerCase());
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], latitude: p.latitude, longitude: p.longitude, plantName: p.plantName || list[idx].plantName };
+        } else {
+          list.push({ id: p.id, plantCode: p.plantCode, plantName: p.plantName || p.plantCode, latitude: p.latitude, longitude: p.longitude, radiusMeters: 200 });
+        }
+      }
+    });
+    return list;
+  }, [plants]);
+
+  // Helper: check if two plant codes or names correspond to the same plant
+  const isSamePlant = React.useCallback((orderPlantCodeOrName?: string, targetPlantCodeOrName?: string): boolean => {
+    if (!orderPlantCodeOrName || !targetPlantCodeOrName) return false;
+    const p1 = String(orderPlantCodeOrName).toUpperCase().trim();
+    const p2 = String(targetPlantCodeOrName).toUpperCase().trim();
+    if (p1 === p2) return true;
+    
+    const isSalt1 = p1 === '1426' || p1.includes('SALT');
+    const isSalt2 = p2 === '1426' || p2.includes('SALT');
+    if (isSalt1 && isSalt2) return true;
+
+    const isTea1 = p1 === 'TEA' || p1.includes('TEA');
+    const isTea2 = p2 === 'TEA' || p2.includes('TEA');
+    if (isTea1 && isTea2) return true;
+
+    const isDasna1 = p1 === 'DASNA' || p1.includes('DASNA');
+    const isDasna2 = p2 === 'DASNA' || p2.includes('DASNA');
+    if (isDasna1 && isDasna2) return true;
+
+    return false;
+  }, []);
+
+  // Helper: get live geofence status for any vehicle
+  const getVehicleGeofence = React.useCallback((vNo?: string) => {
+    const norm = (vNo || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().trim();
+    if (!norm) return null;
+    const liveGps = gpsLiveMap[norm];
+    const regVehicle = (fleetVehicles || []).find((fv: any) => (fv.vehicleNumber || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase() === norm);
+    const lat = liveGps?.latitude ?? regVehicle?.lastGps?.latitude;
+    const lon = liveGps?.longitude ?? regVehicle?.lastGps?.longitude;
+
+    const geofence = evaluateGeofenceStatus(lat, lon, activePlantsList);
+    return {
+      norm,
+      vehicleNo: liveGps?.vehicleNumber || regVehicle?.vehicleNumber || vNo || '',
+      driverName: regVehicle?.driverName || liveGps?.venndorName || '',
+      driverMobile: regVehicle?.mobile || '',
+      speed: liveGps?.speed ?? 0,
+      lat,
+      lon,
+      ...geofence
+    };
+  }, [gpsLiveMap, fleetVehicles, activePlantsList]);
+
+  // Helper: get all vehicles currently detected inside a given plant
+  const getVehiclesInsidePlant = React.useCallback((plantCodeOrName?: string) => {
+    if (!plantCodeOrName) return [];
+    const allNorms = new Set<string>();
+    Object.keys(gpsLiveMap).forEach(n => allNorms.add(n));
+    (fleetVehicles || []).forEach((fv: any) => {
+      if (fv.vehicleNumber) allNorms.add(fv.vehicleNumber.replace(/[^A-Za-z0-9]/g, '').toUpperCase());
+    });
+
+    const insideList: any[] = [];
+    allNorms.forEach(norm => {
+      const geo = getVehicleGeofence(norm);
+      if (geo && geo.isInside && isSamePlant(plantCodeOrName, geo.plantCode || geo.plantName || '')) {
+        insideList.push(geo);
+      }
+    });
+    return insideList;
+  }, [gpsLiveMap, fleetVehicles, getVehicleGeofence, isSamePlant]);
 
   const authorizedPlantCodes = React.useMemo(() => {
     if (isProfileLoading) return undefined;
@@ -629,6 +799,27 @@ export default function TR21Page() {
     }
 
     if (!assignData.vehicleNo || !assignData.assignWeight) return alert('Mandatory fields missing');
+
+    // STRICT PLANT GEOFENCE RESTRICTION:
+    // A trip can ONLY be planned for a vehicle if it is currently inside the order's plant geofence (<=200m).
+    const targetPlant = selectedOrder?.plantCode || selectedOrder?.consignorName || '';
+    const geoCheck = getVehicleGeofence(vehicleNo);
+    const isAllowedInPlant = geoCheck?.isInside && isSamePlant(targetPlant, geoCheck.plantCode || geoCheck.plantName || '');
+
+    if (!isAllowedInPlant) {
+      const locDetail = geoCheck?.isInside
+        ? `located inside ${geoCheck.plantName || 'another plant'}`
+        : `OUTSIDE all active plant geofences (${geoCheck?.distanceMeters ? (geoCheck.distanceMeters / 1000).toFixed(1) + ' km away' : 'no live GPS detected inside plant'})`;
+
+      alert(
+        `⛔ TRIP PLAN RESTRICTION ENFORCED:\n\n` +
+        `Vehicle "${vehicleNo}" is currently ${locDetail}.\n\n` +
+        `Policy Enforced: A trip can ONLY be planned for a vehicle that is currently inside ${targetPlant} (≤200m geofence).\n\n` +
+        `Vehicles outside or at another plant cannot be planned. Please select a vehicle currently inside ${targetPlant}.`
+      );
+      return;
+    }
+
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
     const now = new Date().toISOString();
       const payload = {
@@ -1598,6 +1789,86 @@ export default function TR21Page() {
              </div>
           </DialogHeader>
           <div className="p-8 grid grid-cols-2 gap-x-10 gap-y-6 overflow-y-auto max-h-[50vh] green-scrollbar">
+             {/* Plant Geofence Policy & Available Vehicles */}
+             {(() => {
+               const targetPlant = selectedOrder?.plantCode || selectedOrder?.consignorName || '';
+               const vehiclesInPlant = getVehiclesInsidePlant(targetPlant);
+               const currentInputGeo = getVehicleGeofence(assignData.vehicleNo);
+               const isEligible = currentInputGeo?.isInside && isSamePlant(targetPlant, currentInputGeo.plantCode || currentInputGeo.plantName || '');
+
+               return (
+                 <div className="col-span-2 bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-300 p-3 shadow-inner">
+                   <div className="flex items-center justify-between gap-2 mb-2">
+                     <div className="flex items-center gap-2">
+                       <span className="relative flex h-2.5 w-2.5">
+                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                         <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
+                       </span>
+                       <span className="text-[11px] font-bold uppercase text-emerald-950 flex items-center gap-1.5">
+                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                         Geofence Rule: {targetPlant} (≤200m Radius)
+                       </span>
+                     </div>
+                     <span className={cn(
+                       "text-[10px] font-bold px-2 py-0.5 border rounded-none uppercase",
+                       vehiclesInPlant.length > 0 ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"
+                     )}>
+                       {vehiclesInPlant.length} Vehicle{vehiclesInPlant.length !== 1 ? 's' : ''} Present Inside Plant
+                     </span>
+                   </div>
+
+                   <p className="text-[10px] text-slate-600 mb-2">
+                     Trips can <strong>ONLY</strong> be planned for vehicles currently located inside this plant. Vehicles outside or at other plants cannot be assigned.
+                   </p>
+
+                   {/* Quick-select chips of vehicles currently inside this plant */}
+                   <div className="space-y-1">
+                     <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">
+                       Click to Assign Vehicles Inside {targetPlant}:
+                     </span>
+                     {vehiclesInPlant.length > 0 ? (
+                       <div className="flex flex-wrap gap-1.5">
+                         {vehiclesInPlant.map((v) => {
+                           const isSelected = assignData.vehicleNo?.replace(/[^A-Za-z0-9]/g, '').toUpperCase() === v.norm;
+                           return (
+                             <button
+                               key={v.norm}
+                               type="button"
+                               onClick={() => {
+                                 const cleanMobile = v.driverMobile ? (v.driverMobile || '').replace(/[^0-9]/g, '').slice(-10) : '';
+                                 setAssignData({
+                                   ...assignData,
+                                   vehicleNo: v.vehicleNo,
+                                   driverMobile: cleanMobile || assignData.driverMobile,
+                                 });
+                               }}
+                               className={cn(
+                                 "px-2.5 py-1 text-[10px] font-mono font-bold uppercase border transition-all flex items-center gap-1.5 cursor-pointer",
+                                 isSelected
+                                   ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
+                                   : "bg-white text-emerald-900 border-emerald-300 hover:bg-emerald-100 active:scale-95"
+                               )}
+                             >
+                               <Truck className="w-3 h-3" />
+                               <span>{v.vehicleNo}</span>
+                               <span className="text-[8px] opacity-75 font-sans font-normal">
+                                 ({v.distanceMeters ?? 0}m)
+                               </span>
+                               {isSelected && <CheckCircle className="w-2.5 h-2.5 text-white" />}
+                             </button>
+                           );
+                         })}
+                       </div>
+                     ) : (
+                       <div className="text-[10px] text-amber-800 bg-amber-50/80 border border-amber-200 p-2 font-medium">
+                         ⚠️ No vehicle currently detected inside {targetPlant} (≤200m geofence). Only vehicles present in the plant can be planned.
+                       </div>
+                     )}
+                   </div>
+                 </div>
+               );
+             })()}
+
              <div className="space-y-1.5">
                 <label className="text-[10px] font-normal text-slate-400 uppercase">Fleet Type</label>
                 <select 
@@ -1645,7 +1916,41 @@ export default function TR21Page() {
                </div>
              )}
 
-             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Vehicle Number *</label><input value={assignData.vehicleNo || ''} onChange={e => setAssignData({...assignData, vehicleNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal outline-none focus:bg-yellow-50" /></div>
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-normal text-slate-400 uppercase">Vehicle Number *</label>
+                <input 
+                  value={assignData.vehicleNo || ''} 
+                  onChange={e => setAssignData({...assignData, vehicleNo: e.target.value.toUpperCase()})} 
+                  placeholder="e.g. UP14FT9150"
+                  className={cn(
+                    "h-9 w-full border px-3 text-xs font-normal outline-none transition-colors",
+                    assignData.vehicleNo ? (
+                      (() => {
+                        const targetPlant = selectedOrder?.plantCode || selectedOrder?.consignorName || '';
+                        const geo = getVehicleGeofence(assignData.vehicleNo);
+                        const ok = geo?.isInside && isSamePlant(targetPlant, geo.plantCode || geo.plantName || '');
+                        return ok ? "border-emerald-500 bg-emerald-50/30 text-emerald-950 font-bold font-mono" : "border-red-500 bg-red-50/30 text-red-950 font-mono";
+                      })()
+                    ) : "border-slate-400 focus:bg-yellow-50"
+                  )} 
+                />
+                {assignData.vehicleNo && (() => {
+                  const targetPlant = selectedOrder?.plantCode || selectedOrder?.consignorName || '';
+                  const geo = getVehicleGeofence(assignData.vehicleNo);
+                  const ok = geo?.isInside && isSamePlant(targetPlant, geo.plantCode || geo.plantName || '');
+                  return ok ? (
+                    <div className="text-[10px] text-emerald-700 font-bold flex items-center gap-1 mt-1">
+                      <CheckCircle className="w-3 h-3 text-emerald-600" />
+                      <span>Verified: Inside {geo?.plantName} ({geo?.distanceMeters}m from center) – Eligible for Trip Plan</span>
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-red-600 font-bold flex items-center gap-1 mt-1">
+                      <X className="w-3 h-3 text-red-600" />
+                      <span>BLOCKED: {geo?.isInside ? `Inside ${geo.plantName}` : 'Outside Plant (Highway)'} – Cannot plan trip for {targetPlant}!</span>
+                    </div>
+                  );
+                })()}
+             </div>
              <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Driver Mobile</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" /></div>
              
              <div className="space-y-1.5">
@@ -1741,7 +2046,22 @@ export default function TR21Page() {
           </div>
           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
              <Button onClick={() => setShowAssign(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-normal px-10">Exit</Button>
-             <Button onClick={handlePostAssignment} className="bg-[#0056d2] text-white rounded-none h-10 uppercase text-[10px] font-normal px-24">Post Protocol</Button>
+             {(() => {
+               const targetPlant = selectedOrder?.plantCode || selectedOrder?.consignorName || '';
+               const geo = getVehicleGeofence(assignData.vehicleNo);
+               const isEligible = geo?.isInside && isSamePlant(targetPlant, geo.plantCode || geo.plantName || '');
+               return (
+                 <Button 
+                   onClick={handlePostAssignment} 
+                   className={cn(
+                     "rounded-none h-10 uppercase text-[10px] font-normal px-24 text-white transition-colors",
+                     assignData.vehicleNo && !isEligible ? "bg-red-600 hover:bg-red-700" : "bg-[#0056d2] hover:bg-blue-700"
+                   )}
+                 >
+                   {assignData.vehicleNo && !isEligible ? 'Blocked (Outside Plant)' : 'Post Protocol'}
+                 </Button>
+               );
+             })()}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1830,15 +2150,96 @@ export default function TR21Page() {
       <Dialog open={showVehiclePortal} onOpenChange={setShowVehiclePortal}>
         <DialogContent className="max-w-md rounded-none border-[3px] border-blue-900 font-mono p-0 overflow-hidden text-left text-black">
           <DialogHeader className="bg-slate-50 p-6 border-b border-slate-200 text-left">
-             <DialogTitle className="text-[12px] font-normal uppercase text-blue-900 italic mb-4">Vehicle Data Handshake</DialogTitle>
+             <DialogTitle className="text-[12px] font-normal uppercase text-blue-900 italic mb-2">Vehicle Data Handshake</DialogTitle>
+             <div className="text-[9px] text-slate-500 uppercase">
+               Plant: <strong>{selectedTrip?.plantCode}</strong> (Geofence Verified)
+             </div>
           </DialogHeader>
-          <div className="p-8 space-y-6">
-             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Update Vehicle No *</label><input autoFocus value={vehicleData.vehicleNo} onChange={e => setVehicleData({...vehicleData, vehicleNo: e.target.value.toUpperCase()})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal uppercase" /></div>
-             <div className="space-y-1.5"><label className="text-[10px] font-normal text-slate-400 uppercase">Update Driver Mobile</label><input value={vehicleData.driverMobile} onChange={e => setVehicleData({...vehicleData, driverMobile: e.target.value})} className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" /></div>
+          <div className="p-8 space-y-4">
+             {(() => {
+               const targetPlant = selectedTrip?.plantCode || selectedTrip?.consignorName || '';
+               const vehiclesInPlant = getVehiclesInsidePlant(targetPlant);
+               return (
+                 <div className="space-y-1.5 bg-emerald-50/50 border border-emerald-200 p-2.5">
+                   <span className="text-[9px] text-emerald-900 uppercase block font-bold">
+                     Available inside {targetPlant} ({vehiclesInPlant.length}):
+                   </span>
+                   {vehiclesInPlant.length > 0 ? (
+                     <div className="flex flex-wrap gap-1">
+                       {vehiclesInPlant.map((v) => (
+                         <button
+                           key={v.norm}
+                           type="button"
+                           onClick={() => {
+                             const cleanMobile = v.driverMobile ? (v.driverMobile || '').replace(/[^0-9]/g, '').slice(-10) : '';
+                             setVehicleData({
+                               vehicleNo: v.vehicleNo,
+                               driverMobile: cleanMobile || vehicleData.driverMobile
+                             });
+                           }}
+                           className="px-2 py-0.5 text-[9px] border border-emerald-400 bg-white text-emerald-900 hover:bg-emerald-100 font-bold font-mono cursor-pointer"
+                         >
+                           {v.vehicleNo} ({v.distanceMeters ?? 0}m)
+                         </button>
+                       ))}
+                     </div>
+                   ) : (
+                     <span className="text-[9px] text-amber-700 italic block">No vehicles currently detected inside plant geofence</span>
+                   )}
+                 </div>
+               );
+             })()}
+
+             <div className="space-y-1.5">
+               <label className="text-[10px] font-normal text-slate-400 uppercase">Update Vehicle No *</label>
+               <input 
+                 autoFocus 
+                 value={vehicleData.vehicleNo} 
+                 onChange={e => setVehicleData({...vehicleData, vehicleNo: e.target.value.toUpperCase()})} 
+                 className="h-9 w-full border border-slate-400 px-3 text-xs font-normal uppercase font-mono" 
+               />
+               {vehicleData.vehicleNo && (() => {
+                 const targetPlant = selectedTrip?.plantCode || selectedTrip?.consignorName || '';
+                 const geo = getVehicleGeofence(vehicleData.vehicleNo);
+                 const ok = geo?.isInside && isSamePlant(targetPlant, geo.plantCode || geo.plantName || '');
+                 return ok ? (
+                   <span className="text-[9px] text-emerald-700 font-bold block">
+                     ✓ Inside {geo?.plantName} ({geo?.distanceMeters}m) – Eligible
+                   </span>
+                 ) : (
+                   <span className="text-[9px] text-red-600 font-bold block">
+                     ✗ BLOCKED: {geo?.isInside ? `Inside ${geo.plantName}` : 'Outside Plant'} – Not in {targetPlant}
+                   </span>
+                 );
+               })()}
+             </div>
+             <div className="space-y-1.5">
+               <label className="text-[10px] font-normal text-slate-400 uppercase">Update Driver Mobile</label>
+               <input 
+                 value={vehicleData.driverMobile} 
+                 onChange={e => setVehicleData({...vehicleData, driverMobile: e.target.value})} 
+                 className="h-9 w-full border border-slate-400 px-3 text-xs font-normal" 
+               />
+             </div>
           </div>
           <DialogFooter className="bg-slate-50 p-6 border-t border-slate-200 gap-2">
              <Button onClick={() => setShowVehiclePortal(false)} variant="outline" className="rounded-none h-10 uppercase text-[10px] font-normal px-10">Cancel</Button>
-             <Button onClick={() => { updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { vehicleNo: vehicleData.vehicleNo.toUpperCase(), driverMobile: vehicleData.driverMobile, updatedAt: new Date().toISOString() }); setShowVehiclePortal(false); }} className="bg-blue-900 text-white rounded-none h-10 uppercase text-[10px] font-normal px-16">Update</Button>
+             <Button onClick={() => { 
+               const vNo = vehicleData.vehicleNo.toUpperCase().trim();
+               const targetPlant = selectedTrip?.plantCode || selectedTrip?.consignorName || '';
+               const geoCheck = getVehicleGeofence(vNo);
+               const isAllowedInPlant = geoCheck?.isInside && isSamePlant(targetPlant, geoCheck.plantCode || geoCheck.plantName || '');
+               if (!isAllowedInPlant) {
+                 alert(`⛔ RESTRICTION ENFORCED:\nVehicle ${vNo} is NOT inside ${targetPlant}!\nTrips can only be planned/assigned to vehicles currently inside this plant.`);
+                 return;
+               }
+               updateDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trip_board', selectedTrip.id), { 
+                 vehicleNo: vNo, 
+                 driverMobile: vehicleData.driverMobile, 
+                 updatedAt: new Date().toISOString() 
+               }); 
+               setShowVehiclePortal(false); 
+             }} className="bg-blue-900 text-white rounded-none h-10 uppercase text-[10px] font-normal px-16">Update</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
