@@ -559,7 +559,7 @@ export default function TR24Page() {
         <div className="bg-white border border-slate-300 p-12 space-y-12 shadow-md rounded-sm">
           <div className="flex flex-col items-center gap-2 mb-4">
             <Radar className="h-10 w-10 text-[#0056d2] animate-pulse" />
-            <h2 className="text-xl font-black uppercase italic tracking-tighter text-[#1e3a8a]">Freight Trace Protocol</h2>
+            <h2 className="text-xl font-black uppercase italic tracking-tighter text-[#1e3a8a]">Freight Tracking Protocol</h2>
           </div>
           <div className="flex items-center gap-8 px-8">
             <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase tracking-widest">
