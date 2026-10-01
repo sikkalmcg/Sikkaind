@@ -83,7 +83,7 @@ export function serverTimestamp() {
   return { __mongoServerTimestamp: true };
 }
 
-async function request<T>(operation: string, payload: Record<string, any>): Promise<T> {
+async function request<T>(operation: string, payload: Record<string, any>, signal?: AbortSignal): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('mongo_session_uid') : null;
   const response = await fetch('/api/mongodb', {
     method: 'POST',
@@ -92,6 +92,7 @@ async function request<T>(operation: string, payload: Record<string, any>): Prom
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ operation, ...payload }),
+    signal,
   });
 
   if (!response.ok) {
@@ -115,11 +116,11 @@ function createDocSnapshot(item: any) {
   };
 }
 
-export async function getDocs(refOrQuery: CollectionReference | Query) {
+export async function getDocs(refOrQuery: CollectionReference | Query, signal?: AbortSignal) {
   const result = await request<{ data: any[] }>('list', {
     path: refOrQuery.path,
     constraints: 'constraints' in refOrQuery ? refOrQuery.constraints : [],
-  });
+  }, signal);
   const docs = result.data.map(createDocSnapshot);
   return {
     docs,
@@ -160,18 +161,27 @@ export function onSnapshot(
   error?: (error: Error) => void,
 ): () => void {
   let active = true;
+  const controller = new AbortController();
 
   const load = async () => {
+    if (!active) return;
     try {
       if (ref.type === 'document') {
-        const result = await request<{ data: any | null }>('get', { path: ref.path });
+        const result = await request<{ data: any | null }>('get', { path: ref.path }, controller.signal);
         if (active) next(result.data ? createDocSnapshot(result.data) : { id: ref.id, exists: () => false, data: () => undefined });
         return;
       }
 
-      const snapshot = await getDocs(ref);
+      const snapshot = await getDocs(ref, controller.signal);
       if (active) next(snapshot);
     } catch (err: any) {
+      // Suppress intentional aborts (component unmount / navigation)
+      if (err?.name === 'AbortError') return;
+      // Suppress transient network failures — interval will retry
+      if (err?.message === 'Failed to fetch') {
+        console.warn('[mongo-store] Transient network error, retrying in 5s...');
+        return;
+      }
       if (active) error?.(err);
     }
   };
@@ -181,6 +191,7 @@ export function onSnapshot(
   return () => {
     active = false;
     window.clearInterval(interval);
+    controller.abort();
   };
 }
 
