@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useMongoStore, useCollectionOptimized, useMemoMongo, setDocumentNonBlocking, useUser, useDoc } from '@/mongodb';
 import { collection, doc } from '@/lib/mongo-store';
 import { cn } from '@/lib/utils';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -227,18 +227,18 @@ export default function VK11CreatePrimaryFreightRates() {
     }
   };
 
-  const handleDownloadTemplate = () => {
-    const templateHeader = [
-      'plantCode',
-      'destination',
-      'validityFromDate',
-      'validityToDate',
-      'conditionRecord',
-    ];
-    const ws = XLSX.utils.aoa_to_sheet([templateHeader]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'PrimaryFreightRates');
-    XLSX.writeFile(wb, 'VK11_Primary_Freight_Template.xlsx');
+  const handleDownloadTemplate = async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('PrimaryFreightRates');
+    ws.addRow(['plantCode', 'destination', 'validityFromDate', 'validityToDate', 'conditionRecord']);
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'VK11_Primary_Freight_Template.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -254,15 +254,23 @@ export default function VK11CreatePrimaryFreightRates() {
 
   const handleBulkUpload = (file: File) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json: any[] = XLSX.utils.sheet_to_json(worksheet, {
-          raw: false, // Get formatted strings
-          dateNF: 'mm/dd/yyyy',
+        const buffer = e.target?.result as ArrayBuffer;
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buffer);
+        const worksheet = wb.worksheets[0];
+        const headers: string[] = [];
+        worksheet.getRow(1).eachCell((cell) => { headers.push(String(cell.value ?? '')); });
+        const json: any[] = [];
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
+          const obj: any = {};
+          row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            const key = headers[colNumber - 1];
+            if (key) obj[key] = cell.text || '';
+          });
+          json.push(obj);
         });
 
         const newErrors: string[] = [];

@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useUser, useDoc } from '@/mongodb';
 import { useMemo } from 'react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
@@ -113,7 +113,7 @@ export default function VK13DisplayPrimaryFreightRates() {
     setShowHistory(true);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!rates || rates.length === 0) {
       alert('No data to export.');
       return;
@@ -128,15 +128,15 @@ export default function VK13DisplayPrimaryFreightRates() {
       groups[key].push(rate);
     });
 
-    const dataToExport: any[][] = [];
-    const header = ['Plant', 'Origin', 'Destination', 'Rate (PMT)', 'Condition Record', 'Update Type', 'Update Date', 'Valid From', 'Valid To'];
-    dataToExport.push(header);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('FreightHistory');
+    ws.addRow(['Plant', 'Origin', 'Destination', 'Rate (PMT)', 'Condition Record', 'Update Type', 'Update Date', 'Valid From', 'Valid To']);
 
     Object.values(groups).forEach((group) => {
       group.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       group.forEach((rate, index) => {
         const updateType = index === 0 ? 'Original' : `Extend-${index}`;
-        dataToExport.push([
+        ws.addRow([
           rate.plantCode,
           rate.origin,
           rate.destination,
@@ -150,10 +150,14 @@ export default function VK13DisplayPrimaryFreightRates() {
       });
     });
 
-    const ws = XLSX.utils.aoa_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'FreightHistory');
-    XLSX.writeFile(wb, 'VK13_Freight_History.xlsx');
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'VK13_Freight_History.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (!mounted) return null;
