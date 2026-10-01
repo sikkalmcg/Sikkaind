@@ -58,8 +58,8 @@ export default function TR24Page() {
       }
     };
 
-    fetchGps(); 
-    const interval = setInterval(fetchGps, 30000); 
+    fetchGps();
+    const interval = setInterval(fetchGps, 30000);
 
     return () => clearInterval(interval);
   }, []);
@@ -176,7 +176,7 @@ export default function TR24Page() {
 
       const a = await geocode(startPin);
       const b = await geocode(dropPin);
-      
+
       if (!a || !b) {
         console.error('[tr24] Geocoding failed for pins:', { startPin, dropPin, a, b });
         alert(`Could not draw route. Geocoding failed for Start PIN '${startPin}' or Drop PIN '${dropPin}'. Please check customer master data.`);
@@ -209,9 +209,9 @@ export default function TR24Page() {
         data: {
           type: 'Feature',
           properties: {},
-          geometry: { 
-            type: 'LineString', 
-            coordinates: routeCoordinates 
+          geometry: {
+            type: 'LineString',
+            coordinates: routeCoordinates
           },
         },
       });
@@ -224,9 +224,9 @@ export default function TR24Page() {
           'line-join': 'round',
           'line-cap': 'round'
         },
-        paint: { 
-          'line-width': 5, 
-          'line-color': '#0056d2', 
+        paint: {
+          'line-width': 5,
+          'line-color': '#0056d2',
           'line-opacity': 0.85
         },
       });
@@ -559,7 +559,7 @@ export default function TR24Page() {
         <div className="bg-white border border-slate-300 p-12 space-y-12 shadow-md rounded-sm">
           <div className="flex flex-col items-center gap-2 mb-4">
             <Radar className="h-10 w-10 text-[#0056d2] animate-pulse" />
-            <h2 className="text-xl font-black uppercase italic tracking-tighter text-[#1e3a8a]">Shipment Trace Protocol</h2>
+            <h2 className="text-xl font-black uppercase italic tracking-tighter text-[#1e3a8a]">Freight Trace Protocol</h2>
           </div>
           <div className="flex items-center gap-8 px-8">
             <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase tracking-widest">
