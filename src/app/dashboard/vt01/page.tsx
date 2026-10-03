@@ -8,8 +8,9 @@ import { isValidMobileNumber, validateAndFormatVehicleNumber } from '../../../li
 import toast, { Toaster, Toast } from 'react-hot-toast';
 
 // Custom Hooks for MongoDB Store Integration
-import { useMongoStore, useUser, useMemoMongo, useCollectionOptimized } from '@/mongodb';
+import { useMongoStore, useUser, useMemoMongo, useCollectionOptimized, useDoc } from '@/mongodb';
 import { collection, doc, setDoc, updateDoc } from '@/lib/mongo-store';
+import { isUserAuthorizedForPlant } from '@/lib/plant-access';
 
 interface PlantOption {
   plantCode: string;
@@ -106,13 +107,32 @@ const VT01Page: NextPage = () => {
   const { data, isLoading: isDataLoading } = useCollectionOptimized(vehicleMovementsQuery);
   const allVehicleMovements = data || [];
 
-  // Core Data Lists with foolproof exit detection
+  // User profile & Plant Authorization Enforcement
+  const isBootstrapAdmin = typeof window !== 'undefined' && localStorage.getItem('sap_bootstrap_session') === 'true';
+  const registryId = typeof window !== 'undefined' ? localStorage.getItem('sap_registry_id') : null;
+  const profileRef = useMemoMongo(() => {
+    if (!registryId) return null;
+    return doc(db, 'users', 'Sikkaind', 'users_master', registryId);
+  }, [db, registryId]);
+  const { data: userProfile } = useDoc(profileRef);
+
+  const authorizedPlants = useMemo(() => {
+    if (isBootstrapAdmin) return null;
+    const plants = userProfile?.plantAccess || userProfile?.assignedPlants;
+    return Array.isArray(plants) && plants.length > 0 ? plants : null;
+  }, [isBootstrapAdmin, userProfile]);
+
+  // Core Data Lists with foolproof exit detection and plant authorization
   const plantRecords = useMemo(() => {
     return (allVehicleMovements || []).filter(rec => {
       const plantVal = rec.plant ? String(rec.plant).trim() : '';
-      return plantVal !== '' && plantVal !== 'Outside';
+      if (!plantVal || plantVal === 'Outside') return false;
+      if (authorizedPlants && authorizedPlants.length > 0) {
+        return isUserAuthorizedForPlant(authorizedPlants, plantVal);
+      }
+      return true;
     });
-  }, [allVehicleMovements]);
+  }, [allVehicleMovements, authorizedPlants]);
 
   const statusRecords = useMemo(() => {
     return plantRecords.filter(rec => {
@@ -192,9 +212,12 @@ const VT01Page: NextPage = () => {
         const response = await fetch('/api/plants');
         if (!response.ok) throw new Error('Unable to fetch Plant Master data.');
         const data = await response.json();
-        const activePlants = data
+        let activePlants = data
           .filter((p: any) => p.status === 'Active')
           .map((p: any) => ({ plantCode: p.plantCode, plantName: p.plantName }));
+        if (authorizedPlants && authorizedPlants.length > 0) {
+          activePlants = activePlants.filter((p: any) => isUserAuthorizedForPlant(authorizedPlants, p.plantCode));
+        }
         setPlantsList(activePlants);
       } catch (error) {
         console.error('Failed to fetch plants:', error);
@@ -204,7 +227,7 @@ const VT01Page: NextPage = () => {
       }
     };
     fetchPlants();
-  }, [isAuthLoading]);
+  }, [isAuthLoading, authorizedPlants]);
 
   // Set Default Plant
   useEffect(() => {
@@ -324,6 +347,10 @@ const VT01Page: NextPage = () => {
   const handleSaveEntry = async () => {
     if (!entryData.plant || !entryData.vehicleNo || !entryData.inDateTime) {
       toast.error('Please fill all mandatory fields: Plant, Vehicle Number, and IN Date Time.');
+      return;
+    }
+    if (authorizedPlants && authorizedPlants.length > 0 && !isUserAuthorizedForPlant(authorizedPlants, entryData.plant)) {
+      toast.error(`Access Denied: You do not have permission to manage data for Plant "${entryData.plant}".`);
       return;
     }
     if (validationErrors.vehicleNo || validationErrors.driverMobile) {

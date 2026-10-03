@@ -1,6 +1,6 @@
 /**
  * @fileOverview Shared Geofence & Proximity Detection Utilities.
- * Evaluates vehicle GPS positions against active plant geofences (200m threshold).
+ * Evaluates vehicle GPS positions against active plant geofences (500m threshold).
  */
 
 export interface PlantLocation {
@@ -19,21 +19,21 @@ export const KNOWN_PLANTS: PlantLocation[] = [
     plantName: 'Salt Plant',
     latitude: 28.637612474908515,
     longitude: 77.44251105844168,
-    radiusMeters: 200,
+    radiusMeters: 500,
   },
   {
     plantCode: 'TEA',
     plantName: 'Tea Plant',
     latitude: 28.65469625753996,
     longitude: 77.46339802500502,
-    radiusMeters: 200,
+    radiusMeters: 500,
   },
   {
     plantCode: 'DASNA',
     plantName: 'Dasna Plant',
     latitude: 28.685417861408954,
     longitude: 77.52932879556363,
-    radiusMeters: 200,
+    radiusMeters: 500,
   },
 ];
 
@@ -62,7 +62,7 @@ export interface GeofenceEvaluation {
 }
 
 /**
- * Evaluates whether vehicle coordinates are within 200 meters of ANY active plant
+ * Evaluates whether vehicle coordinates are within 500 meters of ANY active plant
  */
 export function evaluateGeofenceStatus(
   latitude?: number, 
@@ -93,8 +93,9 @@ export function evaluateGeofenceStatus(
     }
   }
 
-  // 200-meter proximity threshold
-  if (nearestPlant && minDistance <= 200) {
+  // 500-meter proximity threshold
+  const radiusLimit = nearestPlant?.radiusMeters ?? 500;
+  if (nearestPlant && minDistance <= radiusLimit) {
     const pCode = (nearestPlant.plantCode || '').toUpperCase();
     const pName = (nearestPlant.plantName || '').toLowerCase();
 

@@ -93,7 +93,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Logout">
-                  <Link href="/auth/login">
+                  <Link href="/login" onClick={() => {
+                    localStorage.removeItem('sap_bootstrap_session'); 
+                    localStorage.removeItem('sap_user_role'); 
+                    localStorage.removeItem('sap_registry_id'); 
+                    localStorage.removeItem('mongo_user_cache');
+                    localStorage.removeItem('mongo_session_uid');
+                  }}>
                     <LogOut className="w-5 h-5" />
                     <span>Logout</span>
                   </Link>

@@ -117,7 +117,7 @@ export default function SF22Page() {
             plantName: p.plantName || p.plantCode || 'Plant',
             latitude: p.latitude,
             longitude: p.longitude,
-            radiusMeters: 200,
+            radiusMeters: 500,
           });
         }
       }
@@ -482,7 +482,7 @@ export default function SF22Page() {
         };
       }
 
-      // 200m proximity check against all active plants
+      // 500m proximity check against all active plants
       const geofence = evaluateGeofenceStatus(liveGps?.latitude, liveGps?.longitude, activePlantsList);
 
       return {
@@ -632,7 +632,7 @@ export default function SF22Page() {
           </div>
           <div className="bg-emerald-50/80 border border-emerald-200 rounded-lg p-2.5 flex items-center justify-between">
             <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1">
-              <Building2 className="h-3.5 w-3.5 text-emerald-600" /> Inside Plant (≤200m)
+              <Building2 className="h-3.5 w-3.5 text-emerald-600" /> Inside Plant (≤500m)
             </span>
             <span className="text-base font-bold text-emerald-700">{stats.insidePlant}</span>
           </div>
@@ -710,7 +710,7 @@ export default function SF22Page() {
                 className="h-8 px-2 text-xs bg-slate-50 border border-slate-300 rounded-md text-slate-700 focus:outline-none font-medium"
               >
                 <option value="ALL">Geofence: All</option>
-                <option value="INSIDE">Inside Plant (≤200m)</option>
+                <option value="INSIDE">Inside Plant (≤500m)</option>
                 <option value="OUTSIDE">Outside Plant</option>
               </select>
             </div>
@@ -727,7 +727,7 @@ export default function SF22Page() {
                   <th className="py-3 px-4">FLEET TYPE</th>
                   <th className="py-3 px-4">OWNER NAME</th>
                   <th className="py-3 px-4">STATUS</th>
-                  <th className="py-3 px-4">PLANT GEOFENCE (200M)</th>
+                  <th className="py-3 px-4">PLANT GEOFENCE (500M)</th>
                   <th className="py-3 px-4">LIVE GPS STATUS</th>
                   <th className="py-3 px-4">SPEED</th>
                   <th className="py-3 px-4">LOCATION</th>
@@ -820,7 +820,7 @@ export default function SF22Page() {
                           )}
                         </td>
 
-                        {/* Plant Geofence Proximity Status (200m threshold) */}
+                        {/* Plant Geofence Proximity Status (500m threshold) */}
                         <td className="py-3 px-4 whitespace-nowrap">
                           {vehicle.geofence?.isInside ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs">

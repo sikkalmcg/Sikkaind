@@ -98,11 +98,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   React.useEffect(() => {
     setMounted(true);
-    setIsBootstrapAdmin(localStorage.getItem('sap_bootstrap_session') === 'true');
+    const isMaster = localStorage.getItem('sap_bootstrap_session') === 'true';
     const role = localStorage.getItem('sap_user_role');
+    const regId = localStorage.getItem('sap_registry_id');
+
+    // Strict Rule: If no active session exists at all, redirect to login
+    if (!isMaster && !regId) {
+      router.replace('/login');
+      return;
+    }
+
+    setIsBootstrapAdmin(isMaster);
     setIsAdmin(role === 'admin' || role === 'ADMIN');
-    setRegistryId(localStorage.getItem('sap_registry_id'));
-  }, []);
+    setRegistryId(regId);
+  }, [router]);
 
   const profileRef = useMemoMongo(() => {
     if (!user || !registryId) return null;
@@ -148,9 +157,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       XD: '/dashboard/xd',
       VA: '/dashboard/va',
       SU: '/dashboard/su',
+      SU01: '/dashboard/su?tcode=SU01',
+      SU02: '/dashboard/su?tcode=SU02',
+      SU03: '/dashboard/su?tcode=SU03',
       TR21: '/dashboard/tr21',
       TR24: '/dashboard/tr24',
-      WGPS24: '/dashboard/wgsp24',
+      WGPS24: '/dashboard/wgps24',
+      WGSP24: '/dashboard/wgps24',
       SF22: '/dashboard/sf22',
       SE38: '/dashboard/se38',
       ZCODE: '/dashboard/zcode'
@@ -158,7 +171,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     if (routeMap[code]) return routeMap[code];
 
-    const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'TR21', 'TR24', 'SF22'].includes(code)
+    const baseCode = ['ZCODE', 'SE38', 'WGPS24', 'WGSP24', 'TR21', 'TR24', 'SF22', 'SU01', 'SU02', 'SU03'].includes(code)
       ? code
       : code.substring(0, 2);
 
@@ -215,9 +228,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!input) return;
     
     if (input === '/NEND' || input === '/NEX') { 
+      // Explicit logout ONLY
       localStorage.removeItem('sap_bootstrap_session'); 
       localStorage.removeItem('sap_user_role'); 
       localStorage.removeItem('sap_registry_id'); 
+      localStorage.removeItem('mongo_user_cache');
+      localStorage.removeItem('mongo_session_uid');
       router.push('/login'); 
       return; 
     }

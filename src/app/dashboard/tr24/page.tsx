@@ -7,6 +7,7 @@ import { useMongoStore, useCollectionOptimized, useMemoMongo, useDoc } from '@/m
 import { collection, doc } from '@/lib/mongo-store';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
@@ -115,6 +116,10 @@ export default function TR24Page() {
 
       const maplibregl = await import('maplibre-gl');
       maplibreRef.current = maplibregl;
+
+      if (typeof maplibregl.setWorkerUrl === 'function') {
+        maplibregl.setWorkerUrl('/maplibre-gl-worker.mjs');
+      }
 
       const styleUrl = `https://basemapstyles-api.arcgis.com/arcgis/rest/services/styles/v2/styles/arcgis/streets?token=${encodeURIComponent(token)}`;
 
@@ -226,7 +231,7 @@ export default function TR24Page() {
         },
         paint: {
           'line-width': 5,
-          'line-color': '#0056d2',
+          'line-color': '#059669',
           'line-opacity': 0.85
         },
       });
@@ -315,7 +320,7 @@ export default function TR24Page() {
         <div className="bg-white border border-slate-300 p-8 shadow-sm space-y-8">
           <div className="flex justify-between items-start border-b border-slate-100 pb-6">
             <div className="space-y-1">
-              <h3 className="text-[14px] font-black uppercase text-[#1e3a8a] italic tracking-tighter">
+              <h3 className="text-[14px] font-black uppercase text-emerald-800 italic tracking-tighter">
                 Live Execution Trace: {selectedTrip.tripNo}
               </h3>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -323,7 +328,7 @@ export default function TR24Page() {
               </p>
             </div>
             <div className="flex gap-4">
-              <Badge className="bg-[#0056d2] rounded-none font-black text-[9px] px-6 uppercase shadow-lg">
+              <Badge className="bg-emerald-600 rounded-none font-black text-[9px] px-6 uppercase shadow-lg">
                 {statusMap[selectedTrip.status] || selectedTrip.status}
               </Badge>
               <Button
@@ -427,7 +432,7 @@ export default function TR24Page() {
         <div className="bg-white border border-slate-300 p-8 shadow-sm space-y-10">
           <div className="flex justify-between items-center border-b border-slate-100 pb-6">
             <div className="flex flex-col gap-1">
-              <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] tracking-tighter">
+              <h2 className="text-xl font-black uppercase italic text-emerald-800 tracking-tighter">
                 Shipment Overview: {order.orderNo}
               </h2>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">System Booking Entry</span>
@@ -477,12 +482,12 @@ export default function TR24Page() {
             </div>
             <div className="flex flex-col gap-1.5">
               <span className="text-slate-400 text-[9px] font-black tracking-widest">Order Qty</span>
-              <p className="text-blue-700">{order.quantity} MT</p>
+              <p className="text-emerald-700">{order.quantity} MT</p>
             </div>
           </div>
 
           <div className="space-y-6">
-            <h4 className="text-[11px] font-black uppercase italic text-slate-600 border-b-2 border-blue-100 w-fit pb-1">
+            <h4 className="text-[11px] font-black uppercase italic text-slate-600 border-b-2 border-emerald-200 w-fit pb-1">
               Linked Trip Executions ({tripsList.length})
             </h4>
             <div className="overflow-x-auto">
@@ -505,7 +510,7 @@ export default function TR24Page() {
                 </thead>
                 <tbody>
                   {tripsList.map((t: any) => (
-                    <tr key={t.id} className="border-b border-slate-100 hover:bg-blue-50/30 font-bold">
+                    <tr key={t.id} className="border-b border-slate-100 hover:bg-emerald-50/30 font-bold">
                       <td className="p-3">{t.plantCode}</td>
                       <td className="p-3 truncate max-w-[150px]" title={t.consignorName}>
                         {t.consignorName}
@@ -539,7 +544,7 @@ export default function TR24Page() {
                           variant="ghost"
                           className="h-7 w-7 p-0"
                         >
-                          <Radar className="h-4 w-4 text-blue-600" />
+                          <Radar className="h-4 w-4 text-emerald-600" />
                         </Button>
                       </td>
                     </tr>
@@ -558,8 +563,8 @@ export default function TR24Page() {
       <div className="max-w-4xl mx-auto w-full mt-20">
         <div className="bg-white border border-slate-300 p-12 space-y-12 shadow-md rounded-sm">
           <div className="flex flex-col items-center gap-2 mb-4">
-            <Radar className="h-10 w-10 text-[#0056d2] animate-pulse" />
-            <h2 className="text-xl font-black uppercase italic tracking-tighter text-[#1e3a8a]">Freight Tracking Protocol</h2>
+            <Radar className="h-10 w-10 text-emerald-600 animate-pulse" />
+            <h2 className="text-xl font-black uppercase italic tracking-tighter text-emerald-800">Freight Tracking Protocol</h2>
           </div>
           <div className="flex items-center gap-8 px-8">
             <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase tracking-widest">
@@ -569,13 +574,13 @@ export default function TR24Page() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleTrack()}
-              className="h-10 w-full border border-slate-400 bg-white px-4 text-[12px] font-black outline-none uppercase shadow-inner focus:ring-1 focus:ring-blue-500"
+              className="h-10 w-full border border-slate-400 bg-white px-4 text-[12px] font-black outline-none uppercase shadow-inner focus:ring-1 focus:ring-emerald-500"
             />
           </div>
           <div className="flex justify-center gap-4">
             <Button
               onClick={handleTrack}
-              className="h-10 px-16 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase tracking-widest shadow-xl hover:scale-105 transition-all"
+              className="h-10 px-16 bg-emerald-600 hover:bg-emerald-700 text-white rounded-none text-[10px] font-black uppercase tracking-widest shadow-xl hover:scale-105 transition-all"
             >
               Track Movement
             </Button>

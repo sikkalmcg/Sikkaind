@@ -399,7 +399,7 @@ export default function TR21Page() {
         if (idx >= 0) {
           list[idx] = { ...list[idx], latitude: p.latitude, longitude: p.longitude, plantName: p.plantName || list[idx].plantName };
         } else {
-          list.push({ id: p.id, plantCode: p.plantCode, plantName: p.plantName || p.plantCode, latitude: p.latitude, longitude: p.longitude, radiusMeters: 200 });
+          list.push({ id: p.id, plantCode: p.plantCode, plantName: p.plantName || p.plantCode, latitude: p.latitude, longitude: p.longitude, radiusMeters: 500 });
         }
       }
     });
@@ -801,7 +801,7 @@ export default function TR21Page() {
     if (!assignData.vehicleNo || !assignData.assignWeight) return alert('Mandatory fields missing');
 
     // STRICT PLANT GEOFENCE RESTRICTION:
-    // A trip can ONLY be planned for a vehicle if it is currently inside the order's plant geofence (<=200m).
+    // A trip can ONLY be planned for a vehicle if it is currently inside the order's plant geofence (<=500m).
     const targetPlant = selectedOrder?.plantCode || selectedOrder?.consignorName || '';
     const geoCheck = getVehicleGeofence(vehicleNo);
     const isAllowedInPlant = geoCheck?.isInside && isSamePlant(targetPlant, geoCheck.plantCode || geoCheck.plantName || '');
@@ -814,7 +814,7 @@ export default function TR21Page() {
       alert(
         `⛔ TRIP PLAN RESTRICTION ENFORCED:\n\n` +
         `Vehicle "${vehicleNo}" is currently ${locDetail}.\n\n` +
-        `Policy Enforced: A trip can ONLY be planned for a vehicle that is currently inside ${targetPlant} (≤200m geofence).\n\n` +
+        `Policy Enforced: A trip can ONLY be planned for a vehicle that is currently inside ${targetPlant} (≤500m geofence).\n\n` +
         `Vehicles outside or at another plant cannot be planned. Please select a vehicle currently inside ${targetPlant}.`
       );
       return;
@@ -1806,7 +1806,7 @@ export default function TR21Page() {
                        </span>
                        <span className="text-[11px] font-bold uppercase text-emerald-950 flex items-center gap-1.5">
                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                         Geofence Rule: {targetPlant} (≤200m Radius)
+                         Geofence Rule: {targetPlant} (≤500m Radius)
                        </span>
                      </div>
                      <span className={cn(
@@ -1861,7 +1861,7 @@ export default function TR21Page() {
                        </div>
                      ) : (
                        <div className="text-[10px] text-amber-800 bg-amber-50/80 border border-amber-200 p-2 font-medium">
-                         ⚠️ No vehicle currently detected inside {targetPlant} (≤200m geofence). Only vehicles present in the plant can be planned.
+                         ⚠️ No vehicle currently detected inside {targetPlant} (≤500m geofence). Only vehicles present in the plant can be planned.
                        </div>
                      )}
                    </div>

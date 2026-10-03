@@ -29,6 +29,15 @@ export default function LoginPage() {
   const loginHero = placeholderData.placeholderImages.find(p => p.id === 'login-hero');
   const slmcLogo = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
 
+  // Persistent login: If user already has active session, stay logged in and go to dashboard
+  React.useEffect(() => {
+    const isMaster = localStorage.getItem('sap_bootstrap_session') === 'true';
+    const regId = localStorage.getItem('sap_registry_id');
+    if (isMaster || regId) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);

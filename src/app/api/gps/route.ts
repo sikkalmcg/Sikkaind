@@ -1,38 +1,59 @@
 import { NextResponse } from 'next/server';
 
 /**
- * @fileOverview GPS Proxy API Route.
- * Proxies requests to the Wheelseye API to bypass client-side CORS restrictions.
+ * @fileOverview WheelEye GPS Proxy API Route.
+ * Proxies requests to WheelEye current-location API securely on the backend.
+ * Never exposes the accessToken in frontend/browser code.
  */
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const token = searchParams.get('token') || process.env.WHEELSEYE_ACCESS_TOKEN || '53afc208-0981-48c7-b134-d85d2f33dc0c';
-  const apiUrl = `https://api.wheelseye.com/currentLoc?accessToken=${token}`;
+  // Use securely stored backend environment token
+  const token = process.env.WHEELSEYE_ACCESS_TOKEN || '53afc208-0981-48c7-b134-d85d2f33dc0c';
+  const apiUrl = `https://api.wheelseye.com/currentLoc?accessToken=${encodeURIComponent(token)}`;
   
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
+
   try {
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
-      // Ensure we don't cache stale vehicle locations
-      next: { revalidate: 0 }
+      signal: controller.signal,
+      next: { revalidate: 0 } // No caching of live GPS
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: `Wheelseye API synchronization failure: ${response.status}` }, 
+        { 
+          success: false, 
+          error: `WheelEye API responded with status ${response.status}`,
+          data: { list: [] },
+          fetchedAt: new Date().toISOString()
+        }, 
         { status: response.status }
       );
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json({
+      ...data,
+      fetchedAt: new Date().toISOString()
+    });
   } catch (error: any) {
-    console.error("Internal GPS Proxy Error:", error);
+    clearTimeout(timeoutId);
+    console.error("WheelEye GPS Proxy Error:", error);
+    const isTimeout = error.name === 'AbortError';
     return NextResponse.json(
-      { error: error.message || 'Internal System Error during API handshake' }, 
-      { status: 500 }
+      { 
+        success: false, 
+        error: isTimeout ? 'WheelEye API request timed out (12s threshold)' : (error.message || 'WheelEye gateway unreachable'),
+        data: { list: [] },
+        fetchedAt: new Date().toISOString()
+      }, 
+      { status: isTimeout ? 504 : 500 }
     );
   }
 }
